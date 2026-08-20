@@ -209,9 +209,9 @@ relative to the repo root unless absolute.
 
 | item | status | evidence |
 |---|---|---|
-| **Weather** | **MISSING — deliberately, and documented** | `1139 WeatherCellState` and `1269 RadialStormState` are in `Multiplayer/ComponentAbsencePolicy.cs:120,146` and its `KnownAbsentComponentIds` (`:265-291`); `Game/Components/ComponentsSerializer.cs:134-137` short-circuits them before the vtable scan. The old seed branches were **deleted with a comment forbidding restoration** (`ComponentsSerializer.cs:1659-1674`). See §5.6 for the full implementation path — this is the best-understood missing system in the repo. |
-| — lightning rumble | **LIVE (suppressed storm branch)** | `1254 IslandLightningTimerState` is seeded `50*1000` with a second field of `0`, and the comment states `0` is required "or you will set the island into a storm" (`ComponentsSerializer.cs:1675-1690`). |
-| — weather walls | **MISSING as gameplay / LIVE as cartography** | 44 typed segments recovered in `docs/research/world-data/wamap-islands.json`; palette named in `WorldsAdriftServer/Admin/MapWallPalette.cs:38-45` (Wind Rift, Storm Rift, Typhon, Sand Storm, Ice Storm, World End). `HANDOVER.md:1007`: "weather-wall gameplay are not spawned". `1204 WallSegmentState` has **0** server refs. |
+| **Weather** | **MISSING — deliberately, and documented** | `1139 WeatherCellState` and `1269 RadialStormState` are in `Multiplayer/ComponentAbsencePolicy.cs:151,177` and its `KnownAbsentComponentIds` (`:367-396`); `Game/Components/ComponentsSerializer.cs:134-138` short-circuits them before the vtable scan. The old seed branches were **deleted with a comment forbidding restoration** (`ComponentsSerializer.cs:1764-1779`). See §5.6 for the full implementation path. **Line numbers corrected 2026-08-20; the old ones were stale. And see §14: 1269 is the BLIGHT, a separate system from the understorm, and neither it nor the weather walls depend on the 1139 lattice.** |
+| — **understorms** | **LIVE but suppressed — the cheapest storm surface in the game** | `1254 IslandLightningTimerState` is seeded `50*1000` with a second field of `0`, "or you will set the island into a storm" (`ComponentsSerializer.cs:1780-1790`). **§14 proves the mechanism**: that second field is `estimatedMilliTillLightningEnd`, and `IslandLightningTimerVisualizer.IsLightningActive` is literally `> 0` on it (`acs/IslandLightningTimerVisualizer.cs:226`). One `[Require]`, no lattice, no client mod. **The understorm IS the island resource respawn** — its own audio loop is named `Play_IslandRespawn_Start` (`:129`). |
+| — weather walls | **MISSING as gameplay / LIVE as cartography** | 44 typed segments recovered in `docs/research/world-data/wamap-islands.json`; palette named in `WorldsAdriftServer/Admin/MapWallPalette.cs:38-45` (Wind Rift, Storm Rift, Typhon, Sand Storm, Ice Storm, World End). `HANDOVER.md:1007`: "weather-wall gameplay are not spawned". `1204 WallSegmentState` has **0** server refs. **§14.4: walls need ONLY 1204 — `WeatherWalls` never calls `GetWeatherAt`, so they do NOT depend on the weather lattice. Typhon and Ice Storm have ZERO segments in the release map.** |
 | **Biome** | **LIVE as a lookup, PARTIAL as a driver** | `1253 GlobalBiomeVoronoiCentresState` is served and is in the initial load barrier (`ComponentsSerializer.cs:3166-3200`; `LoadBarrierPolicy.cs:136`). Model at `Multiplayer/Islands/IslandBiome.cs:39,51-69`, from Bossa's own 20 Voronoi centres. It drives exactly one thing today: the manta's tail mesh. Biome == tier for 253/254 islands. |
 | **Islands** | **LIVE** | 254 in `release-runtime-catalog.json`, 266 in the MapFile, tiers 1–4 (T1=46, T2=51, T3=81, T4=76). Per-peer terrain checkout live and visually accepted for the one-client teleport and ship-approach lifecycles (`HANDOVER.md` §9). Full 254 rollout implemented, **not deployed, not visually accepted**. |
 | — Wilderness / teleport shrine | **LIVE** | `Multiplayer/Wilderness/WildernessShrine.cs:75,348`; production is at `tier1` so it moves people (`HANDOVER.md:252-254`). |
@@ -815,7 +815,11 @@ weather cells."** Everything below is PROVED.
    `StormDebris.cs:82`, `WeatherTextureGenerator.cs:200` all route through
    `GetWeatherAt`. This is what upgrades the documented scalar-propulsion
    approximation into actual wind.
-7. **Wind walls are nearly free once cells exist.** `1204 WallSegmentState` =
+7. **Wind walls do not need cells at all — CORRECTED 2026-08-20, see §14.4.**
+   `WallSegmentVisualizer` has exactly ONE `[Require]` (1204) and registers into
+   `WeatherWalls`, a pure segment registry that never calls
+   `GlobalWeather.GetWeatherAt`. Walls are an independent, cheaper phase and
+   should be lifted out of this one. `1204 WallSegmentState` =
    `{ int wallType, int wallId, Vector3d orientation, float length }`, and **44
    typed segments with real geometry are already imported** and already drawn
    on the admin map. Also available: `1202`/`1203 WindMultiplierSphere/AABox`
@@ -841,6 +845,17 @@ weather cells."** Everything below is PROVED.
 ---
 
 ### PHASE 7 — Storms, lightning and the Blight
+
+> **SUPERSEDED 2026-08-20 by §14.** This phase conflated **three unrelated
+> systems** under the word "storm" and gave all of them the blocker of the
+> hardest one. Separated: the **understorm** (`1254`, which we already serve) is
+> reachable NOW and needs neither the 1139 lattice nor a client mod; **weather
+> walls** (`1204`) need no lattice either; only the **Blight** (`1269`) is
+> blocked, and on a **client mod**, not on Phase 6. **§14 is the current plan.**
+> `1256 SandStormAffecteePositionalState` is dead to us — its only consumer is
+> `[WorkerType(WorkerPlatform.UnityWorker)]` and never runs on a player client.
+> The text below is kept for its Blight analysis, which §14.3.3 extends.
+
 *Separated from Phase 6 because it is genuinely harder.*
 
 `1269 RadialStormState = { float weight }` is trivial. The obstacle is that
@@ -3658,7 +3673,7 @@ and misleading, because it is referenced from a **serialized field on the prefab
 | Refuel by **dragging** fuel from inventory onto the generator | **HALF FAILS.** The *interact* half is real and is now implemented. The **drag** half is not reachable: the only client path that moves an item to another entity is `InventoryModificationBehaviour.RequestCrossInventoryMoveItem`, whose destination must carry `InventoryState` and open an `InWorldInventoryVisualiser` — added only by the three container preprocessors. `PowerGenerator01` has no `InWorldInventoryVisualiser` and bakes `Activate`, not `Inventory`. `FuelTankState` (1106) additionally has an **empty `Commands` and empty `Events` block**, so there is no message a client could send it. The gesture is *hold Interact*, and the server decides what moves |
 | Fuel pods hang from island hooks, salvaged with the gauntlet | **ALREADY TRUE HERE** (§13.1), unchanged |
 | A canister can be **hit several times** before dropping | **ALREADY TRUE HERE**, and the premise that it is not is wrong: `FuelCanisterRegistry.Hit` counts shots and `FuelCanisterYield.Schedule` is `{8, 8, 9}` over **three** shots, with `Depleted` only on the third. The "yields more if caught over land or a ship" half is unmodelled — pods are not physics objects here |
-| Pod locations respawn when an **understorm** resets the island | **OUT OF SCOPE, noted as a dependency.** Understorms and island resets do not exist on this server; canisters reset only via the existing `FuelCanisterRegistry.ResetAll` admin path |
+| Pod locations respawn when an **understorm** resets the island | **SURVIVES, and is now RECOVERED rather than WIKI.** Still out of scope for the fuel work, but no longer a dead end: §14.6.3 proves the mechanism (the server raises `SpawnResources{Egg}` on 1010 and the CLIENT re-samples its own island mesh for the new positions), and this repo already implements that handshake. Understorms are planned in §14.10 as S1/S3. Canisters still reset only via `FuelCanisterRegistry.ResetAll` today |
 
 #### What was built
 
@@ -3740,3 +3755,697 @@ Per the standing rule, before seeding anything:
 4. **Whether 100 per generator is the right size in play.** It is recovered, so it
    should be left alone unless it is actually miserable; `WAREBORN_FUEL_CAPACITY`
    is the knob if it is.
+
+---
+
+## 14. STORMS — the recovered cycle, and the go/no-go
+
+*Written 2026-08-20 on `feat/storms`. This section SUPERSEDES §5's PHASE 7
+("Storms, lightning and the Blight") and corrects §5 PHASE 6's claim that wind
+walls depend on weather cells. Every non-obvious claim is labelled
+**PROVED** (read in the decompile or this repo's code), **RECOVERED** (a retail
+constant or field recovered from shipped data), **WIKI** (community source,
+weakest class, undated), or **WAREBORN TUNING** (ours, invented).*
+
+### 14.0 THE VERDICT — GO, and Phase 7 was blocked on the wrong thing
+
+**Yes, this can be built, and most of it needs no weather lattice at all.**
+
+PHASE 7 as previously written conflated **three unrelated systems** under the
+word "storm" and inherited the blocker of the hardest one. Separated:
+
+| system | component | blocked on the 1139 lattice? | verdict |
+|---|---|---|---|
+| **Understorm** — the island lightning event that resets resources | **1254 `IslandLightningTimerState`** | **NO** | **REACHABLE NOW. We already serve 1254.** |
+| **Weather walls** — wind/storm/sand rifts | **1204 `WallSegmentState`** | **NO** | **REACHABLE.** One `[Require]`, geometry already imported |
+| **Blight** — the debris/server-load storm that eats ships | 1269 `RadialStormState` | not the lattice — a **client mod** | **BLOCKED.** Needs a Harmony patch |
+
+The maintainer's memory — *"storms … that's what would respawn or refresh nodes
+on an island"* — is **CORRECT, corroborated four ways**, and the mechanism is
+recovered end to end. It is a gameplay-loop feature, not weather decoration.
+
+**The single strongest piece of evidence is client-side, not wiki.** The
+understorm's ambient rumble loop in the shipped client is literally named
+**`Play_IslandRespawn_Start` / `Play_IslandRespawn_Stop`**
+(`acs/IslandLightningTimerVisualizer.cs:129`) — **PROVED**. Bossa's own audio
+event for the understorm calls it *island respawn*. The understorm **is** the
+resource refresh, named as such in the binary.
+
+**We currently have NO respawn at all for metal deposits, metal nodes, fuel
+canisters, loot chests or atlas shards** (PROVED — a targeted `respawn|regrow|
+cooldown|refresh` sweep of `NodeRegistry.cs`, `MetalHarvest.cs`,
+`FuelCanister.cs`, `LootContainerLedger.cs`, `DatabankLedger.cs`,
+`AtlasShardRegistry.cs` returns zero hits). Only trees regrow, on a per-tree
+5-minute timer, and `TreeHarvest.cs:277-298` already says in prose that the
+shape is wrong and names `DueRespawns` as the seam an understorm should take
+over. This is a real, live gap with a real recovered mechanism behind it.
+
+---
+
+### 14.1 THE TAXONOMY — three storms, not one
+
+The wiki's `Weather` page has exactly three top-level sections and they are
+three different systems (**WIKI**,
+`docs/research/archive/worlds-adrift-wiki/pages/Weather.wikitext:3,24,32`):
+
+1. **Weather walls** (`:3-22`) — *permanent geometry*. Static biome boundaries.
+   You fly *through* them. Wind Wall, Storm Wall, Sandwall.
+2. **Understorms** (`:24-30`) — *transient, from below, per island*. Lightning
+   strikes the island's underside. Reset resources, damage shipyards, bury and
+   surface loose objects. Under a minute.
+3. **The Blight** (`:32-38`) — *transient, radial, roaming*. Triggered by debris
+   accumulation (later: by server time dilation). Disintegrates loose objects
+   and eventually ships. A couple of minutes.
+
+A fourth exists only in patch notes: **impassable storms at the world edge**
+(**WIKI**, `Beta_0.1.1.1.wikitext:17,37`). `WorldEdgePushback` is separate and
+already understood (§12.6).
+
+**"Understorm" and "storm" are not synonyms.** Bare "storm" in the wiki usually
+means a *storm wall*. Retail's own patch notes distinguish them: `Update_31`
+line 86 tunes "**lightning storms**" per biome and line 90 tunes
+"**understorms**" globally, four lines apart (**WIKI**,
+`Update_31.wikitext:86,90`).
+
+---
+
+### 14.2 THE UNDERSTORM — the full cycle, recovered
+
+#### 14.2.1 What it is
+
+> "These storms occur with varying frequency all across the map **beneath the
+> islands**. It appears that they are most common with islands at **lower
+> altitudes**. They usually last for **less than a minute** but affect various
+> things on the island in the process."
+> — **WIKI**, `Weather.wikitext:26`
+
+In-fiction cause: lightning from the death clouds below electrifies the atlas
+stone inside an island, which is what makes islands float at all (**WIKI**,
+`Weather.wikitext:29`).
+
+#### 14.2.2 The component — one, and we already serve it
+
+**1254 `IslandLightningTimerState`**, namespace **`Bossa.Travellers.Loot`** —
+note the namespace; the understorm lives in the *loot* schema, not the weather
+schema (**PROVED**,
+`gencode/Bossa.Travellers.Loot/IslandLightningTimerStateData.cs`):
+
+| field | type | meaning |
+|---|---|---|
+| `estimatedMilliTillNextLightning` | `int` | ms until the storm starts — **the telegraph** |
+| `estimatedMilliTillLightningEnd` | `int` | ms until it ends — **the storm switch** |
+| `nextLightningTimestamp` | `long` | absolute start |
+| `lightningEndTimestamp` | `long` | absolute end |
+| `isLightningActive` | `bool` | **DO NOT SET TRUE — see 14.8.2** |
+| `generation` | `int` | storm cycle counter |
+| `entitiesToInformOfStormStart` | `List<EntityId>` | server-side fan-out list; **zero client readers** |
+
+We seed it today at `ComponentsSerializer.cs:1780-1790` with
+`estimatedMilliTillNextLightning = 50*1000`, `estimatedMilliTillLightningEnd = 0`,
+`isLightningActive = false`. It is **not** in `ComponentAbsencePolicy`.
+
+#### 14.2.3 The client half — one `[Require]`, and the mechanism of the old comment is now proved
+
+`acs/IslandLightningTimerVisualizer.cs` (**PROVED**, read in full):
+
+- **`[Require]` set: exactly one — `IslandLightningTimerStateReader`** (`:209`).
+  No `BlightLocalComponent`. No 1139. No 1269. No authority grant. This is the
+  cheapest storm surface in the game.
+- **`IsLightningActive => base.enabled && _state.EstimatedMilliTillLightningEnd > 0`**
+  (`:226`). **This is the storm switch, and it is the exact field our seed pins
+  to `0` with the comment `"must be 0 or you will set the island into a storm"`.**
+  That comment was empirical; the mechanism behind it is now established.
+- **The telegraph, and it is already wired.** From `:161-196`: when
+  `IsLightningActive || EstimatedTimeUntilLightningStarts < 30f`, and the camera
+  is within `sqrDistanceToBounds < 90000` (**300 m** of the island), the client
+  adds an `AmbientCameraShake` whose magnitude ramps `InverseLerp(30, 0, t)` and
+  starts the `Play_IslandRespawn_Start` audio loop. **A player within 300 m of
+  an island gets a rising rumble and camera shake over the final 30 seconds,
+  for free, with no client change.** Our current seed of 50 s keeps it silent.
+- **The strike, and it strikes upward.** During the storm, every
+  `Lerp(_minTimeBetweenLightningSeconds, _maxTimeBetweenLightningSeconds, roll)`
+  seconds (`_max` serialized default `1f`, `:216`), the client picks a random
+  point on its own island surface via `IslandSurfaceData.FindPlace` and draws a
+  bolt from `WorldBoundsDataVisualizer.MinHeight` **up to** that point, ±3 m
+  jitter (`:140-150`). Bottom-to-surface — exactly the wiki's "struck from
+  below". Plus `LightningStrikeSfxController.OnLightningStrike` and
+  `LightningPathCreator.CheckCameraShake`.
+- **The VFX ships.** `Resources.Load<GameObject>("LightningStrike")` (`:36`);
+  `LightningStrike` appears **23×** in
+  `UnityClient@Windows_Data/resources.assets` (**PROVED**, `grep -ac`, binary-safe).
+
+**So the entire understorm presentation — warning rumble, camera shake, audio,
+upward lightning bolts, and their end — is driven by two integers on a
+component this server already sends.** Nothing else is needed to make an
+understorm visible.
+
+#### 14.2.4 The cycle, assembled
+
+| stage | value | provenance |
+|---|---|---|
+| **cadence** | every **1.5–2 h** per island | **WIKI**, `Islands.wikitext:8` |
+| **cadence, late retail** | "Understorms now happen **twice as often**" (Update 31, the last content patch) → ~45–60 min | **WIKI**, `Update_31.wikitext:90` |
+| this repo's recorded constant | `TreeHarvest.UnderstormCadence = 105 min` | **PROVED**, `TreeHarvest.cs:298`, pinned by `TreeRespawnTests.cs:347` |
+| **spatial bias** | commoner on **low-altitude** islands | **WIKI**, `Weather.wikitext:26` |
+| **warning** | rising rumble + camera shake in the last **30 s**, within **300 m** | **PROVED**, `IslandLightningTimerVisualizer.cs:161-167` |
+| **duration** | "less than a minute" | **WIKI**, `Weather.wikitext:26` |
+| **strike rate** | ~1 bolt/s at the shipped `_maxTimeBetweenLightningSeconds = 1f` | **PROVED**, `IslandLightningTimerVisualizer.cs:216` |
+| **area** | the island. Not a radius — the visualiser is *on the island entity* and samples *its own* surface | **PROVED**, `:239-240` |
+| **movement** | **none.** An understorm does not travel; it happens to one island | **PROVED** (no position in 1254) + **WIKI** (silent) |
+| **end** | `estimatedMilliTillLightningEnd` reaches 0 | **PROVED**, `:226` |
+
+**Understorms do not move.** That is a genuine finding and it makes the feature
+far cheaper than "a storm that forms and travels".
+
+---
+
+### 14.3 THE BLIGHT — recovered in full, and blocked on a client mod
+
+Included because it is the other half of "the full cycle of storm", and because
+the recovered tuning is worth keeping even though we cannot ship it yet.
+
+#### 14.3.1 What it is
+
+> "These storms occur when an island accumulates **excessive amounts of
+> debris**; such as ship parts, wreckage and fallen resources. … a **large
+> column of dust** engulfing the island from above or below. While within the
+> storm, **player visibility will be drastically reduced**, and any loose debris
+> or objects will be **gradually disintegrated by orange electrical
+> discharges**." — **WIKI**, `Weather.wikitext:34`
+
+**By Update 30 it had stopped being weather and become a server-load valve**
+(**WIKI**, `Update_30.wikitext:12,16,18`):
+
+> "Blight will now turn on if the server hits **75% time dilation for 30
+> seconds** and disable when it gets to **85% time dilation for 30 seconds**"
+> … "Initial Blight position is **no longer based on weather cell positions**
+> but on a **K-Means cluster analysis** of the priorities and positions of all
+> of the entities on the FSIM" … "It has a maximum speed that varies based on
+> time dilation. **So the worse the FSIM is performing the more aggressively
+> the Blight will chase ships!**"
+
+That is a garbage collector with a dust column painted on it. Worth knowing
+before anyone builds it as weather.
+
+#### 14.3.2 The tuning, RECOVERED verbatim from `acs/BlightConfig.cs`
+
+Every one of these is **RECOVERED**, not invented:
+
+| field | value | line |
+|---|---|---|
+| `MaxRadius` | **500 m** | `:10` |
+| `ActivationRate` / `DeactivationRate` | `1/60` weight per second (ramps 0→1 over 60 s) | `:13,16` |
+| `DestructionDuration` | **10 s** (7.5 s fade to black + 2.5 s dissolve, colliders off halfway) | `:25`, **WIKI** `Update_30.wikitext:10` |
+| `RecentlyCheckedOutDuration` | 120 s immunity after becoming physical | `:28` |
+| `RecentlyCreatedDuration` | **3600 s** immunity for docked entities | `:31` |
+| `MaxSpeedAtNoTimeDilation` / `AtFullTimeDilation` | **5 → 30 m/s** | `:37,40` |
+| `StartupGracePeriod` | 30 s | `:43` |
+| `ActivateTimeDilation` / `Deactivate` | 0.75 / 0.98 | `:46,49` |
+| `RetargetEmptyBlightsDuration` | 30 s | `:55` |
+| `MaxRetargetDistance` | 1000 m, else it deactivates | `:61` |
+| `OwnedImportanceMultiplier` | 2× | `:64` |
+| `Top` / `Bottom` | **+1000 m / −500 m** | `:68,71` |
+
+#### 14.3.3 Why it is blocked — the precise mechanism, which the roadmap did not have
+
+`BlightViewSystem.OnInitialize` (**PROVED**, `acs/BlightViewSystem.cs:57`):
+
+```csharp
+_blightsFilter = SystemBase.And(_radialStorms.Has, _blights.Has,
+                                _remappedPositions.Has, _radii.Has);
+```
+
+So 1269 **plus** `BlightLocalComponent` **plus** `RadiusLocalComponent`.
+
+**Nothing in the client adds `BlightLocalComponent` in C#** — a sweep of `acs/`
+finds it only as `FlagComponentStore<BlightLocalComponent>` *declarations* in
+15 systems, and **zero `AddComponent`** (**PROVED**). But the roadmap's "nothing
+attaches it" stops one step short of the real mechanism:
+
+**The attacher is a JSON blueprint.** `CreateBlightEntitySystem.Execute` does
+`_blueprintFactory.GetBlueprint("Blight")` then `blueprint.ApplyBlueprint(entityIndex)`
+(**PROVED**, `acs/CreateBlightEntitySystem.cs:54-56`). Blueprints are loaded
+from `*.json` files on disk by `FileBlueprintFinder` (**PROVED**,
+`ecs/BossaECS.Core.Blueprints/FileBlueprintFinder.cs:11`), and
+`BlueprintFactory.GetBlueprint` **throws `ArgumentException` on an unknown
+identifier** (`BlueprintFactory.cs:40-44`).
+
+Two independent reasons it can never fire on the stock client:
+
+1. **`CreateBlightEntitySystem` is not configured.** The client's whole
+   FixedUpdate ECS is seven systems (`docs/research/ecs_config.json`):
+   `AssignViewInstances`, `UpdateViewInstancesMap`, `RemapTransformsComposite`,
+   `BlightSharedComposite`, `BlightView`, `AddWeatherCellCoordsS`,
+   `UpdateWeatherCellCoordsMapS`. **`CreateBlightEntitySystem` is absent.**
+2. **No `Blight` blueprint JSON ships** with the client.
+
+`BlightSharedCompositeSystem` runs only `BlightUpdateRadiusSystem`, which also
+filters on `_blights.Has` — so both configured Blight systems are permanent
+no-ops today (**PROVED**, `acs/BlightSharedCompositeSystem.cs:5-14`).
+
+**Consequence — and this narrows the client mod usefully.** `BlightViewSystem`
+*is already configured and running*. To make a server-driven Blight render, the
+client patch would need to do exactly one thing: on an entity that receives
+1269, add `BlightLocalComponent` and `RadiusLocalComponent`. It does **not**
+need to add a system, a config entry, or the "Blight" blueprint. That is a
+small, well-defined Harmony patch — but it **is** a client mod, so it is a
+patcher release, and **this task did not build it** (hard rule 2).
+
+---
+
+### 14.4 WEATHER WALLS — reachable, and NOT blocked on the lattice
+
+**§5 PHASE 6 item 7 says wind walls are "nearly free once cells exist". They do
+not need cells at all.**
+
+`WallSegmentVisualizer` has **exactly one `[Require]`: `WallSegmentStateReader`**
+(1204). On enable it sets `transform.forward` from `state.Orientation` and calls
+`WeatherWalls.Register(this)` (**PROVED**, `acs/WallSegmentVisualizer.cs:9-22`).
+`WeatherWalls` is a pure registry over registered segments — `GetIntensityAt`,
+`GetWallWindAt`, `IsInsideStorm`, `IsInsideAnyWalls` — and **never calls
+`GlobalWeather.GetWeatherAt`** (**PROVED**, `acs/WeatherWalls.cs`, 239 lines).
+
+`1204 WallSegmentState = { int wallType, int wallId, Vector3d orientation,
+float length }`, and 44 typed segments are already imported and drawn on the
+admin map. Distribution counted from `docs/research/world-data/wamap-islands.json`:
+**Wind Rift 20, Storm Rift 11, Sand Storm 12, World End 1, Typhon 0, Ice Storm 0**.
+
+**Correction to `MapWallPalette.cs:78-80`:** it says the legend gap "is how
+Typhon and Ice Storm came to be on the map"; on this data they have **zero
+segments** and cannot be on the map. Neither name appears anywhere in the
+425-page wiki either — they are MapFile enum entries with no surviving gameplay
+description.
+
+Walls are **out of scope for this task** but should be lifted out of PHASE 6 in
+a future edit: they are a separate, cheaper, independent phase.
+
+---
+
+### 14.5 EFFECTS ON SHIPS AND PLAYERS
+
+#### 14.5.1 Understorm
+
+| target | effect | provenance |
+|---|---|---|
+| **Shipyards** | damaged **every strike**, destroyed if unrepaired | **WIKI**, `Shipyard.wikitext:49`; balance restored to "correct, higher value" in `Beta_0.1.12.1.wikitext:33` |
+| the component behind it | **4346 `TakeDamageFromIslandLightningState = { bool isInitialized, int damagePerStorm, EntityId islandEntityId }`**. **Zero client consumers** → it was server-side only. Note **per STORM, not per strike** | **PROVED** + **RECOVERED** field names |
+| **Island turrets** | **fully repaired** by an understorm | **WIKI**, `Update_27.wikitext:26`, `Update_28.wikitext:25` |
+| **Loose parts, decking, wrecks** | sink into the island; enough strikes and they emerge from the underside | **WIKI**, `Weather.wikitext:26`; introduced `Alpha_0.0.6.wikitext:21-22` |
+| **Chests/containers** | "animate in when understorm lightning brings them out of the ground" | **WIKI**, `Beta_0.1.12.1.wikitext:38` |
+| **Empty Makeshift Storage** | destroyed on island reset | **WIKI**, `Makeshift_Storage.wikitext:17` |
+| **Ships (hulls)** | **no documented damage.** Parked ships lose *loose* parts; the hull is not said to be hurt | **WIKI**, absence across 25 understorm mentions in 16 pages |
+| **Players** | nothing documented, **except**: reviving *inside* the understorm layer (below the islands) means "you will immediately take a bunch of damage and die" | **WIKI**, `Beta_0.1.11.1.wikitext:12` |
+
+**No forced ship movement, no lift loss, no vision loss is documented for
+understorms.** Those belong to walls and to the Blight.
+
+#### 14.5.2 Blight
+
+Prefers abandoned/disconnected parts, then player ships; docked ships are **not**
+immune and auto-undock when their shipyard is eaten; harvested resources are
+disintegrated as they drop; visibility drastically reduced with a directional
+screen overlay (**WIKI**, `Weather.wikitext:34-38`, `Beta_0.2.1.1.wikitext:48`,
+`Update_30.wikitext:8`).
+
+#### 14.5.3 Walls (for completeness)
+
+Wind wall damages **sails only**; storm wall's **lightning damages parts** and
+gusts "can even turn you completely around"; sandwall does **damage over time to
+all parts** (**WIKI**, `Weather.wikitext:8,12,22`). Player lore: **bar pipes**
+were used as lightning rods — "if you have, say, 20 bar pipes on your ship, it
+is less likely the lightning will strike a valuable part" (**WIKI**,
+`Bar_Pipes.wikitext:4,7`). That is a second, independent reason to build the bar
+pipe part named in §0.0.
+
+`1225 LightningStrikableState`'s entire client behaviour is: on the
+`HitByLightning` event, play `"Play_Lightning_Strike_Impact"` (**PROVED**,
+`acs/LightningStrikableVisualizer.cs:22-25`). All damage was server-side. One
+`[Require]`.
+
+`SandStormAffecteeBehaviour` is `[WorkerType(WorkerPlatform.UnityWorker)]` —
+Bossa's FSIM only, **never runs on a player's client** (**PROVED**,
+`acs/SandStormAffecteeBehaviour.cs:7`). **1256 is dead to us.** Remove it from
+any future scope list.
+
+---
+
+### 14.6 RESOURCE REFRESH — the mechanism, proved twice
+
+#### 14.6.1 The claim, from four independent wiki pages
+
+> "Resources on islands will **reset every 1.5 to 2 hours**, during what is
+> known as an **'understorm'**. These storms strike the island from below and
+> **replace all the metal ore nodes as well as the scrap piles**. Trees will
+> regrow at their own rate but **logs that are on the ground will be removed**
+> when an understorm hits." — **WIKI**, `Islands.wikitext:8`
+
+> "**All chests will respawn during the understorm, though not always in the
+> same place.**" — **WIKI**, `Islands.wikitext:11`
+
+> "**not all spawnpoints produce a chest every reset** from an
+> [[Weather#Understorms]]" — **WIKI**, `Chests.wikitext:4`
+
+> "**Each island reset (caused by Understorms), the locations of the fuel pods
+> change**, unlike trees which are placed in the island creator."
+> — **WIKI**, `Resources.wikitext:15`
+
+#### 14.6.2 Re-rolled or restored? — per resource, and the answer differs
+
+| resource | understorm does | placement |
+|---|---|---|
+| **fuel pods** | replaced | **RE-ROLLED** — explicit, "the *locations* change" (**WIKI**) |
+| **chests** | respawn | **RE-ROLLED** from the creator's authored spawnpoint set, with a fixed per-island count and not every point used (**WIKI**) |
+| **metal ore nodes / scrap piles** | "replaced" | **AMBIGUOUS in the wiki** — it says *replace*, never *relocate*, and never *restore*. See 14.6.3 for the decompile's answer |
+| **trees** | **not reset**; they regrow on their own rate, positions author-fixed | fixed (**WIKI**) |
+| **logs on the ground** | **removed** | — (**WIKI**) |
+
+#### 14.6.3 The decompile settles the ore question: it was RE-ROLLED, and the CLIENT chose where
+
+**1010 `IslandResourceSpawnerState`** (**PROVED**, field names **RECOVERED**
+verbatim from `gencode/Bossa.Travellers.Islands/IslandResourceSpawnerStateData.cs:28`):
+
+```
+int metalRocksRequiredToRespawn, int initialMetalRockDeposits,
+float metalDepositDensity, float minMetalRockDeposits, float metalOnSurfaceProb,
+Map<string,int> metalDepositQuantities, Map<string,int> metalDepositQualities,
+int eggsSpawned, List<EntityId> spawnedMetalDeposits
+```
+
+Two things fall out immediately:
+
+1. **`metalRocksRequiredToRespawn` is a THRESHOLD, not a timer.** Retail's ore
+   respawn was gated on *how many rocks had been mined*, and the understorm was
+   the moment it was allowed to fire. **INFERRED** from the field name and type,
+   but it is the only respawn-shaped field in the schema and there is nothing
+   else it can mean.
+2. **`eggsSpawned` sits in the same component.** "Egg" is the fuel-canister
+   prefab (`IslandProxyVisualizer.ResourceNames.Egg`, `:17`). **One component
+   drives both ore and fuel-pod respawn** — which is exactly what the wiki says
+   the understorm did to both.
+
+**The placement path, PROVED end to end** (`acs/IslandProxyVisualizer.cs`, read
+in full — its only two `[Require]`s are the 1010 *reader* and the 1011
+*writer*):
+
+1. Server raises `SpawnResources { int number, IslandResourceType resourceType }`
+   on 1010 (`:142`).
+2. Client accumulates `_rocksToSpawn` / `_eggsToSpawn` and, every `_interval`
+   seconds, generates `_resourceBatchSize` placements by **sampling its own
+   island's LOD0 mesh** — `myIsland.GenerateMetalDepositSpawnRequest()` /
+   `GenerateFuelDepositSpawnRequest()`, with a normal filter
+   `dot(up, n) > 0.4` and a physics clearance check (`:150-247`).
+3. Client replies on **1011 `IslandResourceSpawnerClientState`** with
+   `TriggerSpawnResourcesReply(List<SpawnResourceRequest>)` — each carrying a
+   world transform and a variant string (`:231`).
+4. Server creates the entities.
+
+**So retail's respawn RE-ROLLED placement by construction: the client re-sampled
+the surface each time.** That resolves 14.6.2's ambiguity for ore and confirms
+it for fuel pods. **PROVED.**
+
+#### 14.6.4 …and this server already implements that handshake
+
+`Multiplayer/IslandResourceHandshake.cs` (199 lines),
+`IslandResourceLedger.cs`, `IslandResourceFallback.cs`,
+`Game/Gathering/IslandResourceService.cs` (516 lines),
+`Game/Components/Update/Handlers/IslandResourceSpawnerClientState_Handler.cs`,
+plus the 1010/1011 seeds at `ComponentsSerializer.cs:1838-1891`, plus three test
+files. `IslandResourceService.OnIslandInterest` serves 1010+1011, **grants the
+peer authority over 1011**, raises `SpawnResources`, retries on a schedule, and
+spawns what comes back through a clamped, deduped, AABB-guarded ledger.
+
+**The re-roll channel is already built, tested and wired.** A storm-driven
+re-roll is a second caller of `SendRequest`, not a new system.
+
+Two caveats before anyone leans on it:
+- It requests **`IslandResourceType.Metal` only** today. Eggs are a one-line
+  extension of `SendRequest` plus a spawner.
+- Its coordinate guard is **`IslandBounds.Haven()`**, hardcoded
+  (`IslandResourceService.cs:111`), so on the release world every reply from a
+  non-Haven island is refused. That is why `WAREBORN_METAL_COUNT` reads as
+  vestigial in `HANDOVER.md`. **Per-island bounds is a prerequisite for using
+  this path on tier-1.**
+
+---
+
+### 14.7 WHAT THIS SERVER ALREADY HAS
+
+This is the reason the verdict is GO rather than "research first".
+
+| piece | where | state |
+|---|---|---|
+| **1254 served on islands** | `ComponentsSerializer.cs:1780` | live, storm field pinned to 0 |
+| **the retail cadence** | `TreeHarvest.UnderstormCadence = 105 min` | recorded, tested (`TreeRespawnTests.cs:347`) |
+| **the reset itself, already called an understorm** | `WorldsAdriftRebornGameServer.cs:1697-1722` `ResetHarvestResources()` — its own doc comment reads *"Authenticated operator understorm"* | live, on the admin path |
+| the four ledgers it drives | `TreeHarvest.ResetAll` `:752`, `NodeRegistry.ResetAll` `:203`, `MetalHarvest.ResetAll` `:197`, `FuelCanisterRegistry.ResetAll` `:224` | live |
+| **the wire half of a reset** | `PushTreeSectionMask` `:810`, `BroadcastNodeReset` `:1742`, `BroadcastFuelCanisterReset` `:1724` | live, per-peer, checkout-gated |
+| **depletion is a 1000 m sink, not a delete** | `MetalNodes.DepletedSinkMetres = 1000.0` | a reset is a transform push; **no entity churn** |
+| **per-island grouping** | `ResourceInterestService._resourceIslands : Dictionary<long, IslandId>` `:91` | exists; **private**, needs an accessor |
+| **a timer queue and a poll loop** | `DeferredActions` (`After`/`AfterKeyed`/`Cancel`); loop `WorldsAdriftRebornGameServer.cs:4610`, ≥20 Hz | live |
+| **the re-roll channel** | 1010/1011 handshake, §14.6.4 | live, Haven-bounded |
+| **a targeted-reset result slot** | `WorldsAdriftServer/Admin/WorldAdminResult.cs:54` already handles `reset-resources` **with a target** | already there |
+
+**No schema migration is needed, and this is not a judgement call.** Every
+depletion fact — tree `SectionMask`/`RespawnDueAt`, node `IsDestroyed`/
+`ShotPoints`, deposit `Hits`/`Depleted`, canister `Shots`/`Depleted` — lives in
+a plain `Dictionary<long,…>` inside a registry, is rebuilt from the catalogue at
+boot, and is lost on restart. `SchemaScripts.cs` has no resource table;
+`WorldStateSnapshot` holds only deployables, ships, mounted and loose parts.
+**PROVED.**
+
+---
+
+### 14.8 HAZARDS — read all four before writing code
+
+#### 14.8.1 The 1225 / 1235 absence gate
+
+`1225 LightningStrikableState` and `1235 DetachFromParentWhenUnderHealthThresholdState`
+are both in `ComponentAbsencePolicy.KnownAbsentComponentIds`
+(`:224,227`, set at `:367-396`), and
+`ComponentAbsencePolicyTests.cs:71` asserts the exact eight-id set
+`{1139, 1269, 1225, 1235, 1306, 1259, 1304, 4323}`. **Any lightning-damage work
+must remove an id from that set and update that test**, deliberately and with a
+stated reason — the file's own convention is that each removal carries a comment
+saying why absence was not safe.
+
+#### 14.8.2 ⚠ THE ISLAND-DROP HAZARD — new, and it is the atlas cliff's shape exactly
+
+`IslandLocalTransformBehaviour.HandleLightningActiveUpdated(bool active)`
+(**PROVED**, `acs/Bossa.Travellers.Visualisers.Islands/IslandLocalTransformBehaviour.cs:46-52`):
+
+```csharp
+if (active)
+    TransformStateWriter.Update.LocalPosition(
+        GetEndOfWorldPosition().ToFixedPointVector3()).FinishAndSend();
+```
+
+`GetEndOfWorldPosition()` is **End-of-the-World doomsday code** — it lerps the
+island's Y toward **−250 m … −1500 m** off `EndOfTheWorldConfig` dates (`:54-85`).
+
+So **`isLightningActive = true` can teleport an island into the depths.**
+
+It cannot today, for a reason that is an *absence*: the method returns the
+island's current position early unless **all three** of
+`IslandFabricState.OriginalPosition`, `.EndOfWorldDurationMultiplier` and
+`.EndOfWorldOutroOffset` have values (`:56-59`), and our 1042 seed leaves all
+three as empty `Option`s (`ComponentsSerializer.cs:1833-1835`). It is also
+gated behind a `TransformStateWriter` — client authority over the island's
+transform, which we do not grant.
+
+**This is the same shape as the atlas cliff and must be recorded the same way:
+the safety comes from two absences, and completing 1042's Options or granting
+island transform authority would arm it.**
+
+**THE RULE, and it costs nothing:** drive the storm **entirely** through
+`estimatedMilliTillLightningEnd` and `estimatedMilliTillNextLightning`.
+**Never write `isLightningActive = true`.** The visualiser that actually renders
+the storm reads the *int*, not the bool (`IslandLightningTimerVisualizer.cs:226`),
+so the bool buys nothing and risks everything.
+
+#### 14.8.3 The silent `[Require]` rule
+
+Enumerate what 1254 could *newly* satisfy, not just the one visualiser aimed at.
+Only two classes `[Require]` 1254 (**PROVED**, whole-`acs/` sweep):
+`IslandLightningTimerVisualizer` (1 require — 1254 alone) and
+`IslandLocalTransformBehaviour` (4 requires — `TransformStateWriter` + 1254 +
+1042 + 1041). Since we already serve 1254, **this feature adds no component and
+therefore satisfies no new requirement**, which is the main reason it is safe.
+The 1042/1041 combination is exactly what 14.8.2 warns about; leave it alone.
+
+#### 14.8.4 The lattice prohibition still stands
+
+Nothing in this section touches 1139 or 1269. They stay in
+`ComponentAbsencePolicy` for the measured reason (31,144 client errors in 158 s).
+A **partial** lattice remains worse than none, because `GlobalWeather.GetWeatherAt`
+interpolates four cells and the no-cell fallback is already a clean uniform wind
+`(1,0,-2)`, pressure `0.5`. **Do not "complete" anything here.**
+
+---
+
+### 14.9 THE PREREQUISITE CHAIN
+
+```
+S1  timed island understorm: reset + presentation   ── needs NOTHING new
+     ├── 1254 already served
+     ├── ResetHarvestResources() already exists
+     └── no migration, no new component, no client mod
+
+S2  per-island scoping                              ── needs S1
+     └── an accessor on ResourceInterestService._resourceIslands
+
+S3  re-rolled placement (ore + fuel pods)           ── needs S2
+     ├── the 1010/1011 handshake (BUILT)
+     └── per-island IslandBounds (NOT built - Haven is hardcoded)
+
+S4  understorm damage to structures (shipyards)     ── needs S1
+     └── a server-side structure damage model (DOES NOT EXIST)
+
+S5  lightning strikes a ship                        ── needs S4
+     ├── remove 1225 from ComponentAbsencePolicy + update its test
+     └── a ship-part damage model (DOES NOT EXIST; 1235 also absent)
+
+S6  weather walls                                   ── needs NOTHING
+     └── independent of everything above; belongs in its own phase
+
+S7  the Blight                                      ── needs A CLIENT MOD
+     ├── Harmony: attach BlightLocalComponent + RadiusLocalComponent on 1269
+     ├── serve 1269 (remove from ComponentAbsencePolicy + update its test)
+     └── a server-side entity-destruction policy
+```
+
+**Weather (PHASE 6 / the 1139 lattice) is a prerequisite for NONE of S1–S7.**
+That is the headline correction to PHASE 7.
+
+---
+
+### 14.10 THE PHASED PLAN
+
+#### S1 — The understorm, server-side, presentation + reset *(recommended next branch)*
+
+Server-only. No migration. No new component. No client mod. No patcher release.
+
+1. **`IslandStormService`** ticked on the main loop beside `TickTreeHarvest()`
+   (`WorldsAdriftRebornGameServer.cs:4667`), shaped like `TreeHarvest` — an
+   injected `IClock`, `TimeSpan` deadlines, a `DueStorms()` returning a change
+   list. **Never count main-loop turns.**
+2. **`IslandStormPolicy`** (pure, in `.Multiplayer`, fully unit-tested): the
+   per-island schedule. Proposed knobs, all **WAREBORN TUNING** except the
+   cadence:
+   - `WAREBORN_STORM_CADENCE_SECONDS`, default **6300** (105 min,
+     `TreeHarvest.UnderstormCadence`, **RECOVERED**)
+   - `WAREBORN_STORM_JITTER_FRACTION`, default `0.2` — so islands do not all
+     fire together, honouring "varying frequency" (**WIKI**)
+   - `WAREBORN_STORM_DURATION_SECONDS`, default **45** ("less than a minute",
+     **WIKI**)
+   - `WAREBORN_STORMS`, default **0** (off) for the first deploy
+3. **Presentation.** Each tick, push 1254 to peers with that island checked out:
+   `estimatedMilliTillNextLightning = ms to start` (so the last 30 s telegraph),
+   `estimatedMilliTillLightningEnd = ms remaining` (0 outside a storm), and
+   `generation++` per cycle. Use the `PushTreeSectionMask` pattern verbatim —
+   dereference the stored ref, `ApplyTo(stored)`, send one field, **never**
+   route through `RelayToOtherPlayers`, **never** send `Data.ToUpdate()`.
+   **`isLightningActive` stays `false` for ever** (14.8.2).
+4. **The reset, at storm END** (the wiki's objects "emerge from the ground"
+   *during* the storm; resetting at the end is the honest simplification and is
+   **WAREBORN TUNING**). Reuse `ResetHarvestResources()`'s body.
+5. **Trees ride the storm.** Per `TreeHarvest.cs:290-296`'s own instruction,
+   `DueRespawns` becomes "reset every stand" called by the storm. Keep
+   `WAREBORN_TREE_RESPAWN_SECONDS` working so an operator can revert.
+   **`ResetAll` already skips felled logs** (`TreeHarvest.cs:761`), which
+   matches the wiki ("logs on the ground will be removed") more closely than it
+   matches "restore" — leave that behaviour and say so.
+6. **Placement is RESTORED, not re-rolled, in S1** — and this must be stated as
+   a **known divergence from retail** (§14.6.3 proves retail re-rolled), not
+   quietly shipped. S3 closes it.
+
+**Rate:** one 1254 update per checked-out island per state change — start,
+end, and a low-rate countdown refresh. This is not a relayed per-frame
+component. A soak is still required (see 14.11).
+
+**Mutation tests required** (hard rule 9 — this repo has twice shipped a green
+suite over an unplugged feature). At minimum, break each of these one at a time
+and confirm exactly the intended test goes red: delete the service tick; no-op
+the 1254 push; no-op the reset call; write `isLightningActive = true`; drop the
+`generation` bump; make the countdown never cross 30 s; let the reset fire at
+storm *start* instead of end; regrow a felled log.
+
+#### S2 — Per-island scope
+Storms are per island (**PROVED** — the visualiser samples *its own* surface).
+Needs a public accessor over `ResourceInterestService._resourceIslands` and a
+per-island variant of `ResetHarvestResources()`. `WorldAdminResult.cs:54`
+already has the targeted result slot.
+
+#### S3 — Re-rolled placement
+Re-request `SpawnResources` for `Metal` **and** `Egg` at storm end via the
+existing handshake, after clearing the island's ledger. **Blocked on
+per-island `IslandBounds`.** Chest re-roll follows the same shape once loot
+placement is per-island.
+
+#### S4/S5 — Damage
+There is **no** server-side damage model for structures, ship parts or players
+(**PROVED**: no `DamageService`/`ApplyDamage`/`TakeDamage` anywhere; 1235, 1225,
+4323 all known-absent; `SpawnPlan.cs:87` — *"this server writes no HealthState
+so there is no fall damage"*). Understorm shipyard damage is a genuinely new
+subsystem and should be sized on its own. Its recovered semantic is
+`4346.damagePerStorm` — **per storm, not per strike**.
+
+Do **not** stack these onto S1. A storm that damages ship parts also interacts
+with §12's lift arithmetic (a damaged core upgrade stops contributing lift), and
+that must be reasoned about deliberately, not inherited.
+
+#### S6 — Weather walls
+Independent. Lift out of PHASE 6. One component, geometry already imported.
+
+#### S7 — The Blight
+**Needs a client mod.** Do not start it without deciding to ship a patcher
+release. §14.3.3 narrows the patch to one thing.
+
+---
+
+### 14.11 WHAT ONLY A LIVE CLIENT CAN SETTLE
+
+1. **That `estimatedMilliTillLightningEnd > 0` actually renders a storm on our
+   islands**, i.e. that `IslandLightningTimerVisualizer` is baked onto the island
+   prefab in our island bundles. Everything above says it should be —
+   `IslandLightningTimerVisualizer` is in `globalgamemanagers.assets`, the
+   `LightningStrike` prefab is in `resources.assets` (23 hits, `grep -ac`), we
+   already serve 1254, and the seed's "you will set the island into a storm"
+   comment reads as an observation. **It is not proved.** Bundle contents were
+   not enumerated (that wants UnityPy, not grep).
+2. **That the 30-second rumble and camera shake are audible/visible** and are
+   not annoying at the shipped `_maxTimeBetweenLightningSeconds = 1f` strike
+   rate. That serialized field is on the prefab and we cannot read it headless.
+3. **That an island does not move** when a storm runs — the direct check for
+   14.8.2. Watch the island's Y.
+4. **Whether a ~45 s storm every 105 min feels right.** A playtest question.
+
+**A request for the maintainer, if S1 ships:** stand on Haven within 300 m of
+the island with `WAREBORN_STORM_CADENCE_SECONDS=180` and watch for (a) a rumble
+ramping in over the last 30 s, (b) bolts striking upward into the island,
+(c) the island staying exactly where it is, (d) mined nodes coming back when it
+ends.
+
+---
+
+### 14.12 WHAT I COULD NOT ESTABLISH
+
+1. **Understorm radius/movement.** Nothing in 25 wiki mentions across 16 pages,
+   and 1254 carries no position. I believe there is nothing to find:
+   understorms are per-island, not roaming. Stated as a belief.
+2. **Whether ore node *positions* were re-rolled**, from the wiki alone — it
+   says "replace", never "relocate". §14.6.3 answers it from the decompile
+   instead; the wiki is silent, not contradictory.
+3. **The exact trigger.** `metalRocksRequiredToRespawn` says depletion-threshold;
+   the wiki says a 1.5–2 h clock. Most likely both — a clock that only fires
+   when enough has been mined. **INFERRED**, not proved.
+4. **`Typhon` and `Ice Storm`.** Enum names with zero map segments and zero wiki
+   text. Nothing survives.
+5. **Live production env.** `ssh` to the box was blocked in this session, so
+   whether `WAREBORN_METAL_HANDSHAKE` is set could not be read off
+   `systemctl show wareborn-game -p Environment`. The code default is ON; the
+   Haven-hardcoded AABB (§14.6.4) is the likelier reason it is inert on tier-1.
+   **Worth one read-only check before S3.**
+6. **Stale citations fixed in passing.** §2's row for weather cites
+   `ComponentsSerializer.cs:1659-1674` and `:1675-1690`, and
+   `ComponentAbsencePolicy.cs:120,146` / `:265-291`. The real locations today are
+   **1764-1779**, **1780-1790**, **:151, :177** and **:367-396**.
