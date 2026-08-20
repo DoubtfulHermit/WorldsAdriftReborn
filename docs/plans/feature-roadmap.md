@@ -5,8 +5,79 @@
 systems that index omits, audited against this repo and the retail decompile,
 then ordered into phases.
 
-This is a **planning document**. It contains no game code and proposes no
-change that has been made.
+This is a **planning document**. Section 0.0 below records what has since
+been BUILT; the status tables in §2 were written before that work and are
+stale wherever §0.0 contradicts them.
+
+---
+
+## 0.0 WHAT SHIPPED AFTER THIS DOCUMENT WAS WRITTEN
+
+**Everything in this section is live on production** unless marked otherwise.
+Added 2026-08-20 as a session handover. `main` was `ee86213` at the time.
+
+### Shipped and confirmed by the maintainer in a live client
+
+| item | was | now |
+|---|---|---|
+| **Client could not connect at all** | PLAY hung forever | fixed; `2026.08.19-2` unbroke the patcher for every player |
+| **Trees** | vanished on cutting | fall, break piece by piece, rest on slopes |
+| **Tree yields** | wood only | pay plant fibre and berries |
+| **Loot containers** | `LootContainers => 0` | **409 live on tier-1**, openable |
+| **Scrap** | unobtainable, unsalvageable | drops from containers, salvages to metals/woods/fuel |
+| **Ship containers** | 4 of 37 parts interactable | **7** — trunk, mountedBox, storageContainer, shippingContainer |
+| **Fuel gauge** | gated on the wrong component | needle moves |
+| **Emblem editor** | 33 objects | **283**, mirror bit, grid snap, PNG export |
+| **Player portal** | one long page | tabbed, redesigned on a token layer |
+| **`/patchnotes`** | hand-written prose | generated from the commit log |
+
+### Shipped, awaiting a live check
+
+| item | detail |
+|---|---|
+| **Fuel** | lives in the **Power Generator** (100/generator, pooled). Prompt says "Refuel" because the client's own baked asset says it. `WAREBORN_FUEL_GATES_THRUST=0` until confirmed |
+| **Real flight forces** | `WAREBORN_FLIGHT_FORCES=1`, `WAREBORN_FLIGHT_WIND_SPEED=4.0`. Bare hull drifts, sails faster, engines faster still |
+| **Bar pipes** | implemented, and made **real Unity children** of the hull — the first part on this server with a real hierarchy key |
+| **Inventory belt** | divider was at row 3, should be `height - 4` = 14 |
+| **Deposits** | quality now reaches the item; metal already varied off Haven |
+
+### Research completed — new documents
+
+| document | what |
+|---|---|
+| `reality-inventory.md` | 2,115 lines. What the client CONTAINS vs what we built. **98 ship parts / we had 40. 443 component ids / we serve 135. 228 knowledge nodes / 16 have a schematic** |
+| `findings-resource-catalogue.md` | every gatherable, how harvested, LIVE/PARTIAL/MISSING |
+| `findings-combustion-fuel.md` | how fuelling worked |
+| `research/basher.md` | the "unreferenced creature" is **Little Basher**, the client's only customisation pet, wired end to end |
+| `research/archive/worlds-adrift-wiki/` | **425 wiki pages archived into the repo** |
+| §11, §12, §13 below | ship components, flight physics, fuel — all written this session |
+
+### Live defects found and NOT yet fixed — these outrank most of §5
+
+1. **118 of 228 knowledge nodes take payment and grant nothing** (`learned = null`, no error).
+2. **13 nodes grant something else** — buy Makeshift Bandages, receive a Personal Reviver.
+3. **Five recipes are learnable and uncraftable.** The **Territory Control Tower costs 5000 knowledge** for a recipe the server always refuses. `StationCraftRouting` names only two targets; a third is missing.
+4. **The relay two-state defect** — 40% of sessions eat 50 ms of avoidable latency. The soak gate now catches it (`REGRESSED`), so expect red on ~2 runs in 5 until fixed.
+5. **The database credential is still in the systemd environment.**
+
+### Corrections to this document, made in the same session
+
+- **§2's "the per-island metal table is unused"** — wrong; production runs `tier1` and it is reachable. Only Haven's 40 are hardcoded iron, deliberately.
+- **"Scrap salvages into cloth/leather/glass/pigment"** — wrong. All 133 rows yield metals, woods and fuel ONLY. The Update 27 economy has **no recovered bootstrap**.
+- **"Retail's flight model is lost"** — wrong. The physics shipped in the same `Assembly-CSharp` as the client. Only per-part data is missing.
+- **"Instruments mount on the deck only"** — wrong as a description of retail. The maintainer has seen players mount on pipes; the blocker is our `"~"` parenting, not the attachment type.
+- **SC3 "blocked on a collider"** — wrong. `RailingStraight` carries colliders on layer `Default`, inside `Layers.Environment`.
+
+### The error class this session kept meeting — FOUR instances
+
+An agent searches for a thing, does not find it, and **designs around its absence**.
+
+1. **Fuel** built per-hull because a search for a "fuel tank" found none — the tank is the **Power Generator**, line 219 of the same census.
+2. **Instrument mounting** hacked because nobody knew **bar pipes** existed — they were in this repo's own `valid-icons.txt` line 873 for nine days.
+3. **Flight** thought to need engines — the **sky core** is what makes a hull mobile.
+4. **"Basher is unreferenced"** — a **mechanical** false negative: `grep` here is **ugrep**, which silently returns 0 and exit 1 on binary files unless given `-a`. Any earlier binary sweep without `-a` is suspect and should be re-run.
+
+**The method that works:** community sources tell you what a thing is CALLED; the decompile tells you how it WORKS. The wiki archive is now committed for exactly this.
 
 ---
 

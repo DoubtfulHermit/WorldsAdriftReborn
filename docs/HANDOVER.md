@@ -128,6 +128,34 @@ changes.
 
 ### Exact deployed revisions
 
+**SESSION HANDOVER 2026-08-20.** `main` = `ee86213`, in sync, clean, 172
+commits over two days. Both services active. Live flags:
+`WAREBORN_FLIGHT_FORCES=1`, `WAREBORN_FLIGHT_WIND_SPEED=4.0`,
+`WAREBORN_SPAWN_LOOT=1`, `WAREBORN_FUEL_GATES_THRUST=0`,
+`WAREBORN_RELEASE_WORLD_DISTRICTS=tier1`.
+
+**Start here:** `docs/plans/feature-roadmap.md` **§0.0** lists everything that
+shipped, what is awaiting a live check, the research written, and the live
+defects still open. It supersedes that document's own §2 status tables.
+
+**Three tasks were scoped but never dispatched** (the session hit its subagent
+limit): **wind** as a varying system plus visualisation, **storms** and the
+island-node refresh cycle, and an **architecture audit** of this server design.
+Full briefs were handed to the maintainer in chat.
+
+**The five open defects, ranked:** 118 of 228 knowledge nodes take payment and
+grant nothing; 13 more grant the wrong thing; five recipes are learnable and
+uncraftable (the Territory Control Tower costs 5000 knowledge for a recipe the
+server always refuses); the relay two-state defect costs 50 ms on 40% of
+sessions; and the database credential is still in the systemd environment.
+
+**Awaiting the maintainer in-game:** that a Power Generator prompts "Refuel"
+and the needle climbs; that a bar pipe mounts and rides a flying ship without
+jitter; that the belt divider now sits at row 14; that flight feels right with
+forces on.
+
+
+
 Entries below are a LOG, newest first. Each records what was true on its own
 date, so only the newest entry describes production now - a reader who takes an
 older entry's "production still runs X" as current state will be wrong. The
