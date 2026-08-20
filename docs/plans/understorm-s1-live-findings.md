@@ -119,7 +119,90 @@ currently carrying that load alone.
 **Provenance: WIKI/recollection.** Before building anything, confirm the retail
 behaviour actually existed and in what form. Do not design from the memory alone.
 
-### Lead A — the two hardcoded `1234` fields in 1254. START HERE.
+### ⚠ RESOLVED 2026-08-20 — Lead A is DEAD, and the real mechanism is found
+
+**Everything below in Lead A was investigated and the answer is negative.** Kept
+because the negative result is load-bearing: it stops the next agent spending a
+day on it. The real mechanism is in **Lead D**, added at the end.
+
+**The three "unknown" fields resolved** off
+`gencode/Bossa.Travellers.Loot/IslandLightningTimerStateData.cs` (**RECOVERED**):
+
+| field | real name | we send |
+|---|---|---|
+| 3 | `nextLightningTimestamp` (long) | `1234` |
+| 4 | `lightningEndTimestamp` (long) | `1234` |
+| 7 | `entitiesToInformOfStormStart` (List\<EntityId\>) | `{2}` |
+
+**All three have ZERO consumers in the entire shipped client. PROVED**, with a
+positive control so the method is not itself a false zero:
+
+| symbol | Generated.Code | Assembly-CSharp | WASystems | SpatialTranslator | BossaECS |
+|---|---|---|---|---|---|
+| `get_EstimatedMilliTillLightningEnd` *(control)* | 1 | **1** | 0 | 0 | 0 |
+| `get_NextLightningTimestamp` | 1 | 0 | 0 | 0 | 0 |
+| `get_LightningEndTimestamp` | 1 | 0 | 0 | 0 | 0 |
+| `get_EntitiesToInformOfStormStart` | 1 | 0 | 0 | 0 | 0 |
+| `EntitiesToInformOfStormStartUpdated` | 1 | 0 | 0 | 0 | 0 |
+
+The control field — the one the visualiser demonstrably reads — lands in
+`Assembly-CSharp` exactly as it must. The three unknowns appear **only in the
+generated schema** and in no consumer. This search **included `WASystems.dll` and
+`SpatialTranslator.dll`**, the two assemblies missing from the decompile tree, by
+grepping the shipped binaries with `-a`. So this is a real absence, not the usual
+false zero. They are declared-but-never-read schema. **Sending real timestamps or
+a populated entity list would change nothing on screen.**
+
+**And the understorm visualiser has no sky code at all.**
+`acs/IslandLightningTimerVisualizer.cs` is 277 lines and contains bolts
+(`LightningStrike`/`LightningPathCreator`), the rumble loop
+(`Play_IslandRespawn_Start`) and `AmbientCameraShake` — and **no** reference to
+fog, ambient light, skybox, cloud or colour. **PROVED** by reading the whole
+file. The understorm path never darkened anything.
+
+### Lead D — THE REAL MECHANISM: the cloud shader has a `storm` channel
+
+`acs/CmdBufClouds.cs:19-28` — the cloud renderer's per-sample weather struct:
+
+```csharp
+public struct weathInfo
+{
+    public float wall;
+    public float storm;    // <-- the overcast channel
+    public float biome;
+    public float edge;
+}
+```
+
+It samples `GlobalWeatherTextures.weatherTex` / `wallInfoTex`, which are built by
+`acs/WeatherTexGenCpu.cs:147-171` — a texture encoding weather **per world
+position**, including `GetStormWall(p)` (`:109`) written into the green channel
+of `EncodeWalls` (`:125`).
+
+**So the dark stormy sky is real, it is a per-position weather-texture channel,
+and it is driven by the WEATHER/WALL system — not by 1254.** The maintainer's
+memory is correct; it simply belongs to a different subsystem than the one S1
+built.
+
+Two consequences that change the roadmap:
+
+1. **`WeatherTextureGenerator` was filed as "purely cosmetic" (§14.4.1).** That
+   classification is **wrong in importance**, even if right about the dependency.
+   If the overcast is the storm's *telegraph*, it is the warning channel, not
+   decoration — and our 30 s audio rumble is currently carrying that load alone.
+2. `WeatherTexGenCpu` is visibly a **dev/test generator**, not the shipped path:
+   `EncodeWeather` computes an Fbm and then throws it away with a hardcoded
+   `num = 0.2f;` (`:133`). Treat its numbers as placeholders; what matters is the
+   **channel layout**, which is real.
+
+**Next step, and it is RE not implementation:** establish what fed `weatherTex`
+in the shipped GPU path, and whether any part of the `storm` channel can be
+driven without the forbidden 1139 lattice — the storm-WALL half
+(`GetStormWall`/`wallInfoTex`) looks authored-geometry-driven, and **44 typed
+wall segments are already imported**. If the overcast rides the wall texture
+rather than the cell lattice, it may be reachable. Do not assume either way.
+
+### Lead A (superseded — the original reasoning, kept for the record)
 
 `ComponentsSerializer.cs:1798-1805` constructs `IslandLightningTimerStateData`
 with **seven** fields, and S1 only ever drives three of them:
