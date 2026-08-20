@@ -1298,11 +1298,30 @@ filing a generic warning.**
 - **The admin gate fails closed.** `Admin/AdminConfig.cs:84-98` prints `[info] admin panel is
   off` and leaves `/admin` disabled when unconfigured. `TrySplitConfig` refuses a
   half-parsed credential rather than guessing.
-- **Client-supplied identifiers are gated almost everywhere.** Of 21 component update
+- ~~**Client-supplied identifiers are gated almost everywhere.** Of 21 component update
   handlers under `Game/Components/Update/Handlers/`, **20 reference an ownership check**; the
   one that does not is `ReferenceDataRequestState_Handler`, which pushes a read-only
-  catalogue and has no per-entity subject. `PlayerRegistry.Owns` is unit-tested including the
-  "an unregistered peer does not own entity 0" case (`docs/testing.md:304`).
+  catalogue and has no per-entity subject.~~ **CORRECTED 2026-08-20 — this bullet was
+  WRONG, and it was wrong in the reassuring direction.** The real count is **17 of 21**.
+  Four handlers contain zero occurrences of `Owns(`, verified by direct count over the
+  directory:
+
+  | handler | consequence |
+  |---|---|
+  | `PlayerCraftingInteractionState_Handler.cs` | crafts out of the **named entity's** inventory — i.e. another player's materials |
+  | `ReferenceDataRequestState_Handler.cs` | reads another entity's progression |
+  | `CrewClientInterfaceState_Handler.cs` | actor re-derived server-side, but from the *client-named* entity id |
+  | `IslandResourceSpawnerClientState_Handler.cs` | documented as intentional at `:45-51` |
+
+  The original bullet named only the fourth-least-serious of the four and characterised it
+  as the sole exception. **Why it was wrong matters more than the count:** this section was
+  written from the parent auditor's own reading while its security subagent was still
+  running; the subagent returned afterwards with the direct count and was never folded in.
+  A reader trusting §5 would have concluded the ownership surface was clean.
+  `PlayerRegistry.Owns` *is* unit-tested including the "an unregistered peer does not own
+  entity 0" case (`docs/testing.md:304`) — the gate is good, it is simply not called in four
+  places. Fix is one line each, copied verbatim from `TransformState_Handler.cs:71`. See
+  roadmap §15.3.
 - **The unauthenticated emblem render is bounded.** Output dimensions are a constant
   (`EmblemImages.cs:112` → `EmblemPainter.Size`), not attacker-supplied; the query code is
   capped at 96 characters (`EmblemUrlPolicy.cs:220-226`); an ETag is issued (`:178`). There
