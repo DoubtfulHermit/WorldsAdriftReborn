@@ -4041,6 +4041,30 @@ a future edit: they are a separate, cheaper, independent phase.
 
 ---
 
+#### 14.4.1 The rest of the lightning family — what each actually needs
+
+Enumerated so nobody re-derives it. `[Require]` sets read directly (**PROVED**),
+and "lattice?" is whether the class routes through `GlobalWeather.GetWeatherAt`:
+
+| class | component(s) | `[Require]` count | needs 1139? |
+|---|---|---|---|
+| `LightningGeneratorVisualizer` | 1222 `LightningGeneratorState = { float rateOfSpawn }` | **1** (reader) | no |
+| `LightningAttractorVisualizer` | 1223 reader, 1224 **writer**, 1222 **writer** | 3, **two are writers** → needs client authority over 1222 + 1224 | no |
+| `LightningStrikableVisualizer` | 1225 | **1** (reader). Plays one SFX on `HitByLightning` | no |
+| `GlobalWeatherDataVisualizer` | 1229 `GlobalWallDataState = { Map<string,float> floatValues }` | **1** (reader) | no |
+| `WallSegmentVisualizer` | 1204 | **1** (reader) | no |
+| `SandStormAffecteeBehaviour` | 1256 **writer** | `[WorkerType(UnityWorker)]` — **never runs on a player client** | n/a, dead |
+| **`StormDebris`** | — | — | **YES** (`:82`) |
+| **`WeatherTextureGenerator`** | — | — | **YES** (`:200`) |
+
+So the only two storm classes that genuinely need the weather lattice are the
+two purely **cosmetic** ones — the debris flying inside a wall, and the wind
+texture. **Every gameplay-bearing storm component is lattice-free.**
+
+`1226 PocketOfLightningWallDataState` and `1227 PocketOfLightningState` have
+**zero client consumers** outside gencode (**PROVED**) — like 4346, they were
+server-side only.
+
 ### 14.5 EFFECTS ON SHIPS AND PLAYERS
 
 #### 14.5.1 Understorm
