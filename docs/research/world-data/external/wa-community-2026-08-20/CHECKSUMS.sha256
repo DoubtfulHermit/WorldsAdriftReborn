@@ -1,8 +1,9 @@
 8ffc3a2f2366346e06f40264b9b4123f8eca31504efd37a727a145854d02f09a  ./guides/magicgameworld-advanced-resource-stats.html
-f5ac3d1a44907a262f21b744201bd5e283982675972aa4aa695ab17e1a83ec4b  ./manifest.json
-09d3f51d1daa49dc40155c042db9b5b08992cf6e3ab33980d76c8ccf5f19ec60  ./README.md
+3fa6a52e8a81d2a1cbf0151246057655947ea15a45fa2f08e1d4d2aeb84c81f1  ./manifest.json
+ff2d0476029e8295f8527fb088d2d599bed09ded099aadf930c7ca3565513061  ./README.md
 32640419531460b8a9d294aa94619bf5fc81364ee8105a631a5e3b55c16447e0  ./wiki/gamepedia-Atlas_Sky_Core-wayback-2018.html
 e37b8d617b8817511935e2cbbdfd0e0182d21a3dd021c3232b2b82e63d1ec99f  ./wiki/gamepedia-Metal-wayback-2018.html
+1efdf002c1f6533b14984fe98a13e721cedab5a965df2a272172dff68de52fcf  ./wiki/gamepedia-Resilience-wayback-2019.html
 a5367b11247a93f1af793a5d517244b0386123004f413dcf7d1a45545d72eb52  ./wiki/gamepedia-Wood-wayback-2018.html
 9c2d1317937ceb127eb1736f385efd08adf68cdfad6874606beec82618b76cc4  ./workbooks/cannon-science/00-Formatted.derived.csv
 16154b2f3e99f5dd0f48b3be9bc3fbb0aad0d0059bfef6319c722eda49fff7e4  ./workbooks/cannon-science/wayback-20190601163336-edit-usp-sharing.html
@@ -20,3 +21,9 @@ bb3fd5fee01218b5e8547d624a48b4e51495a5eaf07c6db82ac0cbaac1e478b6  ./workbooks/en
 2adcf0c1171dc3ddc29e3035c9366fc525e00f80a96e5b735d4a079a300fb2c7  ./workbooks/engine-materials-sheet/03-Propeller-RAW.csv
 2adcf0c1171dc3ddc29e3035c9366fc525e00f80a96e5b735d4a079a300fb2c7  ./workbooks/engine-materials-sheet/03-Propeller-RAW.formulas.csv
 b740c5f23d23c16cb4708e6fc7680863d97304da2c57dbff3fc6fe18d62e7160  ./workbooks/engine-materials-sheet/source.xlsx
+06fdca7c58497ed61121597611ac1b50c68f2aee1a8642d72c2250f15d581b28  ./workbooks/resilience-update-29-4/00-resilience-boosts.derived.csv
+a4552a1826410d4b3b214c5196bc9b53bf22393b85a9b1c68c70d797e35b30f3  ./workbooks/resilience-update-29-4/pubchart-oid225442159.html
+e79fac265f5d3caf2e1c1e2fce247488cc1c5dbad7ab29c99f2332d83d9eb30d  ./workbooks/resilience-update-29-4/pubhtml.html
+721f379abe0b8fc9c1ad7ce7c53ee82b19bae36837be3b0ecf9388c78586f3eb  ./workbooks/skycore-science-graph/00-lifting-capacity.derived.csv
+6115cfd61024f1d30ed8f58fb4fbd4394c049dc0b56bfaf24d61c5332f08d1ea  ./workbooks/skycore-science-graph/pubchart-oid305506495.html
+b179c7dceade9d3a2397b2c23aa53849b62ea3c7495c63059088f892a468c206  ./workbooks/skycore-science-graph/pubhtml.html

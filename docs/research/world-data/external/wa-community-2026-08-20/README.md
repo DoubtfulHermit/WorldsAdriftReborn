@@ -6,7 +6,7 @@ retrieved by external search on 2026-08-20 and is community measurement or
 community wiki content — not Bossa source data. Cross-check against the shipped
 client/decompile before making a claim of retail fidelity.
 
-Two headline results:
+Three headline results:
 
 1. The HTTP-410 spreadsheet from the previous snapshot is **identified and
    partially recovered**. It was **"Worlds Adrift Cannon Science"**, internally
@@ -17,6 +17,12 @@ Two headline results:
    *Worlds Adrift Closed Beta 0.1.3.3*. It carries a per-material **Casing
    Health** column — the first per-material durability ranking we hold outside
    the cannon-shot workbook.
+3. The **per-material Resilience table for Update 29.4** is recovered. The wiki's
+   `Resilience` page had an empty Resilience section because the data lived in an
+   embedded Google chart whose spreadsheet was never archived. The chart's own
+   HTML carries its dataset inline as JSON, so the numbers are now held. This is
+   our **only** per-material resilience source, and at Update 29.4 it is also our
+   **latest-patch** source by a wide margin.
 
 ## What was preserved
 
@@ -24,6 +30,9 @@ Two headline results:
 |---|---|---|---|
 | [Worlds Adrift Cannon Science](https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/edit#gid=1926050317) | `workbooks/cannon-science/` | 5 raw Wayback captures of the `/edit` page (2019, 2020, 2023) + the CDX index | Recovered from Wayback; Google still returns HTTP 410 |
 | [Engine Materials Sheet](https://docs.google.com/spreadsheets/d/1lUYA9dYvxLYVlJUQ6GRrWMl-0ptKT3ASj3-rnhmYr3U/edit) | `workbooks/engine-materials-sheet/` | 46 × 18 `Formatted` + three RAW measurement tabs | Downloaded live (HTTP 200) |
+| Resilience (Update 29.4) — published chart `2PACX-1vRmePDFVdY…`, oid `225442159` | `workbooks/resilience-update-29-4/` | 15-material resilience boost table | Recovered from the live published chart's inline JSON |
+| Worlds Adrift Skycore Science Graph — published chart `2PACX-1vTdH9ccpw…`, oid `305506495` | `workbooks/skycore-science-graph/` | 6-metal × Q1–Q10 lifting capacity | Recovered from the live published chart's inline JSON |
+| [Worlds Adrift Wiki: Resilience](https://worldsadrift.gamepedia.com/Resilience) | `wiki/gamepedia-Resilience-wayback-2019.html` | Prose on resilience as casing HP; the data section itself is the embed above | Wayback |
 | [Worlds Adrift Wiki: Metal](https://worldsadrift.gamepedia.com/Metal) | `wiki/gamepedia-Metal-wayback-2018.html` | 15-metal panel mass table, rarity, removed-metal history | Wayback (gamepedia dead, Fandom 403) |
 | [Worlds Adrift Wiki: Wood](https://worldsadrift.gamepedia.com/Wood) | `wiki/gamepedia-Wood-wayback-2018.html` | 8-wood mass table, removed-wood history | Wayback |
 | [Worlds Adrift Wiki: Atlas Sky Core](https://worldsadrift.gamepedia.com/Atlas_Sky_Core) | `wiki/gamepedia-Atlas_Sky_Core-wayback-2018.html` | Base 1000 kg lift, 8 core extensions, 12-metal × Q1–Q10 lift table | Wayback |
@@ -33,18 +42,26 @@ Two headline results:
 tab dimensions and hashes, plus an explicit `attemptedAndFailed` list.
 `CHECKSUMS.sha256` covers every archived file.
 
-## File-shape note — one file here is DERIVED, not as-retrieved
+## File-shape note — three files here are DERIVED, not as-retrieved
 
-Everything in this directory is the untouched bytes as retrieved, with a single
-clearly-named exception:
+Everything in this directory is the untouched bytes as retrieved, with three
+clearly-named exceptions, all suffixed `.derived.csv`:
 
 - `workbooks/cannon-science/00-Formatted.derived.csv`
+- `workbooks/resilience-update-29-4/00-resilience-boosts.derived.csv`
+- `workbooks/skycore-science-graph/00-lifting-capacity.derived.csv`
 
-There is no Google export of the deleted sheet to preserve. The Wayback capture
-is an HTML page, and the recovered table was parsed out of it *by this session*.
-The `.derived.csv` suffix marks it as our reconstruction. The authoritative
-bytes are `wayback-20190602112029-edit.html`. The 2019, 2020 and 2023 captures
-parse to identical data cells, which is the only corroboration the CSV has.
+None of the three sources offers a Google export to preserve — two are deleted or
+sign-in-walled documents and one is a chart embed. In each case the raw HTML *is*
+archived here and is authoritative; the CSV is this session's reconstruction from
+it. Specifically:
+
+- The cannon table was parsed out of the Wayback HTML page. The 2019, 2020 and
+  2023 captures were each parsed independently and produced **byte-identical**
+  CSVs (sha256 `9c2d1317937ceb12…`), which is the only corroboration it has.
+- The two chart CSVs were decoded from the `\xNN`-escaped JSON `dataTable`
+  embedded in the published-chart HTML. Their column labels are **taken from the
+  chart's own `cols` metadata**, not inferred.
 
 The `engine-materials-sheet` directory follows the 2026-08-16 convention exactly:
 `source.xlsx`, one display-value CSV per worksheet, one `.formulas.csv` per
@@ -112,6 +129,33 @@ The `kg` column is a **per-cannon-component** weight, not the panel
 weight-per-unit. Bronze appears as `0.297 kg` in two slots and `0.298 kg` in the
 third; that inconsistency is in the source and has been preserved.
 
+### The cannon weights independently validate both Falagar's masses and the WAEngenius 0.7083 tier factor
+
+This is the strongest cross-source result in this snapshot. Dividing each cannon
+component weight by Falagar's 2017 weight-per-unit for the same metal gives a
+constant:
+
+```
+mean ratio 0.70833   (min 0.70714 Bronze, max 0.71000 Titanium, n = 12)
+```
+
+`0.7083` is *exactly* one of the four schematic tier weight-per-unit factors
+already documented in the 2026-08-16 snapshot's WAEngenius notes
+(`1`, `0.875`, `0.7777`, `0.7083`). Rounding `Falagar_WPU × 0.7083` to three
+decimals reproduces the cannon sheet's published kg for **11 of 12 metals
+exactly**; the twelfth, Titanium, is off by 0.001 (predicted 0.212, published
+0.213) and is consistent with rounding in the source.
+
+Three artefacts produced by three unrelated authors — Falagar's 2017 guide,
+Fallout's Cannon Science sheet, and the WAEngenius calculator — therefore agree.
+That makes Falagar's metal weight-per-unit table the best-corroborated mass data
+we hold, and it independently confirms that component mass is
+`materialUnitMass × tierFactor × componentMaterialCount` with a real 0.7083 tier.
+
+It also **resolves the apparent third mass table**: the cannon sheet's lower kg
+figures are not a different patch's masses, they are the same masses at a
+different schematic tier.
+
 ## Recovered: per-material Casing **Health** (durability)
 
 From the Engine Materials Sheet `Formatted` tab, rows 33–46. Normalised 0–1
@@ -136,6 +180,60 @@ Tungsten    1.000    0.230
 
 This is a **ranking, not an absolute hit-point value**, and it covers metals
 only — no wood durability was found in any source retrieved for this snapshot.
+
+## Recovered: per-material RESILIENCE, Update 29.4
+
+The wiki defines resilience plainly: *"Resilience is a stat that is found on every
+ship part in the game. It can be looked at, as an items hitpoints (HP). Only the
+casing of any given item affects its resilience."* This is therefore the
+durability number that matters for ship parts.
+
+Decoded verbatim from the published chart's inline `dataTable` (chart title
+*"Resilience Boosts"*, axis *"Boost Percentage"*, document title
+*"Resilience (Update 29.4)"*). Fifteen materials, **including the three metals
+that appear in no community spreadsheet we hold**:
+
+```
+Aluminum    36.13%
+Titanium    21.17%
+Tin         26.28%
+Iron        31.39%
+Bronze      21.17%
+Nickel      36.13%
+Orthite     26.28%
+Epilar      45.99%
+Steel       45.99%
+Eternium    66.06%
+Copper       6.57%
+Lead        16.42%
+Silver       6.57%
+Tungsten    85.77%
+Gold         6.57%
+```
+
+The chart JSON carries full-precision floats behind those rounded labels, and
+they are not arbitrary: **every one is an exact multiple of 0.5 over a
+denominator of 137.**
+
+```
+Copper/Silver/Gold  9.0/137     Tin/Orthite    36.0/137
+Lead               22.5/137     Iron           43.0/137
+Titanium/Bronze    29.0/137     Epilar/Steel   63.0/137
+Aluminum/Nickel    49.5/137     Eternium       90.5/137
+                                Tungsten      117.5/137
+```
+
+That the raw measurements land on clean half-integers over a common base is
+strong evidence these are real in-game readouts rather than eyeballed estimates.
+The numerators are the useful quantity for a Wareborn model; the 137 base and the
+half-integer structure are **this session's analysis of the archived JSON**, not a
+claim made by the source.
+
+Caveat: this is a *boost percentage*, i.e. the material's contribution relative to
+the best performer, not an absolute HP figure. Note also that it disagrees sharply
+with the Closed Beta 0.1.3.3 Casing Health ranking above — Copper, Silver and Gold
+are near the bottom here but mid-table there, and Lead is near the top there but
+low here. Two different patches, two different orderings. Do not merge them.
 
 ## Mass: three mutually inconsistent tables
 
@@ -257,8 +355,15 @@ lift/mass relationship was found.
 - The Falagar article is a 2017 post served from a live 2026 site, so the
   archived HTML is wrapped in current site chrome. Only the article body is
   evidence.
-- The Skycore Science Graph published spreadsheet behind the wiki's interactive
-  chart could not be exported (sign-in wall); only the wiki's HTML rendering of
-  the same table is held here.
+- Both published spreadsheets behind the wiki's interactive charts remain
+  inaccessible — every CSV, gviz and per-gid export returns HTTP 400, 401 or 404.
+  Only the **plotted series** were recovered, from JSON inlined in the chart HTML.
+  Any column those sheets hold that is not on the chart is still unrecovered:
+  notably anything the Resilience sheet has beyond the single Boost Percentage
+  series, and any wood rows it may contain.
+- The Skycore chart plots only 6 of the 12 metals; the wiki page's HTML table
+  (also archived here) is the fuller source for that dataset.
+- **No wood resilience/durability figures were found anywhere.** Every durability
+  source located covers metals only.
 - Material naming still varies (`Aluminum` vs `Aluminium`) across sources and
   must be normalised only in a derived dataset, never by editing this snapshot.

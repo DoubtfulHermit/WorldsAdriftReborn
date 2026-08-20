@@ -85,9 +85,61 @@
         { "name": "Mechanical Internals RAW", "rows": 41, "columns": 22 },
         { "name": "Propeller RAW", "rows": 40, "columns": 22 }
       ]
+    },
+    {
+      "title": "Resilience (Update 29.4)",
+      "kind": "published Google chart (source spreadsheet not public)",
+      "publishedDocId": "2PACX-1vRmePDFVdYQMHvzCIIxKmGMa3mSIsA46HZfZICb-SsrV8ArKvzyoeMf4m1cRuFKd7fAheXRTrnEZcAn",
+      "chartOid": "225442159",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmePDFVdYQMHvzCIIxKmGMa3mSIsA46HZfZICb-SsrV8ArKvzyoeMf4m1cRuFKd7fAheXRTrnEZcAn/pubchart?oid=225442159&format=interactive",
+      "liveStatus": "http-200-live",
+      "status": "data-recovered-from-chart-json",
+      "discoveredVia": "iframe embed on the Wayback capture of worldsadrift.gamepedia.com/Resilience, whose Resilience section is otherwise empty",
+      "selfDeclaredVersion": "Update 29.4",
+      "significance": "only per-material resilience/durability source located; latest-patch source in either snapshot; includes Orthite, Epilar and Eternium which appear in no community spreadsheet held",
+      "chartTitle": "Resilience Boosts",
+      "axisTitle": "Boost Percentage",
+      "materials": 15,
+      "files": [
+        { "path": "workbooks/resilience-update-29-4/pubchart-oid225442159.html", "note": "as-retrieved; contains the inline dataTable JSON" },
+        { "path": "workbooks/resilience-update-29-4/pubhtml.html", "note": "as-retrieved container page; grid loads via JS and contains no values" },
+        { "path": "workbooks/resilience-update-29-4/00-resilience-boosts.derived.csv", "note": "DERIVED by this session from the chart JSON" }
+      ],
+      "endpointsRefused": [
+        "/pub?output=csv -> HTTP 400",
+        "/pub?gid=0&single=true&output=csv -> HTTP 401 sign-in wall",
+        "/pubhtml/sheet?gid=0 -> HTTP 401",
+        "/gviz/tq?tqx=out:csv -> HTTP 404"
+      ]
+    },
+    {
+      "title": "Worlds Adrift Skycore Science Graph",
+      "kind": "published Google chart (source spreadsheet not public)",
+      "publishedDocId": "2PACX-1vTdH9ccpwXVmhOw7o0rVYERjzP2PPDr1cKHnDaQEh3tfUl-_1QeHyGR6jypG4hFduDr-ZP1RKCFRAuO",
+      "chartOid": "305506495",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTdH9ccpwXVmhOw7o0rVYERjzP2PPDr1cKHnDaQEh3tfUl-_1QeHyGR6jypG4hFduDr-ZP1RKCFRAuO/pubchart?oid=305506495&format=interactive",
+      "liveStatus": "http-200-live",
+      "status": "data-recovered-from-chart-json",
+      "discoveredVia": "iframe embed on the Wayback capture of worldsadrift.gamepedia.com/Atlas_Sky_Core",
+      "chartTitle": "Skycore",
+      "axes": { "x": "Quality", "y": "Lifting Capacity" },
+      "seriesFromChartMetadata": ["Aluminium", "Titanium", "Iron", "Copper", "Silver", "Gold"],
+      "note": "the chart plots only 6 of the 12 metals; the wiki page's HTML table (archived here) carries all 12 and is the fuller source",
+      "files": [
+        { "path": "workbooks/skycore-science-graph/pubchart-oid305506495.html", "note": "as-retrieved; contains the inline dataTable JSON" },
+        { "path": "workbooks/skycore-science-graph/pubhtml.html", "note": "as-retrieved container page; no values" },
+        { "path": "workbooks/skycore-science-graph/00-lifting-capacity.derived.csv", "note": "DERIVED by this session from the chart JSON; column labels taken from the chart's own cols metadata" }
+      ]
     }
   ],
   "wiki": [
+    {
+      "title": "Resilience - Official Worlds Adrift Wiki",
+      "liveUrl": "https://worldsadrift.gamepedia.com/Resilience",
+      "retrievedFrom": "https://web.archive.org/web/2019id_/https://worldsadrift.gamepedia.com/Resilience",
+      "path": "wiki/gamepedia-Resilience-wayback-2019.html",
+      "contains": "definition of resilience as casing hit points, repair rules, recommended casing metals; the numeric Resilience section is an empty heading whose data is the embedded chart archived under workbooks/resilience-update-29-4/"
+    },
     {
       "title": "Metal - Official Worlds Adrift Wiki",
       "liveUrl": "https://worldsadrift.gamepedia.com/Metal",
@@ -145,9 +197,9 @@
       "result": "still HTTP 410 from Google on 2026-08-20"
     },
     {
-      "target": "Worlds Adrift Skycore Science Graph (published sheet 2PACX-1vTdH9ccpwXVmhOw7o0rVYERjzP2PPDr1cKHnDaQEh3tfUl-_1QeHyGR6jypG4hFduDr-ZP1RKCFRAuO), linked from the Atlas Sky Core wiki page",
-      "result": "/pubhtml returns HTTP 200 with the document title only; /pub?output=csv returns HTTP 400 and /pub?gid=0&single=true&output=csv returns HTTP 401 (sign-in wall). Underlying values not retrieved.",
-      "note": "the wiki page it feeds already contains the same 12-metal Q1-Q10 lift table in HTML, which IS archived here"
+      "target": "Underlying spreadsheets behind the two published charts (Resilience 29.4 and Skycore Science Graph)",
+      "result": "the spreadsheets themselves remain inaccessible - every CSV/gviz/per-gid export returns HTTP 400, 401 or 404. Only the charts' plotted series were recovered, from JSON inlined in the chart HTML.",
+      "consequence": "any column of those sheets that is not plotted on the chart is still unrecovered - notably, whatever the Resilience sheet holds beyond the single Boost Percentage series, and any wood rows"
     },
     {
       "target": "worldsadrift.fandom.com/wiki/{Metal,Wood,Atlas_Sky_Core}",
