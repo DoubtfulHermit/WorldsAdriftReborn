@@ -1567,6 +1567,63 @@ type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
 exact release wall placement as missing are superseded. Wall behavior remains
 unimplemented.
 
+### Understorms (local, off by default) — S1 of the storm plan
+
+The island lightning event that refreshes resources, server-side and complete.
+Behind `WAREBORN_STORMS`, which defaults to **0**; with it unset this server is
+byte-identical on the wire to one built without the feature. Branch
+`feat/understorm-s1`. Nothing is deployed.
+
+It adds **no component, no migration and no client change**. 1254
+`IslandLightningTimerState` is already seeded on every island, and the shipped
+`IslandLightningTimerVisualizer` that reads it is baked onto **255 of 255**
+island bundles (PROVED by a UnityPy type-tree sweep — the bundles are
+compressed, so grep cannot see this). The whole feature is that this server
+stops pinning 1254's two integers and starts scheduling them:
+`estimatedMilliTillNextLightning` drives the client's own 30-second rumble and
+camera shake within 300 m, and `estimatedMilliTillLightningEnd > 0` **is** the
+client's storm switch. When the last island's storm ends, the world's trees,
+metal nodes and fuel canisters are restored through the same
+`ResetHarvestResources()` the authenticated operator command already used.
+
+| variable | default | what it does |
+|---|---|---|
+| `WAREBORN_STORMS` | `0` (off) | the master switch |
+| `WAREBORN_STORM_CADENCE_SECONDS` | `6300` (105 min) | per-island storm interval (RECOVERED — `TreeHarvest.UnderstormCadence`) |
+| `WAREBORN_STORM_DURATION_SECONDS` | `45` | how long one storm runs |
+| `WAREBORN_STORM_JITTER_FRACTION` | `0.2` | spread of islands' storms across the cadence, clamped to [0, 0.5] |
+| `WAREBORN_STORM_COUNTDOWN_REFRESH_SECONDS` | `8` | how often the countdown is re-pushed during the warning. **Floored at 8** — see below |
+
+**⚠ Two things a future agent must not re-derive.**
+
+1. **The client's countdown does not tick down on its own.**
+   `TimeEstimationSmoother.StepAndSmooth()` computes a decayed value and returns
+   it *without ever storing it*; `smoothed` is written only by `OnUpdatedValue`,
+   and only when `Mathf.Abs(new - held) > 7f`. It is a shipped bug. So the
+   warning exists only while the server re-pushes the countdown, and only when
+   each push moves it by **more than seven seconds**. A 5-second refresh buys
+   packets and changes nothing on screen. That is why the refresh interval has a
+   floor rather than a ceiling.
+2. **`isLightningActive` must never be written true.**
+   `IslandLocalTransformBehaviour.HandleLightningActiveUpdated(true)` writes the
+   island's transform to End-of-the-World doomsday code that lerps Y toward
+   −250…−1500 m. The bool buys nothing — the visualiser switches on the int.
+   Three absences currently defuse it (empty 1042 `Option`s; no island transform
+   authority granted; and the behaviour is on **0 of 255** bundles), and none of
+   them is ours to rely on. The update type has no bool field at all.
+
+**Known divergence from retail, stated rather than hidden:** placement is
+RESTORED, not re-rolled (retail's client re-sampled the island surface each
+time — §14.6.3); and because the reset is world-wide, it fires once per
+generation at the *last* island's storm end rather than per island. §14.10's S2
+and S3 close both. With storms on and `WAREBORN_TREE_RESPAWN_SECONDS` unset,
+per-tree regrowth stops and the forest returns with the lightning, which is
+retail's shape; setting that variable is the revert path. Felled logs are never
+regrown by a storm.
+
+Not yet seen by a human. See §14.10/§14.11 of `docs/plans/feature-roadmap.md`
+and the maintainer test script in the S1 branch's report.
+
 ## 10. Known risks and unfinished work
 
 - **Panel placement:** WAPatch `2026.08.14-7` is awaiting visual acceptance.

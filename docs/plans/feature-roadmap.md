@@ -4363,9 +4363,22 @@ three as empty `Option`s (`ComponentsSerializer.cs:1833-1835`). It is also
 gated behind a `TransformStateWriter` — client authority over the island's
 transform, which we do not grant.
 
+**A THIRD ABSENCE, found during S1 and stronger than both** (**PROVED**
+2026-08-20, UnityPy MonoScript sweep of all 255 `*@island_unityclient`
+bundles): **`IslandLocalTransformBehaviour` is baked onto ZERO of them.** The
+island prefab carries `StaticGlobalTransformBehaviour` /
+`StaticLocalTransformBehaviour` instead — 17 MonoScripts per bundle, the same 17
+on every island, and the drop behaviour is not among them. So on our islands the
+drop code is not merely un-enabled; it is not present. (The same sweep is what
+closed §14.11.1 — see there for the method.)
+
 **This is the same shape as the atlas cliff and must be recorded the same way:
-the safety comes from two absences, and completing 1042's Options or granting
-island transform authority would arm it.**
+the safety comes from three absences, and completing 1042's Options, granting
+island transform authority, or shipping a bundle that does carry the behaviour
+would arm it. Three absences are still three absences.** S1 therefore keeps the
+rule absolutely: `IslandStormUpdate` has no bool field at all, the wire never
+calls the setter, and two tests — one reflective, one source-reading — go red if
+either changes.
 
 **THE RULE, and it costs nothing:** drive the storm **entirely** through
 `estimatedMilliTillLightningEnd` and `estimatedMilliTillNextLightning`.
@@ -4494,6 +4507,17 @@ existing handshake, after clearing the island's ledger. **Blocked on
 per-island `IslandBounds`.** Chest re-roll follows the same shape once loot
 placement is per-island.
 
+> ⚠ **S3 HAS A SECOND, PREVIOUSLY UNRECORDED PREREQUISITE.** The 1010/1011
+> handshake S3 rides is **switched off in production**: read live 2026-08-20,
+> `WAREBORN_METAL_HANDSHAKE=0` and `WAREBORN_SPAWN_METAL=0`. §14.12 item 5 left
+> this as "worth one read-only check"; the check has now been done and the
+> answer is the unfavourable one. So S3 needs **per-island `IslandBounds`
+> AND an operator decision to turn the handshake back on**, and whatever reason
+> it was turned off is itself unrecorded and should be found before flipping it.
+> (For context on the same read: `WAREBORN_DEPOSIT_COUNT=40`, not the dangerous
+> default of 1, and `WAREBORN_BUILD=ee86213` — one commit behind main, and that
+> commit is docs-only, so production code is current.)
+
 #### S4/S5 — Damage
 There is **no** server-side damage model for structures, ship parts or players
 (**PROVED**: no `DamageService`/`ApplyDamage`/`TakeDamage` anywhere; 1235, 1225,
@@ -4524,20 +4548,50 @@ soak, not because anything blocks it.
 
 ### 14.11 WHAT ONLY A LIVE CLIENT CAN SETTLE
 
-1. **That `estimatedMilliTillLightningEnd > 0` actually renders a storm on our
-   islands**, i.e. that `IslandLightningTimerVisualizer` is baked onto the island
-   prefab in our island bundles. Everything above says it should be —
-   `IslandLightningTimerVisualizer` is in `globalgamemanagers.assets`, the
-   `LightningStrike` prefab is in `resources.assets` (23 hits, `grep -ac`), we
-   already serve 1254, and the seed's "you will set the island into a storm"
-   comment reads as an observation. **It is not proved.** Bundle contents were
-   not enumerated (that wants UnityPy, not grep).
-2. **That the 30-second rumble and camera shake are audible/visible** and are
-   not annoying at the shipped `_maxTimeBetweenLightningSeconds = 1f` strike
-   rate. That serialized field is on the prefab and we cannot read it headless.
+> **Updated 2026-08-20 during S1.** Items 1 and 2 are **CLOSED** — both were
+> settled headlessly with **UnityPy type-tree reads** of the shipped island
+> bundles. *The next agent should not redo this.* The bundles are compressed, so
+> `grep` structurally cannot see their contents — which is exactly why these two
+> questions stayed open through several passes. The bundles **do** ship type
+> trees, so `UnityPy.load(bundle)` → `obj.read_typetree()` reads serialized
+> MonoBehaviour fields directly. Bundles live at
+> `/home/ttanurhan/Games/WorldsAdrift/Assets/unity/*@island_unityclient` (255 of
+> them). A fourth item, **5**, was added by the same sweep.
+
+1. ~~That `estimatedMilliTillLightningEnd > 0` actually renders a storm on our
+   islands.~~ **PROVED.** `IslandLightningTimerVisualizer` is baked onto the
+   island prefab in **255 of 255** `*@island_unityclient` bundles. **Zero
+   bundles lack it**, Haven's `1431299145@island_unityclient` included. So
+   pushing 1254 reaches a live visualiser on every island we serve. Its
+   companions are present too: `IslandSurfaceData` is 255/255, which is what
+   `FindPlace` samples to place each bolt.
+2. ~~That we cannot read `_maxTimeBetweenLightningSeconds` headless.~~
+   **RECOVERED:** `_minTimeBetweenLightningSeconds = 0.0`,
+   `_maxTimeBetweenLightningSeconds = 1.0`, identical across every island
+   sampled. Retail's shipped strike cadence is therefore a uniform roll in
+   **[0, 1] s** — a bolt roughly every 0.5 s, about **90 strikes over a 45 s
+   storm**. That is retail's own value, not a guess, and the server cannot
+   change it (it is on the prefab; changing it would be a client mod).
+   **Whether ~2 bolts/s is *pleasant* is still open** — that is item 4, a
+   playtest question — but it is no longer an unknown quantity.
 3. **That an island does not move** when a storm runs — the direct check for
-   14.8.2. Watch the island's Y.
-4. **Whether a ~45 s storm every 105 min feels right.** A playtest question.
+   14.8.2. Watch the island's Y. **Still live-only**, though see the third
+   absence recorded in 14.8.2: the drop behaviour is not on the prefab at all.
+4. **Whether a ~45 s storm every 105 min feels right**, and whether ~90 bolts
+   inside it reads as dramatic or as strobing. A playtest question.
+5. **NEW, and it is the one that would actually have sunk S1.** That the
+   telegraph ramps at all. The client's countdown **does not tick down on its
+   own**: `TimeEstimationSmoother.StepAndSmooth()` computes a decayed value and
+   **returns it without ever storing it** (`smoothed` is written in exactly one
+   place, `OnUpdatedValue`, and only when `warp` is true), and its sole caller
+   discards the return value. **PROVED**, read in the decompile. So
+   `EstimatedTimeUntilLightningStarts` is a **staircase** that moves only when
+   the server pushes a value differing from the held one by **more than 7 s**
+   (`Mathf.Abs(num - smoothed) > 7f`). S1 is built around this — the countdown
+   is re-pushed on an interval floored above 7 s — but **whether the resulting
+   staircase reads as a smooth ramp on screen** (the client's own
+   `TimeLerp(_curMag, target, dt, 0.25f)` should smooth it) is a live-client
+   question.
 
 **A request for the maintainer, if S1 ships:** stand on Haven within 300 m of
 the island with `WAREBORN_STORM_CADENCE_SECONDS=180` and watch for (a) a rumble

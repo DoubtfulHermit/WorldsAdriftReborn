@@ -1779,12 +1779,29 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     // the entity genuinely HAS it, not a seed.
                     else if(componentId == 1254)
                     {
-                        IslandLightningTimerState.Data ilData = new IslandLightningTimerState.Data(new IslandLightningTimerStateData(50 * 1000, // must be >= 30  and below must be > 0 to trigger lightning rumbles. multiply by 1000 to actually get the value you want ingame (50 in this case)
-                                                                                                                            0, // must be 0 or you will set the island into a storm
+                        // THE SEED IS NOW ANSWERED FROM THE LIVE STORM SCHEDULE when
+                        // WAREBORN_STORMS is on, so a player who logs in during a
+                        // storm is seeded INTO it rather than being told a clear sky
+                        // and then hearing nothing until it ends. Null - storms off,
+                        // or an entity that is not a scheduled island - falls through
+                        // to the literal below, byte-identical to what this server
+                        // has always sent.
+                        //
+                        // The countdown "must be >= 30" and the end "must be 0 or you
+                        // will set the island into a storm" were empirical notes; the
+                        // mechanism behind both is now established and is why the
+                        // storm is driven through the INTS and never through
+                        // isLightningActive. See Game.IslandStormWire.
+                        Multiplayer.Islands.IslandStormUpdate? storm =
+                            IslandStormWire.SeedFor(entityId);
+
+                        IslandLightningTimerState.Data ilData = new IslandLightningTimerState.Data(new IslandLightningTimerStateData(
+                                                                                                                            storm?.MillisTillNextLightning ?? 50 * 1000, // must be >= 30  and below must be > 0 to trigger lightning rumbles. multiply by 1000 to actually get the value you want ingame (50 in this case)
+                                                                                                                            storm?.MillisTillLightningEnd ?? 0, // 0 outside a storm; > 0 IS the storm switch (14.8.2)
                                                                                                                             1234,
                                                                                                                             1234,
-                                                                                                                            false,
-                                                                                                                            1,
+                                                                                                                            false, // NEVER true: it can teleport the island to Y -250..-1500 (14.8.2)
+                                                                                                                            (int)(storm?.Generation ?? 1),
                                                                                                                             new Improbable.Collections.List<EntityId> { new EntityId(2) }));
                         obj = ilData;
                     }

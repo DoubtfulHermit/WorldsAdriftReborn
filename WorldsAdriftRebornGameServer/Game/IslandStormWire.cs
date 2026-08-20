@@ -77,6 +77,41 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
+        /// THE JOINER'S 1254, or null to leave the static seed alone.
+        ///
+        /// WHY THIS EXISTS. Updates only go to peers that ALREADY hold the
+        /// component, which is correct - but it means a player who logs in during a
+        /// storm is served the static seed (<c>next = 50 s</c>, <c>end = 0</c>) and
+        /// then hears nothing until the storm is over. They would stand under
+        /// ninety bolts and see a clear sky. Worse, it is exactly the failure that
+        /// reads as "the storm did not work" rather than as "the seed is stale".
+        ///
+        /// So the seed is answered from the same schedule the pushes come from: a
+        /// joiner arriving mid-storm is seeded INTO the storm, and one arriving
+        /// twenty seconds before one is seeded into the warning.
+        ///
+        /// Returns null - and the caller then seeds exactly what it always seeded -
+        /// when storms are off, when the entity is not a scheduled island, or when
+        /// anything is not yet wired. With <c>WAREBORN_STORMS</c> unset this is a
+        /// dictionary miss and the seed is byte-identical to before.
+        /// </summary>
+        internal static IslandStormUpdate? SeedFor(long entityId)
+        {
+            if (!WorldsAdriftRebornGameServer.Storms.Enabled) return null;
+
+            Multiplayer.WorldEntity? entity =
+                WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId);
+            if (entity == null) return null;
+
+            Multiplayer.Islands.IslandDefinition? island =
+                WorldsAdriftRebornGameServer.IslandTopology.ByWorldEntityKey(entity.Key);
+            if (island == null) return null;
+
+            return IslandStormUpdate.From(
+                WorldsAdriftRebornGameServer.Storms.SampleOf(island.Id.Value));
+        }
+
+        /// <summary>
         /// Pushes one island's new 1254 timer to every peer that holds that
         /// component, and returns how many got it.
         ///

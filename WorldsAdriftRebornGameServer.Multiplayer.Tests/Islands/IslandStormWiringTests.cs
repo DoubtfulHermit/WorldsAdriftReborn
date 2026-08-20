@@ -162,6 +162,44 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 + "already ended.");
         }
 
+        [Fact]
+        public void A_player_who_logs_in_during_a_storm_is_seeded_into_it()
+        {
+            // Updates only reach peers that ALREADY hold the component, so without
+            // this a joiner gets the static seed - clear sky - and hears nothing
+            // until the storm is over. They would stand under ninety bolts and see
+            // none of them, and it would read as "the storm did not work".
+            string serializer = Source("WorldsAdriftRebornGameServer", "Game",
+                "Components", "ComponentsSerializer.cs");
+
+            Contains(serializer, "IslandStormWire.SeedFor(entityId)",
+                "The 1254 seed must be answered from the live schedule.");
+            Contains(serializer, "storm?.MillisTillLightningEnd ?? 0",
+                "A joiner mid-storm needs the storm switch set; a joiner outside one "
+                + "needs it at exactly 0.");
+            Contains(Wire(), "internal static IslandStormUpdate? SeedFor(long entityId)",
+                "The seam the serializer calls.");
+            Contains(Wire(), "if (!WorldsAdriftRebornGameServer.Storms.Enabled) return null;",
+                "With storms off the seed must be byte-identical to what it always was.");
+        }
+
+        [Fact]
+        public void The_seed_still_pins_isLightningActive_to_false()
+        {
+            string serializer = Source("WorldsAdriftRebornGameServer", "Game",
+                "Components", "ComponentsSerializer.cs");
+            int seed = serializer.IndexOf("IslandLightningTimerStateData(", StringComparison.Ordinal);
+            Assert.True(seed > 0, "the 1254 seed was not found");
+            int end = serializer.IndexOf("obj = ilData;", seed, StringComparison.Ordinal);
+            Assert.True(end > seed, "the end of the 1254 seed was not found");
+
+            string block = serializer.Substring(seed, end - seed);
+            Contains(block, "false,",
+                "isLightningActive must stay hard-coded false in the seed - a storm "
+                + "seeded with it true would teleport the island toward Y -1500.");
+            Assert.DoesNotContain("storm?.IsLightningActive", block, StringComparison.Ordinal);
+        }
+
         // ====================================================================
         // MUTATION: "write isLightningActive = true"
         // ====================================================================
