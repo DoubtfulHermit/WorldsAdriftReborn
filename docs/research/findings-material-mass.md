@@ -15,7 +15,7 @@ Companion research: `findings-storm-walls.md` (the wall force model consumes shi
 3. **The shipped client carries no mass and no durability at all** — PROVED byte-exact. Both are server-authoritative. The community numbers are therefore neither corroborated nor contradicted by the client; it never carried them.
 4. **`1258` is `ShipLiftState` — LIFT, not mass.** The flat 1,000,000 is a lift seed. Three statements in the handover, the roadmap and this project's own source comments are wrong about this.
 5. **The 1e6 seed never protected anything.** What keeps flight working is a Harmony patch pinning `AtlasMultiplier` to `1f`. **The real cliff is lift, not mass.**
-6. **Durability has real data, no mechanism, and its two proxies contradict each other.** A damage model — not better numbers — is the blocking work.
+6. **Durability has real data, no mechanism, and its proxies contradict each other.** A damage model — not better numbers — is the blocking work. The **Update 29.4 resilience table is now recovered** (§6.3), pulled out of a published chart's embedded JSON; it is metals-only, and **no wood durability figure exists in any source found.**
 
 ---
 
@@ -73,15 +73,67 @@ That workbook contains **raw in-game kilogram readings**. Least squares through 
 
 **Honest caveat, and it matters:** the aileron and mechanical-internals delta series are **identical**. That is one measurement replicated, not two independent ones, and it is integer-rounded. Treat the fit as suggestive, not decisive.
 
-### 2.3 Tungsten is settled
+### 2.3 Tungsten is settled — and §2.5 then settled it decisively
 
 The wing fit reproduced every metal within a kilogram **except tungsten**, off by ~4 kg in both slots, implying **~0.73**. Falagar — retrieved afterwards, independently — says **0.74**. The wiki says **0.70**.
 
-Three sources cluster at 0.70–0.74. The sheets' **0.80 is the outlier** and looks like an error in the WAEngenius column, inherited by the panel sheet through the shared ×40 table (§2.1).
+Three sources cluster at 0.70–0.74. The sheets' **0.80 is the outlier** and looks like an error in the WAEngenius column, inherited by the panel sheet through the shared ×40 table (§2.1). **§2.5 closes this with a fourth, independent line of evidence: 0.74.**
 
-### 2.4 What to trust, and why not to average
+### 2.4 The recovered cannon sheet collapses the "third table"
 
-**Keep the wiki table.** It is the only RECOVERED source, and the only one covering **orthite, epilar and eternium** — adopting the community table would leave three metals with no number at all.
+The deleted sheet (§1.2) turns out not to be a third mass table at all.
+
+Dividing the recovered cannon weights by Falagar's WPU gives a **constant 0.70833** — min 0.70714, max 0.71000, n = 12. That is exactly the WAEngenius **schematic tier factor 0.7083** already in our notes. `Falagar_WPU × 0.7083` reproduces **11 of 12** published cannon weights to three decimals.
+
+So the cannon sheet is the *same* mass table at a different schematic tier. **Three unrelated authors agree**, and the count of genuinely independent mass tables drops again.
+
+### 2.5 Back-solving the tier factor recovers a clean WPU table — VERIFIED
+
+Inverting the relation — `WPU = cannon_kg / 0.70833` — over all 12 barrel weights:
+
+| metal | back-solved WPU | | metal | back-solved WPU |
+|---|---|---|---|---|
+| Aluminium | 0.2598 | | Nickel | 0.4602 |
+| Titanium | 0.3007 | | Copper | 0.4998 |
+| Tin | 0.3402 | | Silver | 0.5506 |
+| Iron | 0.3798 | | Lead | 0.6000 |
+| Steel | 0.3995 | | Gold | 0.6904 |
+| Bronze | 0.4193 | | **Tungsten** | **0.7398** |
+
+**Every one lands on a round hundredth**, most on a round fiftieth. A ratio fitted to fit *one* number would not do that twelve times. This is a genuine recovery of the underlying table, not a curve fit.
+
+Cross-checking tungsten against the three candidates — only one produces a tier factor consistent with the other eleven metals:
+
+| candidate WPU | implied tier factor | source |
+|---|---|---|
+| 0.70 | 0.74857 | wiki |
+| **0.74** | **0.70811** | **Falagar — consistent** |
+| 0.80 | 0.65500 | WAEngenius / panel |
+
+**Tungsten is 0.74.** The back-solve also puts **gold at 0.69, below tungsten** — Falagar's ordering, *contradicting* the wiki, which swaps them.
+
+*Verified independently in this repo by arithmetic on the archived `00-Formatted.derived.csv`, not taken on report.*
+
+### 2.6 What to trust, and why not to average
+
+> **Revised after §2.4–2.5.** The original recommendation below was "keep the wiki table",
+> on the grounds that it was the only RECOVERED source and the only one covering three
+> metals. The first half no longer holds: the cannon back-solve is now the
+> **best-corroborated metal mass evidence we have** — three unrelated authors, a clean
+> twelve-value table, internally consistent to a round hundredth. It contradicts the wiki
+> on tungsten (0.74 vs 0.70) and on the gold/tungsten ordering.
+>
+> **The tables are not competing measurements of one truth — they are different patch
+> epochs**, and the orderings genuinely changed between them. So the real rule is:
+> **pick an epoch and be internally consistent; never mix rows across tables.**
+> - For **metals**, the Falagar/cannon-derived table is the better-evidenced one.
+> - The wiki remains the **only** source of mass for **orthite, epilar and eternium**, so
+>   an all-metals table still cannot be built from Falagar alone.
+> - Our shipped values (cedar 0.15, chestnut 0.19) match **neither** table — wiki says
+>   0.13/0.17, Falagar/repo say 0.20/0.25. Ours sit between. That is worth a deliberate
+>   decision rather than leaving it as an accident.
+
+**Original recommendation, superseded in part:** keep the wiki table. It is the only RECOVERED source, and the only one covering **orthite, epilar and eternium** — adopting the community table would leave three metals with no number at all.
 
 **Do not average the tables.** The orderings differ, so an average produces a material ranking **no version of the game ever had**.
 
@@ -174,7 +226,31 @@ The overload string is quoted only as read: `"Ship weighs more than its atlas sk
 
 **Panel resilience may simply not have been per-material.** That is a legitimate reading of the evidence, not a gap in it.
 
-### 6.3 There is nothing to attach it to
+### 6.3 RESILIENCE RECOVERED — the gap §8 called the highest-value target is closed
+
+**The wiki `Resilience` page looked empty because its data is an embedded chart.** Every CSV, gviz and per-gid export is walled (400/401/404) — **but the published chart carries its own dataset as escaped JSON inside the chart HTML.** Fetching `pubchart?oid=225442159` returned the full table, document title *"Resilience (Update 29.4)"*:
+
+| material | resilience | | material | resilience |
+|---|---|---|---|---|
+| **Tungsten** | **85.77** | | Iron | 31.39 |
+| Eternium | 66.06 | | Tin / Orthite | 26.28 |
+| Epilar / Steel | 45.99 | | Titanium / Bronze | 21.17 |
+| Aluminum / Nickel | 36.13 | | Lead | 16.42 |
+| | | | Copper / Silver / Gold | 6.57 |
+
+Three things make this the strongest durability source we hold:
+
+1. **Every full-precision float is an exact multiple of `0.5 / 137`** (copper/silver/gold `9/137`, tungsten `117.5/137`, eternium `90.5/137`). That is the signature of real in-game readouts, not community estimates.
+2. It is **Update 29.4** — by far the latest patch of any source in this document.
+3. It includes **orthite, epilar and eternium**, which appear in no spreadsheet we hold.
+
+**Two caveats, and they matter:**
+- It is a **boost percentage against the best performer**, not absolute HP. It gives ordering and ratio, not a number to put in a component.
+- It **disagrees sharply with the 0.1.3.3 Casing Health ordering** from the engine sheet. Two patches apart, so both may be right in their epoch — but they cannot both be used at once.
+
+*Archived at `wa-community-2026-08-20/workbooks/resilience-update-29-4/`, raw chart HTML alongside the derived CSV, checksums verified. The same technique recovered the Skycore lift chart.*
+
+### 6.4 There is nothing to attach it to
 
 No damage model: `DamageService|ApplyDamage|TakeDamage` → **0 hits**; control `HullMassCalculator` → 3 files, sweep live. `ShipMaterial.Durability` is read by **exactly one thing: its own unit test.**
 
@@ -195,11 +271,14 @@ Both are provenance errors of the exact class the project rules forbid: a CHOSEN
 
 - **There is no Pine.** Worlds Adrift never had one — `git grep -inw pine` returns only pipelines, an emblem colour, and one deliberately-invalid test fixture; control `chestnut` → 147 hits. **The nearest real analogue to "pine vs chestnut" is cedar vs chestnut, 0.13 vs 0.17.**
 - **The absolute hull-frame scale.** The wiki publishes *panel* WPU and states other components differ, so `UnitsPerHullCell` stays CHOSEN — permanently, absent a new source.
-- **Wood durability from any source at all.**
-- **Orthite, epilar, eternium** have mass and nothing else.
-- **The cannon sheet's three RAW tabs** — Wayback captured only the active tab; Google returns 410.
-- **Fandom live** — 403/402.
-- **Highest-value remaining target: the wiki Resilience page's embedded sheet** (`2PACX-1vRmePDFVdY…`). It is the only known per-material resilience source, has never been archived, and was not attempted this session.
+- **Wood durability from any source at all.** Re-confirmed after the resilience recovery: **every durability source we hold is metals-only.** This is now the largest single hole in the material data.
+- ~~**Orthite, epilar, eternium** have mass and nothing else.~~ **Partly closed** — §6.3 gives all three a resilience figure. Mass for them still comes only from the wiki.
+- **The cannon sheet's three RAW tabs** — Wayback renders only the active tab; no per-gid, `/htmlview`, `/pubhtml` or `/export` capture exists in CDX, and Google still returns 410. **Permanently lost.**
+- **The spreadsheets behind both recovered charts** remain walled. Only the *plotted series* came back, so any unplotted column is still unknown.
+- **No general quality→durability formula.** But quality is settled on the mass side: it does **not** scale mass — the wiki states higher quality boosts stats *"without any additional cost of weight"*. The one concrete quality curve is atlas lift, linear: `lift = 1000 + (Q + 10) × rate`, fitting 11 of 12 metals exactly (iron's row carries a uniform +1 offset, preserved as found).
+- **Fandom live** — 403 to curl, 402 to WebFetch. Wiki figures therefore come from **2018 Wayback gamepedia captures carrying an "out of date" banner.** That is a provenance caveat on every wiki number in this document.
+- ~~**Highest-value remaining target: the wiki Resilience page's embedded sheet.**~~ **CLOSED — see §6.3.**
+- **Unexhausted:** a parallel sweep of Reddit, Steam guides and GitHub for further tables was dispatched but had not reported. Nothing here depends on it.
 
 ---
 
