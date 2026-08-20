@@ -356,12 +356,48 @@ public float TotalLift  => (_state == null) ? 0f : (EndOfTheWorldConfig.Instance
 public bool  IsOverloaded => _massVisualizer.totalMass > TotalLift;
 ```
 
-**A correction worth recording.** `AtlasMultiplier` is `0.0`, so `TotalLift = 0 * 1,000,000 = 0` — **our 1258 seed of 1,000,000 kg does not survive the multiplication and is not what keeps us flying.** `IsOverloaded` reduces to `totalMass > 0`. `ShipControlsBehaviour.cs:276-279` reaches it via `GetComponent<ShipLiftVisualizer>()`, which returns the component **even when disabled**, so "the visualizer is inert" does not prevent the read. What actually keeps vertical flight working is that **`ParentingMassAdderVisualizer.totalMass` is 0**, because `1257` is known-absent and we run no mass model. `0 > 0` is false. (The overload string, verified verbatim at `ShipControlsBehaviour.cs:283`, is *"Ship weighs more than its atlas sky core can lift."*)
+**A correction worth recording.** On an **unmodified** client `AtlasMultiplier` is `0.0`, so `TotalLift = 0 * 1,000,000 = 0` — **our 1258 seed of 1,000,000 does not survive the multiplication.** `IsOverloaded` would reduce to `totalMass > 0`. `ShipControlsBehaviour.cs:276-279` reaches it via `GetComponent<ShipLiftVisualizer>()`, which returns the component **even when disabled**, so "the visualizer is inert" does not prevent the read. (The overload string, verified verbatim at `ShipControlsBehaviour.cs:283`, is *"Ship weighs more than its atlas sky core can lift."*)
+
+> ⚠ **SUPERSEDED 2026-08-20 — the conclusion this paragraph originally drew was WRONG.**
+> It went on to claim that what keeps vertical flight working is `totalMass == 0`,
+> because `1257` is known-absent and we run no mass model. **Both halves are false**,
+> and `findings-material-mass.md` §4 proves it:
+>
+> - **We do run a mass model.** `1257 ParentingMassAdderState` is served at
+>   `ComponentsSerializer.cs:3284` → `ShipMassKgFor` → `HullMassCalculator.HullMassKg`,
+>   fully per-material, feeding both the wire and flight agility. The
+>   "1257 is known-absent" comment sits at `:626` **inside the 1258 branch**, 2,600
+>   lines above the code that serves it, and is stale.
+> - **`AtlasMultiplier` is not 0 on our client.**
+>   `WorldsAdriftReborn/Patching/Flight/EndOfTheWorld_Patch.cs` is a Harmony prefix
+>   pinning the getter to `1f`. So `TotalLift = 1,000,000` after all, and hull mass
+>   tops out orders of magnitude below it — solid gold needs ~685 cells to overload.
+>
+> **The method error is the transferable part:** this section reasoned from the
+> retail decompile without checking our own Harmony patches. The decompile describes
+> what Bossa shipped, **not what we run.** Add that to the false-negative list in
+> `understorm-s1-live-findings.md` §5. `1258` is also `ShipLiftState` — **lift, not
+> mass** — which several project documents get wrong.
+>
+> **The real cliff is LIFT, not mass.** See `findings-material-mass.md` §5: the
+> recovered retail base is a 1,000 kg sky core, and making lift real collapses the
+> budget 1,000×, grounding a one-cell gold hull outright.
 
 Three consequences, and they are the real risk register for walls-plus-ships:
 
-1. **The safety margin is zero, not 1,000,000.** Anything that makes `totalMass` non-zero — serving `1257`, a hull mass model, a `ParentingMassAdderVisualizer` that starts resolving — flips `IsOverloaded` to `true` **for every ship simultaneously** and blocks all vertical input. This is pre-existing and is not caused by walls, but walls are the first feature that would make anyone want a real ship mass.
-2. **`totalMass = 0` also pins the weight mechanic at its most vulnerable setting.** `ApplyDrag` uses `rb.mass` (the Unity rigidbody's mass, not `totalMass`), so §2.4 keys off whatever the hull's rigidbody actually weighs. If that is small or synthetic, our ships will be tossed around like the lightest possible retail ship. **The maintainer's "heavier is better" memory will not reproduce until ship mass is real.** That is a genuine gameplay-fidelity dependency, and worth saying plainly: *walls will feel wrong until ship mass is modelled.*
+1. ~~**The safety margin is zero, not 1,000,000.**~~ **RETRACTED — see the box above.**
+   The margin is real: `TotalLift = 1,000,000` under the patch, against hull masses
+   orders of magnitude smaller. The hazard is not mass becoming non-zero (it already
+   is); it is **lift becoming real**, which is a separate, deliberate change.
+2. ~~**`totalMass = 0` pins the weight mechanic at its most vulnerable setting**, and walls will feel wrong until ship mass is modelled.~~ **RETRACTED, and this is the good news.**
+   `ApplyDrag` uses `rb.mass` — the Unity rigidbody's mass — and the client assigns
+   that **straight from `1257`**, which we already serve per-material
+   (`findings-material-mass.md` §4.1). **So the weight mechanic is live today**, and
+   the maintainer's "heavier is better" memory should already reproduce the moment
+   walls are served. Walls do **not** have to wait on a mass model; they have one.
+   The `mass/4000` ramp saturates at 4,000 kg, so what remains open is purely a
+   tuning question — whether our hull masses land in a range where the ramp has
+   any headroom left. Worth measuring against real hulls before serving walls.
 3. **`IsFloatingShip` is only read in the sleep early-out**, so a mis-evaluation there costs a stationary ship its wind, not a crash. Minor.
 
 **Verdict: serving `1204` today does not perturb the atlas arithmetic and cannot.** Serving `1229` *also* cannot, on its own — the behaviours that read it are not on our hulls. The coupling arrives with ships Stage B, and when it does, wall wind and vertical flight share the `IsOverloaded` predicate.
