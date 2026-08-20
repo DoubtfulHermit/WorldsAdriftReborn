@@ -1,0 +1,157 @@
+{
+  "retrievedAtUtc": "2026-08-20T10:41:23Z",
+  "classification": "community-measured and community-wiki; cross-check before retail-fidelity claims",
+  "supersedes": null,
+  "complements": "wa-community-2026-08-16",
+  "workbooks": [
+    {
+      "title": "Worlds Adrift Cannon Science",
+      "alsoKnownAs": "Cannon Materials Sheet v1.0 - Beta version 0.1.0 by Fallout",
+      "googleSheetId": "1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg",
+      "requestedGid": "1926050317",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/edit#gid=1926050317",
+      "liveStatus": "http-410-deleted (unchanged from 2026-08-16 snapshot)",
+      "status": "partially-recovered-from-wayback",
+      "recoveredVia": "Wayback Machine CDX + id_ raw replay of the /edit page; Google Sheets emits a full noscript HTML render of the ACTIVE tab, which preserved the 'Formatted' tab verbatim",
+      "cdxQuery": "http://web.archive.org/cdx/search/cdx?url=docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg*&output=json",
+      "selfDeclaredVersion": "Beta version 0.1.0",
+      "author": "Fallout",
+      "tabsKnownToHaveExisted": ["Formatted", "Barrel RAW", "Firing Mechanism RAW", "Ammo Loader RAW"],
+      "tabsRecovered": ["Formatted"],
+      "tabsLost": ["Barrel RAW", "Firing Mechanism RAW", "Ammo Loader RAW"],
+      "captures": [
+        {
+          "waybackTimestamp": "20190601163336",
+          "requestedUrl": "https://web.archive.org/web/20190601163336id_/https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/edit?usp=sharing",
+          "path": "workbooks/cannon-science/wayback-20190601163336-edit-usp-sharing.html",
+          "bytes": 366065
+        },
+        {
+          "waybackTimestamp": "20190602112029",
+          "requestedUrl": "https://web.archive.org/web/20190602112029id_/https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/edit",
+          "path": "workbooks/cannon-science/wayback-20190602112029-edit.html",
+          "bytes": 366021,
+          "sha256": "321da6257ab0a3544efffbe1efbe0eede0af8c00bc167e93b113240963d47db1",
+          "primary": true
+        },
+        {
+          "waybackTimestamp": "20201111234526",
+          "requestedUrl": "https://web.archive.org/web/20201111234526id_/https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/edit",
+          "path": "workbooks/cannon-science/wayback-20201111234526-edit.html",
+          "bytes": 301960
+        },
+        {
+          "waybackTimestamp": "20230603082247",
+          "requestedUrl": "https://web.archive.org/web/20230603082247id_/https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/edit?usp=sharing",
+          "path": "workbooks/cannon-science/wayback-20230603082247-edit-usp-sharing.html",
+          "bytes": 341544
+        },
+        {
+          "waybackTimestamp": "20230603091751",
+          "requestedUrl": "https://web.archive.org/web/20230603091751id_/https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/edit",
+          "path": "workbooks/cannon-science/wayback-20230603091751-edit.html",
+          "bytes": 341651
+        }
+      ],
+      "cdxIndexPath": "workbooks/cannon-science/wayback-cdx.json",
+      "derived": [
+        {
+          "path": "workbooks/cannon-science/00-Formatted.derived.csv",
+          "note": "NOT an as-retrieved export. Produced by this session by parsing the noscript <table> out of wayback-20190602112029-edit.html. The three 2019/2020/2023 captures parse byte-identically in their data cells. Verify against the raw HTML before trusting.",
+          "rows": 101,
+          "columns": 23
+        }
+      ]
+    },
+    {
+      "title": "Worlds Adrift Engine Science",
+      "alsoKnownAs": "Engine Materials Sheet",
+      "googleSheetId": "1lUYA9dYvxLYVlJUQ6GRrWMl-0ptKT3ASj3-rnhmYr3U",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1lUYA9dYvxLYVlJUQ6GRrWMl-0ptKT3ASj3-rnhmYr3U/edit",
+      "exportUrl": "https://docs.google.com/spreadsheets/d/1lUYA9dYvxLYVlJUQ6GRrWMl-0ptKT3ASj3-rnhmYr3U/export?format=xlsx",
+      "liveStatus": "http-200-live",
+      "status": "downloaded",
+      "discoveredVia": "credits block of the already-archived Wing Science workbook (wa-community-2026-08-16/workbooks/wing-science/00-Formatted.csv)",
+      "selfDeclaredVersion": "Worlds Adrift Closed Beta 0.1.3.3",
+      "author": "Gouki (Morrow#9503)",
+      "notInPriorSnapshot": true,
+      "distinctFrom": "1xXTrHpvVgybTBUw6tl2MXfYke3Ez9VoBlkqszfePRUU (the 49x10 single-tab 'Worlds Adrift Engine Science' already archived on 2026-08-16); this one shares the title but is a different, much larger document with three RAW measurement tabs",
+      "path": "workbooks/engine-materials-sheet/source.xlsx",
+      "sha256": "b740c5f23d23c16cb4708e6fc7680863d97304da2c57dbff3fc6fe18d62e7160",
+      "bytes": 957728,
+      "sheets": [
+        { "name": "Formatted", "rows": 46, "columns": 18, "note": "Combustion Internals, Mechanical Internals, Propeller and Casing normalised 0-1 rankings; Casing block carries per-material Health (durability) and Mass Efficiency" },
+        { "name": "Combustion Internals RAW", "rows": 41, "columns": 22, "note": "absolute in-game readouts per crafted test engine" },
+        { "name": "Mechanical Internals RAW", "rows": 41, "columns": 22 },
+        { "name": "Propeller RAW", "rows": 40, "columns": 22 }
+      ]
+    }
+  ],
+  "wiki": [
+    {
+      "title": "Metal - Official Worlds Adrift Wiki",
+      "liveUrl": "https://worldsadrift.gamepedia.com/Metal",
+      "liveStatus": "gamepedia dead; worldsadrift.fandom.com/wiki/Metal returned HTTP 403 to curl on 2026-08-20",
+      "retrievedFrom": "https://web.archive.org/web/2018id_/https://worldsadrift.gamepedia.com/Metal",
+      "waybackRedirectedTo": "a 2018 capture (page footer states oldid=16533)",
+      "path": "wiki/gamepedia-Metal-wayback-2018.html",
+      "sha256": "e37b8d617b8817511935e2cbbdfd0e0182d21a3dd021c3232b2b82e63d1ec99f",
+      "bytes": 134109,
+      "contains": "15-metal panel weight-per-unit Mass Table (incl. Orthite, Epilar, Eternium), rarity tiers, flavour text, removed-metal history (Magnesium/Palladium/Platinum), prose on Q1-Q10 quality",
+      "selfDeclaredVersion": "none; page carries an 'out of date' banner"
+    },
+    {
+      "title": "Wood - Official Worlds Adrift Wiki",
+      "liveUrl": "https://worldsadrift.gamepedia.com/Wood",
+      "liveStatus": "gamepedia dead; worldsadrift.fandom.com/wiki/Wood returned HTTP 403 to curl on 2026-08-20",
+      "retrievedFrom": "https://web.archive.org/web/2018id_/https://worldsadrift.gamepedia.com/Wood",
+      "path": "wiki/gamepedia-Wood-wayback-2018.html",
+      "sha256": "a5367b11247a93f1af793a5d517244b0386123004f413dcf7d1a45545d72eb52",
+      "bytes": 63470,
+      "contains": "8-wood mass table with flavour text; removed-wood history (Ironwood, Mahogany, Ebony, Maple, gone as of Alpha 6)"
+    },
+    {
+      "title": "Atlas Sky Core - Official Worlds Adrift Wiki",
+      "liveUrl": "https://worldsadrift.gamepedia.com/Atlas_Sky_Core",
+      "retrievedFrom": "https://web.archive.org/web/2018id_/https://worldsadrift.gamepedia.com/Atlas_Sky_Core",
+      "path": "wiki/gamepedia-Atlas_Sky_Core-wayback-2018.html",
+      "sha256": "32640419531460b8a9d294aa94619bf5fc81364ee8105a631a5e3b55c16447e0",
+      "bytes": 91852,
+      "contains": "base 1000kg lift, eight named core-extension upgrades with their stated minimum kg lift gains and metal/shard crafting costs, and a full 12-metal x Q1-Q10 lift table credited to 'Demodraco#0118'"
+    }
+  ],
+  "guides": [
+    {
+      "title": "Worlds Adrift Advanced Resource Stats",
+      "author": "Falagar",
+      "publishedDate": "2017-07-06",
+      "sourceUrl": "https://www.magicgameworld.com/worlds-adrift-advanced-resource-stats/",
+      "liveStatus": "http-200-live (curl with a browser User-Agent; WebFetch was refused with HTTP 403)",
+      "path": "guides/magicgameworld-advanced-resource-stats.html",
+      "sha256": "8ffc3a2f2366346e06f40264b9b4123f8eca31504efd37a727a145854d02f09a",
+      "bytes": 271272,
+      "contains": "12-metal and 8-wood weight-per-unit (kg) tables with flavour text",
+      "note": "page is a 2017 article on a live 2026 site; the HTML is therefore wrapped in current site chrome and ads, not a period-accurate capture"
+    }
+  ],
+  "attemptedAndFailed": [
+    {
+      "target": "Cannon Science tabs 'Barrel RAW', 'Firing Mechanism RAW', 'Ammo Loader RAW'",
+      "result": "not recoverable",
+      "reason": "the Wayback captures render only the sheet's active tab into noscript HTML; no per-gid, /htmlview, /pubhtml or /export capture of this document exists in the CDX index"
+    },
+    {
+      "target": "https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/export?format=xlsx",
+      "result": "still HTTP 410 from Google on 2026-08-20"
+    },
+    {
+      "target": "Worlds Adrift Skycore Science Graph (published sheet 2PACX-1vTdH9ccpwXVmhOw7o0rVYERjzP2PPDr1cKHnDaQEh3tfUl-_1QeHyGR6jypG4hFduDr-ZP1RKCFRAuO), linked from the Atlas Sky Core wiki page",
+      "result": "/pubhtml returns HTTP 200 with the document title only; /pub?output=csv returns HTTP 400 and /pub?gid=0&single=true&output=csv returns HTTP 401 (sign-in wall). Underlying values not retrieved.",
+      "note": "the wiki page it feeds already contains the same 12-metal Q1-Q10 lift table in HTML, which IS archived here"
+    },
+    {
+      "target": "worldsadrift.fandom.com/wiki/{Metal,Wood,Atlas_Sky_Core}",
+      "result": "HTTP 403 to curl and HTTP 402 to WebFetch; used the Wayback gamepedia captures instead"
+    }
+  ]
+}
