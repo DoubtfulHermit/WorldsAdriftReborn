@@ -351,6 +351,63 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// WHERE THE DEPOSIT REGISTERED AS <paramref name="key"/> STANDS AFTER
+        /// <paramref name="island"/>'s storm number <paramref name="generation"/> - the
+        /// WHOLE understorm re-roll decision for one deposit, in one call. Null means
+        /// "this deposit does not move", and the caller then leaves it alone.
+        ///
+        /// ⚠ THIS METHOD EXISTS BECAUSE A MUTATION ESCAPED, and it is the second time
+        /// this exact hole has been found in the storm work - see
+        /// <c>Islands.IslandResourceScope</c> for S2's version of the same lesson.
+        ///
+        /// S3's re-roll was first written as a loop in the game server that asked
+        /// <c>IslandResourceReroll.SeatsFor</c> for the seats and then indexed it:
+        ///
+        /// <code>
+        /// Nodes.Reseat(entityId, MetalDeposits.NodeAtSeat(index.Value, seats[index.Value]));
+        /// </code>
+        ///
+        /// Changing that one subscript to <c>NodeAtSeat(index.Value, index.Value)</c>
+        /// re-seats every deposit onto its OWN seat, so <c>Reseat</c> reports no change,
+        /// nothing is broadcast, not one rock moves and no log line is even printed -
+        /// and <b>all 4252 tests passed</b>. The game-server assembly has no test
+        /// project (it needs a Windows game install to compile against), so the loop was
+        /// guarded only by source-reading assertions that the strings
+        /// <c>SeatsFor(</c> and <c>NodeAtSeat(</c> appeared somewhere in the file. Both
+        /// still appeared. String matching cannot see that a value was computed and
+        /// then thrown away.
+        ///
+        /// So the arithmetic moved HERE, where it is unit-tested, and the game server
+        /// no longer has an index to get wrong: it asks for a node and re-seats it.
+        /// Keep it that way - if a future change hands the caller a seat number again,
+        /// it hands back the same silent failure.
+        /// </summary>
+        public static MetalNode? RerolledNode(
+            Islands.IslandId island, long generation, string key)
+        {
+            if (generation <= 0) return null;
+            if (island.Value != Islands.IslandCatalog.HavenId.Value) return null;
+
+            int? index = HavenIndexOf(key);
+            if (index == null) return null;
+
+            int seatCount = RerollSeatCount;
+            int occupied = HavenPlacements.Count;
+            if (seatCount <= occupied) return null;
+
+            IReadOnlyList<int> seats = Islands.IslandResourceReroll.SeatsFor(
+                island, (uint)generation, seatCount, occupied,
+                Islands.IslandResourceReroll.PinnedSeats);
+
+            if (index.Value >= seats.Count) return null;
+
+            int seat = seats[index.Value];
+            if (seat == index.Value) return null;
+
+            return NodeAtSeat(index.Value, seat);
+        }
+
+        /// <summary>
         /// The deposits to place on Haven. <paramref name="count"/> is clamped to
         /// [0, the full table]; index 0 (the proven deposit) is kept for any count
         /// &gt;= 1. One is the cautious first-live default - the coordinate and

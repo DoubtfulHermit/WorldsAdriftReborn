@@ -325,6 +325,114 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         // ====================================================================
+        // RerolledNode - THE WHOLE DECISION IN ONE CALL.
+        //
+        // ⚠ THESE TESTS ARE THE FIX FOR AN ESCAPED MUTATION. The re-roll was first
+        // a loop in the game server that indexed a seat list; changing
+        // `NodeAtSeat(index, seats[index])` to `NodeAtSeat(index, index)` moved
+        // nothing at all and the whole suite stayed green, because the untestable
+        // assembly was guarded only by string matching. The arithmetic now lives in
+        // MetalDeposits.RerolledNode, and these assert its BEHAVIOUR.
+        // ====================================================================
+
+        [Fact]
+        public void RerolledNode_moves_most_deposits_on_a_real_storm()
+        {
+            // THE TEST THAT WOULD HAVE CAUGHT THE ESCAPE. A RerolledNode that returned
+            // the deposit's home position - the exact shape of the escaped mutation -
+            // returns null for every key and fails right here.
+            int moved = 0;
+            for (int i = 0; i < Occupied; i++)
+            {
+                MetalNode? node = MetalDeposits.RerolledNode(Haven, 1, "deposit-" + i);
+                if (node == null) continue;
+                Assert.NotEqual(MetalDeposits.NodeAt(i).Position, node.Position);
+                moved++;
+            }
+
+            Assert.True(moved >= Occupied / 2,
+                "only " + moved + " of " + Occupied + " deposits were re-rolled");
+        }
+
+        [Fact]
+        public void RerolledNode_returns_nothing_for_a_world_that_has_never_stormed()
+        {
+            // Generation 0 is the boot layout. A re-roll firing at generation 0 would
+            // move every rock before any storm - which reads to a player exactly like
+            // the §4 "the rock moved" report S3 had to investigate before it could be
+            // believed.
+            for (int i = 0; i < Occupied; i++)
+            {
+                Assert.Null(MetalDeposits.RerolledNode(Haven, 0, "deposit-" + i));
+            }
+        }
+
+        [Fact]
+        public void RerolledNode_never_moves_the_pinned_tutorial_deposit()
+        {
+            for (long g = 0; g < 50; g++)
+            {
+                Assert.Null(MetalDeposits.RerolledNode(Haven, g, "deposit-0"));
+            }
+        }
+
+        [Fact]
+        public void RerolledNode_declines_islands_and_keys_with_no_seat_pool()
+        {
+            Assert.Null(MetalDeposits.RerolledNode(new IslandId("elsewhere"), 3, "deposit-5"));
+            Assert.Null(MetalDeposits.RerolledNode(Haven, 3, "metal-5"));
+            Assert.Null(MetalDeposits.RerolledNode(Haven, 3, "tree-5"));
+            Assert.Null(MetalDeposits.RerolledNode(Haven, 3, "deposit-99999"));
+        }
+
+        [Fact]
+        public void RerolledNode_is_deterministic_and_generation_dependent()
+        {
+            MetalNode? a = MetalDeposits.RerolledNode(Haven, 4, "deposit-9");
+            MetalNode? b = MetalDeposits.RerolledNode(Haven, 4, "deposit-9");
+            Assert.Equal(a?.Position, b?.Position);
+
+            bool differsSomewhere = false;
+            for (int i = 1; i < Occupied; i++)
+            {
+                MetalNode? g4 = MetalDeposits.RerolledNode(Haven, 4, "deposit-" + i);
+                MetalNode? g5 = MetalDeposits.RerolledNode(Haven, 5, "deposit-" + i);
+                if (g4?.Position != g5?.Position) differsSomewhere = true;
+            }
+            Assert.True(differsSomewhere, "two different storms produced the same field");
+        }
+
+        [Fact]
+        public void RerolledNode_never_puts_two_deposits_in_the_same_place()
+        {
+            // The visible failure this guards is two rocks in one hole. Checked against
+            // the deposits that did NOT move as well as those that did.
+            for (long g = 1; g <= 10; g++)
+            {
+                HashSet<FixedPointPosition> taken = new HashSet<FixedPointPosition>();
+                for (int i = 0; i < Occupied; i++)
+                {
+                    MetalNode? moved = MetalDeposits.RerolledNode(Haven, g, "deposit-" + i);
+                    FixedPointPosition at = moved?.Position ?? MetalDeposits.NodeAt(i).Position;
+                    Assert.True(taken.Add(at),
+                        "two deposits share a position at generation " + g);
+                }
+            }
+        }
+
+        [Fact]
+        public void RerolledNode_keeps_the_deposits_identity()
+        {
+            MetalNode home = MetalDeposits.NodeAt(9);
+            MetalNode? moved = MetalDeposits.RerolledNode(Haven, 4, "deposit-9");
+            Assert.NotNull(moved);
+            Assert.Equal(home.Key, moved!.Key);
+            Assert.Equal(home.MetalType, moved.MetalType);
+            Assert.Equal(home.Quality, moved.Quality);
+            Assert.Equal(home.VariantId, moved.VariantId);
+        }
+
+        // ====================================================================
         // THE REGISTRY SEAM
         // ====================================================================
 

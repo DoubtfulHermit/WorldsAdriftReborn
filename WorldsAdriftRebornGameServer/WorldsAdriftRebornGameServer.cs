@@ -1777,33 +1777,21 @@ namespace WorldsAdriftRebornGameServer
         internal static int RerollIslandDeposits(
             Multiplayer.Islands.IslandId island, long generation)
         {
-            if (generation <= 0) return 0;
-
-            // Haven's static field is the only one with a seat pool today.
-            if (island.Value != Multiplayer.Islands.IslandCatalog.HavenId.Value) return 0;
-
-            int seatCount = Multiplayer.MetalDeposits.RerollSeatCount;
-            int occupied = Multiplayer.MetalDeposits.HavenPlacements.Count;
-            if (seatCount <= occupied) return 0;
-
-            IReadOnlyList<int> seats = Multiplayer.Islands.IslandResourceReroll.SeatsFor(
-                island, (uint)generation, seatCount, occupied,
-                Multiplayer.Islands.IslandResourceReroll.PinnedSeats);
-
             int moved = 0;
             foreach (long entityId in Nodes.EntityIds)
             {
                 Multiplayer.MetalNode? node = Nodes.NodeOf(entityId);
                 if (node == null) continue;
 
-                int? index = Multiplayer.MetalDeposits.HavenIndexOf(node.Key);
-                if (index == null || index.Value >= seats.Count) continue;
+                // THE WHOLE DECISION IS ONE CALL, and that is deliberate - see
+                // MetalDeposits.RerolledNode for the mutation that escaped when this
+                // loop did its own seat arithmetic. Null means "does not move": not
+                // Haven's static field, generation 0, or this deposit kept its seat.
+                Multiplayer.MetalNode? reseated =
+                    Multiplayer.MetalDeposits.RerolledNode(island, generation, node.Key);
+                if (reseated == null) continue;
 
-                if (!Nodes.Reseat(entityId,
-                        Multiplayer.MetalDeposits.NodeAtSeat(index.Value, seats[index.Value])))
-                {
-                    continue;
-                }
+                if (!Nodes.Reseat(entityId, reseated)) continue;
 
                 BroadcastNodeReset(entityId);
                 moved++;
@@ -1813,7 +1801,7 @@ namespace WorldsAdriftRebornGameServer
             {
                 Console.WriteLine("[storm] understorm re-roll on " + island.Value
                     + ": moved " + moved + " deposit(s) into generation " + generation
-                    + "'s layout (" + occupied + " of " + seatCount + " seat(s) occupied).");
+                    + "'s layout.");
             }
             return moved;
         }

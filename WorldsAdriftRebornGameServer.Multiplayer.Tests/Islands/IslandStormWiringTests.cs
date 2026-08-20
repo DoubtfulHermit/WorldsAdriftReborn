@@ -355,30 +355,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // in-place behaviour with every test green. The decision must come from
             // IslandResourceReroll, which IS unit-tested.
             string server = Collapsed(Server());
-            Contains(server, "Multiplayer.Islands.IslandResourceReroll.SeatsFor(",
-                "The seat choice must come from the pure, unit-tested decision, not "
-                + "from a loop written in the untestable game-server assembly.");
-            Contains(server, "Multiplayer.MetalDeposits.NodeAtSeat(",
-                "...and the moved node must be built by the tested factory, which "
-                + "carries the deposit's key, metal, quality and 1255 variant across.");
+            Contains(server, "Multiplayer.MetalDeposits.RerolledNode(island, generation, node.Key)",
+                "The ENTIRE seat decision must come from the pure, unit-tested "
+                + "RerolledNode - one call, no arithmetic in this assembly. An earlier "
+                + "version asked for the seat LIST here and indexed it, and changing "
+                + "`seats[index]` to `index` killed the feature outright with all 4252 "
+                + "tests green. See MetalDeposits.RerolledNode.");
+            DoesNotContain(server, "IslandResourceReroll.SeatsFor(",
+                "The game server must NOT compute seats itself. SeatsFor belongs to "
+                + "MetalDeposits.RerolledNode, in the assembly that can be tested; "
+                + "calling it here reopens the escaped mutation.");
             Contains(server, "Nodes.Reseat(",
                 "...and the registry must actually be updated, or a later joiner is "
                 + "seeded at the deposit's old position and sees a rock nobody else does.");
             Contains(server, "BroadcastNodeReset(entityId)",
                 "...and the peers holding the deposit must be told, or it moves only "
                 + "on the server.");
-        }
-
-        [Fact]
-        public void Mutation_a_world_that_has_never_stormed_is_not_re_rolled()
-        {
-            // Generation 0 is the boot layout. A re-roll that fired at generation 0
-            // would move every rock the first time the service ticked, before any storm
-            // - which reads to a player exactly like the §4 "the rock moved" report
-            // that S3 had to investigate before it could be believed.
-            Contains(Collapsed(Server()), "if (generation <= 0) return 0;",
-                "The re-roll must be a no-op at generation 0 so an unstormed world is "
-                + "byte-identical to a pre-S3 one.");
         }
 
         [Fact]
