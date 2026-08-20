@@ -850,8 +850,9 @@ weather cells."** Everything below is PROVED.
 > systems** under the word "storm" and gave all of them the blocker of the
 > hardest one. Separated: the **understorm** (`1254`, which we already serve) is
 > reachable NOW and needs neither the 1139 lattice nor a client mod; **weather
-> walls** (`1204`) need no lattice either; only the **Blight** (`1269`) is
-> blocked, and on a **client mod**, not on Phase 6. **§14 is the current plan.**
+> walls** (`1204`) need no lattice either; and the **Blight** (`1269`) is not blocked on Phase 6 either — its
+> "needs a client mod" blocker turned out to be a **false zero** (§14.3.3).
+> **§14 is the current plan.**
 > `1256 SandStormAffecteePositionalState` is dead to us — its only consumer is
 > `[WorkerType(WorkerPlatform.UnityWorker)]` and never runs on a player client.
 > The text below is kept for its Blight analysis, which §14.3.3 extends.
@@ -937,7 +938,7 @@ Candidates that probably do:
 | item | phase | why |
 |---|---|---|
 | Deck parts mounting on placed objects | SC3 | **WRITTEN, unbuilt, unreleased.** `Patching/Ship/DeckPartsMountOnPlacedObjects_Patch.cs`. The placement mask and tag are decided entirely client-side, so no server string can reach a railing's `Default`-layer collider. §11.6 |
-| `BlightLocalComponent` attachment for storms | 7 | the client never attaches it; a Harmony patch may be the only route |
+| ~~`BlightLocalComponent` attachment for storms~~ | 7 | **WITHDRAWN 2026-08-20, §14.3.3.** The client DOES attach it, from a JSON blueprint that ships inside `resources.assets`, via `ApplyBlueprintLocalComponentsS`. The "never attaches it" finding was a **false zero**: `WASystems.dll` and `SpatialTranslator.dll` are not in the decompile tree. **No client mod appears to be needed.** |
 | Any Harmony reach into a closed-generic ECS system | 6/7 | `AddToIdComponentToEntityMapS\`2` — **unverified whether Harmony can reach it at all** |
 | Day/night clock presentation | 9 | if the stock client has no server-driven clock hook |
 | Melee hand-item enum | 9 | the enum has no melee entry; adding one is a client change |
@@ -3778,7 +3779,7 @@ word "storm" and inherited the blocker of the hardest one. Separated:
 |---|---|---|---|
 | **Understorm** — the island lightning event that resets resources | **1254 `IslandLightningTimerState`** | **NO** | **REACHABLE NOW. We already serve 1254.** |
 | **Weather walls** — wind/storm/sand rifts | **1204 `WallSegmentState`** | **NO** | **REACHABLE.** One `[Require]`, geometry already imported |
-| **Blight** — the debris/server-load storm that eats ships | 1269 `RadialStormState` | not the lattice — a **client mod** | **BLOCKED.** Needs a Harmony patch |
+| **Blight** — the debris/server-load storm that eats ships | 1269 `RadialStormState` + 8065 `Blueprint` | **NO** | **PROBABLY REACHABLE WITH NO CLIENT MOD** — see 14.3.3, corrected. Its blocker was a FALSE ZERO |
 
 The maintainer's memory — *"storms … that's what would respawn or refresh nodes
 on an island"* — is **CORRECT, corroborated four ways**, and the mechanism is
@@ -3966,50 +3967,135 @@ Every one of these is **RECOVERED**, not invented:
 | `OwnedImportanceMultiplier` | 2× | `:64` |
 | `Top` / `Bottom` | **+1000 m / −500 m** | `:68,71` |
 
-#### 14.3.3 Why it is blocked — the precise mechanism, which the roadmap did not have
+#### 14.3.3 ⚠ CORRECTED — the Blight's blocker was a FALSE ZERO
 
-`BlightViewSystem.OnInitialize` (**PROVED**, `acs/BlightViewSystem.cs:57`):
+**This subsection originally said the Blight was blocked on a client mod. That
+was wrong, and it was wrong for exactly the reason this project keeps naming:
+a search that found nothing, in a tree that could not have contained the answer.**
 
-```csharp
-_blightsFilter = SystemBase.And(_radialStorms.Has, _blights.Has,
-                                _remappedPositions.Has, _radii.Has);
+`/home/ttanurhan/Games/WAReborn-decompiled/` contains `acs/`, `ecs/`, `gencode/`
+and `sdk-decomp/`. It does **not** contain **`WASystems.dll`** or
+**`SpatialTranslator.dll`**, both of which are present in the shipped client at
+`UnityClient@Windows_Data/Managed/` (**PROVED**, `ls`). Those two assemblies hold
+`BlightLocalComponent`, `RadiusLocalComponent`'s writer,
+`ApplyBlueprintLocalComponentsS`, `SpatialRuntimeWrapperS`, `RadialStormStateC`,
+`WeatherCellGenesisS`, `CantorPairUtils` and `RecomputeWeatherCellStatesS`.
+
+**Every prior weather/Blight search of the decompile tree — including the one
+that produced PHASE 7's blocker, and this section's first draft — returned a
+false zero on those symbols.** Re-run anything that matters against the DLLs
+(`ilspycmd -t <Type> <dll>`, or `grep -a` on the binary).
+
+##### What is actually true
+
+The `[Require]`/filter analysis stands: `BlightViewSystem`'s filter is
+`_radialStorms.Has ∧ _blights.Has ∧ _remappedPositions.Has ∧ _radii.Has`
+(**PROVED**, `acs/BlightViewSystem.cs:59`), and no C# in `acs/` calls
+`AddComponent<BlightLocalComponent>`. What was missed is that **the attacher is
+data, and the data ships.**
+
+**A TextAsset named `Blight` is inside the shipped
+`UnityClient@Windows_Data/resources.assets` at byte offset `567382447`**
+(**PROVED**, dumped verbatim — the earlier "no `Blight` blueprint ships" claim
+came from a `find` for `*blueprint*` filenames, which a TextAsset inside an
+`.assets` file will never match):
+
+```json
+{
+    "Components": {
+        "BlightLocalComponent, WASystems": { },
+        "BlightPlayerImportanceDestroyed, WASystems": { "Value": 0 },
+        "Bossa.Travellers.Weather.RadialStormStateC, SpatialTranslator": {
+            "Weight": "0", "ComponentWriteAccess": "physics" },
+        "Improbable.Corelib.Entity.PrefabC, SpatialTranslator": { "Name": "Blight" },
+        "Improbable.Entity.Physical.TagsDataC, SpatialTranslator": {
+            "Tags": [ "LongDistanceCheckout" ] }
+    },
+    "InheritBlueprints": ["RateLimitedTransform"],
+    "EntityReadAccess": ["physics","visual"]
+}
 ```
 
-So 1269 **plus** `BlightLocalComponent` **plus** `RadiusLocalComponent`.
+**`"visual"` is the UnityClient's own attribute** (`acs/Improbable.Unity.Core.Acls/
+CommonAttributeSets.cs:9`). The Blight entity was readable by players by design.
 
-**Nothing in the client adds `BlightLocalComponent` in C#** — a sweep of `acs/`
-finds it only as `FlagComponentStore<BlightLocalComponent>` *declarations* in
-15 systems, and **zero `AddComponent`** (**PROVED**). But the roadmap's "nothing
-attaches it" stops one step short of the real mechanism:
+And the client re-applies it. `SpatialTranslator.Systems.ApplyBlueprintLocalComponentsS`
+filters on `_blueprints.AddedThisFrame`, and for each new
+**`8065 Blueprint = { string identifier }`** calls
+`GetBlueprint(identifier).ApplyBlueprint(entityIndex, ExclusionTags)` with
+`ExclusionTags = { "Spatial" }` — so `RadialStormStateC` (tagged `Spatial`) is
+skipped and arrives over the wire, while the **untagged**
+`BlightLocalComponent` is attached **locally on the client**. It is
+unconditionally prepended to the subsystem list in
+`SpatialRuntimeWrapperS.OnInitialize()`, so it runs whatever `ecs_config.json`
+says. `FlagComponentStore.ReplaceComponentData` → `ReplaceComponent` →
+`Has.SetTrue` (**PROVED**, `ecs/BossaECS.Core.Component/FlagComponentStore.cs:64-98`).
 
-**The attacher is a JSON blueprint.** `CreateBlightEntitySystem.Execute` does
-`_blueprintFactory.GetBlueprint("Blight")` then `blueprint.ApplyBlueprint(entityIndex)`
-(**PROVED**, `acs/CreateBlightEntitySystem.cs:54-56`). Blueprints are loaded
-from `*.json` files on disk by `FileBlueprintFinder` (**PROVED**,
-`ecs/BossaECS.Core.Blueprints/FileBlueprintFinder.cs:11`), and
-`BlueprintFactory.GetBlueprint` **throws `ArgumentException` on an unknown
-identifier** (`BlueprintFactory.cs:40-44`).
+##### The consequence: a server-driven Blight, with no client change
 
-Two independent reasons it can never fire on the stock client:
+**We already serve 8065.** `ComponentsSerializer.cs:200` hands every entity
+`new Blueprint.Data(new BlueprintData("Player"))`. Changing that string on one
+entity is the whole attach mechanism.
 
-1. **`CreateBlightEntitySystem` is not configured.** The client's whole
-   FixedUpdate ECS is seven systems (`docs/research/ecs_config.json`):
-   `AssignViewInstances`, `UpdateViewInstancesMap`, `RemapTransformsComposite`,
-   `BlightSharedComposite`, `BlightView`, `AddWeatherCellCoordsS`,
-   `UpdateWeatherCellCoordsMapS`. **`CreateBlightEntitySystem` is absent.**
-2. **No `Blight` blueprint JSON ships** with the client.
+The chain, each link `[Require]`-checked and each system confirmed present in
+the client's seven-system config:
 
-`BlightSharedCompositeSystem` runs only `BlightUpdateRadiusSystem`, which also
-filters on `_blights.Has` — so both configured Blight systems are permanent
-no-ops today (**PROVED**, `acs/BlightSharedCompositeSystem.cs:5-14`).
+```
+server: new entity + 8065 Blueprint{"Blight"} + 190602 TransformState + 1269 RadialStormState{weight}
+   -> ApplyBlueprintLocalComponentsS   (prepended, always runs) -> BlightLocalComponent
+   -> RemapTransformsCompositeSystem   (in config)              -> RemappedTransformPositionC
+   -> BlightUpdateRadiusSystem         (in config, filter = _blights.Has AND
+                                        _radialStorms.ReplacedWeightThisFrame)
+                                                                -> RadiusLocalComponent = weight * 500 m
+   -> BlightViewSystem                 (in config)              -> dust column, screen overlay,
+                                                                   particles, audio, OSD message
+```
 
-**Consequence — and this narrows the client mod usefully.** `BlightViewSystem`
-*is already configured and running*. To make a server-driven Blight render, the
-client patch would need to do exactly one thing: on an entity that receives
-1269, add `BlightLocalComponent` and `RadiusLocalComponent`. It does **not**
-need to add a system, a config entry, or the "Blight" blueprint. That is a
-small, well-defined Harmony patch — but it **is** a client mod, so it is a
-patcher release, and **this task did not build it** (hard rule 2).
+Note `BlightUpdateRadiusSystem` is driven by **`ReplacedWeightThisFrame`**, i.e.
+by our 1269 weight *updates*. A static weight renders nothing. The radius is
+**derived on the client and never replicated** — 500 m at full weight
+(`BlightConfig.MaxRadius`).
+
+**And the player-facing text exists, hard-coded, in the shipped client**
+(**PROVED**, `acs/BlightViewSystem.cs:160-167`, `OSDMessage.SendMessage`):
+
+> `"You are entering a Blight Storm, your ship and everything on it is at risk of destruction!"`
+> `"You are leaving a Blight Storm, your ship is safe... for now..."`
+
+Quote those exactly if they are ever referenced. They fire on the rising edge of
+`TelegraphVfxWeight` crossing 1 — i.e. **you are already inside**. There is no
+advance warning, no marker, no countdown.
+
+##### What is still unknown, and it is not nothing
+
+1. **Whether a `"Blight"` entity survives our AddEntity naming gate.**
+   `ClientEntityPrefabs.CanResolve` gates AddEntity, and the blueprint's
+   `PrefabC { Name: "Blight" }` may or may not be in
+   `client-entity-prefabs.txt`. **Check before planning.** The Blight's visuals
+   are camera-attached (`BlightViewSystem` parents its particle prefab to the
+   main camera), so it may legitimately need no mesh — but the gate is the gate.
+2. **1269 is in `KnownAbsentComponentIds`** — removal plus a deliberate update to
+   `ComponentAbsencePolicyTests.cs:71`.
+3. **Destruction stays ours.** The client never deletes anything; the whole
+   `DestroyEntitiesWithinBlight` half is server-side, and would be a policy we
+   write. That is a feature, not a gap.
+4. **This is a moving, streamed entity.** SOAK, emphatically.
+
+**Nothing above has been tested against a live client.** It is a chain of
+`[Require]` and filter reads plus one shipped JSON. It is a strong lead, not a
+shipped fact.
+
+##### One more false zero worth chasing, not chased here
+
+The shipped **`WeatherCell`** blueprint (same `resources.assets`, offset
+≈ `567957692`) grants `EntityReadAccess: ["social","physics"]` — **`"visual"` is
+absent**. **INFERRED**, and only from the shipped blueprint file rather than the
+live snapshot ACL: retail's UnityClient may never have checked out weather cells
+at all, in which case client-side `GetWeatherAt` returned the `(1,0,-2)` fallback
+**everywhere, in retail too**, and the wind a player felt came entirely from
+storm walls and the world-edge ramps. If that holds it changes §12's wind story
+substantially and would mean our "becalmed constant" is closer to retail than we
+thought. **Not established. Worth its own pass.**
 
 ---
 
@@ -4331,10 +4417,12 @@ S5  lightning strikes a ship                        ── needs S4
 S6  weather walls                                   ── needs NOTHING
      └── independent of everything above; belongs in its own phase
 
-S7  the Blight                                      ── needs A CLIENT MOD
-     ├── Harmony: attach BlightLocalComponent + RadiusLocalComponent on 1269
-     ├── serve 1269 (remove from ComponentAbsencePolicy + update its test)
-     └── a server-side entity-destruction policy
+S7  the Blight                                      ── NO CLIENT MOD (14.3.3, corrected)
+     ├── serve 8065 Blueprint{"Blight"} on a new entity  (we already serve 8065)
+     ├── serve 1269 + PUSH weight updates (a static weight renders nothing)
+     │     └── remove 1269 from ComponentAbsencePolicy + update its test
+     ├── UNKNOWN: does "Blight" pass ClientEntityPrefabs.CanResolve?
+     └── a server-side entity-destruction policy (the client deletes nothing)
 ```
 
 **Weather (PHASE 6 / the 1139 lattice) is a prerequisite for NONE of S1–S7.**
@@ -4421,8 +4509,15 @@ that must be reasoned about deliberately, not inherited.
 Independent. Lift out of PHASE 6. One component, geometry already imported.
 
 #### S7 — The Blight
-**Needs a client mod.** Do not start it without deciding to ship a patcher
-release. §14.3.3 narrows the patch to one thing.
+**Corrected: probably needs NO client mod.** The blocker was a false zero over
+two assemblies missing from the decompile tree (§14.3.3). The attach path is a
+shipped JSON blueprint plus `8065 Blueprint`, which this server already serves.
+Before planning it: settle whether `"Blight"` resolves through
+`ClientEntityPrefabs.CanResolve`. Then it is one new streamed entity, a 1269
+weight ramp, and a server-side destruction policy — and the recovered
+`BlightConfig` numbers in 14.3.2 mean almost nothing has to be invented.
+It stays after S1–S3 because it is a moving streamed entity and wants its own
+soak, not because anything blocks it.
 
 ---
 
@@ -4469,7 +4564,13 @@ ends.
    `systemctl show wareborn-game -p Environment`. The code default is ON; the
    Haven-hardcoded AABB (§14.6.4) is the likelier reason it is inert on tier-1.
    **Worth one read-only check before S3.**
-6. **Stale citations fixed in passing.** §2's row for weather cites
+6. **Whether `"Blight"` resolves through `ClientEntityPrefabs.CanResolve`.**
+   The one thing standing between here and a server-driven Blight (§14.3.3).
+7. **Whether retail's own client ever saw weather cells.** The shipped
+   `WeatherCell` blueprint does not grant `"visual"` read access. **INFERRED**
+   from the blueprint file only; the live snapshot ACL was authored by a tool
+   that does not ship. If true it changes §12's wind story.
+8. **Stale citations fixed in passing.** §2's row for weather cites
    `ComponentsSerializer.cs:1659-1674` and `:1675-1690`, and
    `ComponentAbsencePolicy.cs:120,146` / `:265-291`. The real locations today are
    **1764-1779**, **1780-1790**, **:151, :177** and **:367-396**.
