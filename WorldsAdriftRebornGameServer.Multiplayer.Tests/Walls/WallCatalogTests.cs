@@ -93,12 +93,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Walls
         [Fact]
         public void Every_wall_sits_at_the_flat_world_datum()
         {
-            // Y is inert (nothing in the client reads a wall's Y) but it should be
-            // the same inert value for all 44, or the operator map and the world stop
-            // being comparable.
+            // FOUND BY MUTATION TESTING. This test originally compared each wall's Y
+            // against WallCatalog.WallYMetres, which is the constant that PRODUCED it
+            // - so moving every wall to y = -900 passed. A tautological test is worse
+            // than no test, because it reads as coverage. The literal is written out
+            // here on purpose.
+            Assert.Equal(0.0, WallCatalog.WallYMetres);
+
             foreach (WallSegmentSeed wall in WallCatalog.All)
             {
-                Assert.Equal(WallCatalog.WallYMetres, wall.Midpoint.MetresY, 6);
+                Assert.Equal(0.0, wall.Midpoint.MetresY, 6);
             }
         }
 

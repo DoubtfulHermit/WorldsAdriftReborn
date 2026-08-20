@@ -121,6 +121,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Walls
                 "wallId is the key WeatherWalls groups segments by.");
         }
 
+        [Fact]
+        public void Mutation_the_orientation_arguments_are_in_X_Y_Z_order()
+        {
+            // FOUND BY MUTATION TESTING, and it escaped the first version of this
+            // file. Swapping the X and Z arguments of the Vector3d constructor
+            // rotates EVERY wall in the world 90 degrees about the Y axis. Nothing
+            // else went red: the catalogue tests assert the seed, and the seed was
+            // still right - the damage was done at the call site, in an assembly with
+            // no test project, by three same-typed positional arguments.
+            //
+            // This is a string match and therefore a weak guard; it is the same tool
+            // IslandStormWiringTests uses for the same reason. It is pinned tightly
+            // (the exact collapsed argument list) precisely because a loose match
+            // would not have caught the mutation that motivated it.
+            Contains(Collapsed(Serializer()),
+                "new Improbable.Math.Vector3d( seed.OrientationX, seed.OrientationY, seed.OrientationZ)",
+                "1204's orientation must be built X, Y, Z from the seed's own "
+                + "same-named properties. A swap here rotates the entire wall system "
+                + "and looks, from the code, completely reasonable.");
+        }
+
         // ====================================================================
         // MUTATION: "widen 8065 carelessly"
         // ====================================================================
