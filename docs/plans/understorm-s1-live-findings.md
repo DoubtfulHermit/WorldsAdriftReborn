@@ -202,6 +202,34 @@ driven without the forbidden 1139 lattice — the storm-WALL half
 wall segments are already imported**. If the overcast rides the wall texture
 rather than the cell lattice, it may be reachable. Do not assume either way.
 
+### ⚠ RESOLVED 2026-08-20 — Lead D is ANSWERED. See `docs/research/findings-storm-sky.md`
+
+Full chain traced producer → rendered sky. The five-line answer:
+
+1. The shipped `weatherTex` producer is **`WeatherTextureGenerator`** (1 instance
+   on `level0`). `WeatherTexGenCpu` has **0 instances** anywhere — dead test code,
+   as suspected. Its numbers mean nothing; only the channel layout was real.
+2. **The sky does not read `weatherTex` at all.** The cloud renderer samples only
+   **`wallInfoTex`**. `_WeatherTex` occurs **0 times** in the shipped shader
+   bundle; `_WallInfoTex` occurs 3 (positive control).
+3. The overcast channel `wallInfoTex.g` is written **purely from authored wall
+   geometry** (`StormRift`/`SandStorm`), never touching `GetWeatherAt` — so
+   **no 1139**. The lattice's `Pressure` lands in `weatherTex.b/.a` and is read by
+   nothing in the cloud or storm path. **Lead B's inference survives, strengthened.**
+4. **YES, reachable server-side:** the seam is **`1204 WallSegmentState`** on the
+   shipped `WallSegment` prefab — **one `[Require]`**, clean prefab, not in
+   `ComponentAbsencePolicy`, no client mod, no schema migration.
+5. **But 1204 gives a storm WALL** — a line, permanent, biome-scale, ~800 m
+   influence — **not an island-local telegraph.** And §5 of that document finds
+   **no wiki or client evidence that an understorm ever darkened the sky**; the
+   recollection best matches flying toward a storm wall.
+
+**So Lead D found a large missing world feature, not a fix for defect 2.**
+Recommended split: (A) serve the 44 static walls as its own phase; (B) only then
+consider a transient-`StormRift` understorm telegraph, labelled honestly as
+WAREBORN TUNING. Roadmap correction: §14.4.1's "`WeatherTextureGenerator` needs
+1139: YES" is true only of the **wind** half — the sky half is lattice-free.
+
 ### Lead A (superseded — the original reasoning, kept for the record)
 
 `ComponentsSerializer.cs:1798-1805` constructs `IslandLightningTimerStateData`
