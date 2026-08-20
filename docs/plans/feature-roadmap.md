@@ -4068,12 +4068,13 @@ advance warning, no marker, no countdown.
 
 ##### What is still unknown, and it is not nothing
 
-1. **Whether a `"Blight"` entity survives our AddEntity naming gate.**
-   `ClientEntityPrefabs.CanResolve` gates AddEntity, and the blueprint's
-   `PrefabC { Name: "Blight" }` may or may not be in
-   `client-entity-prefabs.txt`. **Check before planning.** The Blight's visuals
-   are camera-attached (`BlightViewSystem` parents its particle prefab to the
-   main camera), so it may legitimately need no mesh — but the gate is the gate.
+1. ~~Whether a `"Blight"` entity survives our AddEntity naming gate.~~
+   **RESOLVED — it does.** `blight` is **line 17** of the 349-name
+   `client-entity-prefabs.txt`, and `CanResolve` lower-cases before matching
+   (`Multiplayer/Ship/ClientEntityPrefabs.cs:79-83`). **PROVED.** (`weathercell`
+   is line 338 of the same file.) This is the *third* time this census has held
+   an answer an agent designed around the absence of — the power generator was
+   line 219.
 2. **1269 is in `KnownAbsentComponentIds`** — removal plus a deliberate update to
    `ComponentAbsencePolicyTests.cs:71`.
 3. **Destruction stays ours.** The client never deletes anything; the whole
@@ -4421,7 +4422,7 @@ S7  the Blight                                      ── NO CLIENT MOD (14.3.3
      ├── serve 8065 Blueprint{"Blight"} on a new entity  (we already serve 8065)
      ├── serve 1269 + PUSH weight updates (a static weight renders nothing)
      │     └── remove 1269 from ComponentAbsencePolicy + update its test
-     ├── UNKNOWN: does "Blight" pass ClientEntityPrefabs.CanResolve?
+     ├── "Blight" is line 17 of client-entity-prefabs.txt - it RESOLVES
      └── a server-side entity-destruction policy (the client deletes nothing)
 ```
 
@@ -4512,9 +4513,9 @@ Independent. Lift out of PHASE 6. One component, geometry already imported.
 **Corrected: probably needs NO client mod.** The blocker was a false zero over
 two assemblies missing from the decompile tree (§14.3.3). The attach path is a
 shipped JSON blueprint plus `8065 Blueprint`, which this server already serves.
-Before planning it: settle whether `"Blight"` resolves through
-`ClientEntityPrefabs.CanResolve`. Then it is one new streamed entity, a 1269
-weight ramp, and a server-side destruction policy — and the recovered
+`"Blight"` **resolves** — line 17 of `client-entity-prefabs.txt` (**PROVED**).
+So it is one new streamed entity, a 1269 weight ramp, and a server-side
+destruction policy — and the recovered
 `BlightConfig` numbers in 14.3.2 mean almost nothing has to be invented.
 It stays after S1–S3 because it is a moving streamed entity and wants its own
 soak, not because anything blocks it.
@@ -4564,13 +4565,11 @@ ends.
    `systemctl show wareborn-game -p Environment`. The code default is ON; the
    Haven-hardcoded AABB (§14.6.4) is the likelier reason it is inert on tier-1.
    **Worth one read-only check before S3.**
-6. **Whether `"Blight"` resolves through `ClientEntityPrefabs.CanResolve`.**
-   The one thing standing between here and a server-driven Blight (§14.3.3).
-7. **Whether retail's own client ever saw weather cells.** The shipped
+6. **Whether retail's own client ever saw weather cells.** The shipped
    `WeatherCell` blueprint does not grant `"visual"` read access. **INFERRED**
    from the blueprint file only; the live snapshot ACL was authored by a tool
    that does not ship. If true it changes §12's wind story.
-8. **Stale citations fixed in passing.** §2's row for weather cites
+7. **Stale citations fixed in passing.** §2's row for weather cites
    `ComponentsSerializer.cs:1659-1674` and `:1675-1690`, and
    `ComponentAbsencePolicy.cs:120,146` / `:265-291`. The real locations today are
    **1764-1779**, **1780-1790**, **:151, :177** and **:367-396**.
