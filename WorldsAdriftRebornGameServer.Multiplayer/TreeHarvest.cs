@@ -749,11 +749,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// immediately and cancel its pending per-tree timer. Whole trees are not
         /// returned because no client update is needed for them.
         /// </summary>
-        public IReadOnlyList<TreeRespawn> ResetAll()
+        public IReadOnlyList<TreeRespawn> ResetAll() => ResetAll(null);
+
+        /// <summary>
+        /// The same restore, SCOPED to the trees <paramref name="include"/> accepts.
+        ///
+        /// This is what an understorm actually is (S2, §14.10). Lightning strikes ONE
+        /// island's underside, so only that island's forest comes back - a world-wide
+        /// reset fired at one island's storm end regrows trees on twelve calm islands,
+        /// and, worse, makes the player standing under the bolts wait until the LAST
+        /// island in the world has finished storming before their own tree returns
+        /// (MEASURED on production 2026-08-20: ~3 m 32 s late at a 900 s cadence).
+        ///
+        /// <paramref name="include"/> is null for "every tree in the world", which is
+        /// the authenticated operator's <c>reset-resources all</c> and is why the
+        /// no-argument overload above still exists.
+        /// </summary>
+        public IReadOnlyList<TreeRespawn> ResetAll(Func<long, bool>? include)
         {
             List<TreeRespawn>? respawns = null;
             foreach (KeyValuePair<long, Stand> entry in _trees)
             {
+                if (include != null && !include(entry.Key)) continue;
                 Stand stand = entry.Value;
                 // A log is not a damaged tree, it is a piece of one. An understorm
                 // that "restored" it would grow a whole tree out of a trunk on the

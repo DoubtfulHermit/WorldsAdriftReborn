@@ -24,18 +24,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         int PushTimer(long islandEntityId, IslandStormUpdate update);
 
         /// <summary>
-        /// Restores every damaged tree, metal node and fuel canister in the world
+        /// Restores every damaged tree, metal node and fuel canister ON ONE ISLAND
         /// and tells the peers holding them. Returns a one-line summary for the log.
-        /// This is the SAME body the authenticated operator command already ran -
-        /// the storm is a second caller, not a second implementation.
+        ///
+        /// ⚠ THE SCOPE IS THE WHOLE POINT (S2). A world-wide reset fired at one
+        /// island's storm end resets forty-six calm islands as collateral, and it
+        /// forces the reset to be deferred to the LAST island's storm end so it only
+        /// happens once - which is exactly the 3 m 32 s delay MEASURED on production
+        /// on 2026-08-20. An implementation of this method that ignores
+        /// <paramref name="islandId"/> and resets the world reintroduces the defect
+        /// while every test still passes, so a source-reading wiring test guards it.
         /// </summary>
-        string ResetWorldResources();
+        string ResetIslandResources(string islandId);
     }
 
     /// <summary>
     /// THE UNDERSTORM. Drives each island's 1254 timer so the shipped client
-    /// announces, renders and ends a storm, and refreshes the world's resources
-    /// when the last one is over.
+    /// announces, renders and ends a storm, and refreshes THAT island's resources
+    /// the moment THAT island's bolts stop.
     ///
     /// This is S1 of §14.10 and it adds NOTHING to the wire's surface: 1254 is
     /// already seeded on every island, already read by a visualiser baked onto all
@@ -52,7 +58,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     ///   * bolts drawn from the death clouds UP into the island's own surface,
     ///     roughly one every half second (the prefab's shipped 0..1 s roll,
     ///     RECOVERED);
-    ///   * mined nodes, chopped trees and drained fuel canisters back, when it ends.
+    ///   * that island's mined nodes, chopped trees and drained fuel canisters back,
+    ///     at the instant its bolts stop - not the world's, and not minutes later.
     ///
     /// MEASURED IN SECONDS, NEVER IN MAIN-LOOP TURNS. Like
     /// <see cref="TreeHarvest"/>, and for the reason its doc gives: this server's
@@ -80,22 +87,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             public TimeSpan PhaseOffset { get; }
             public IslandStormUpdate? LastSent { get; set; }
             public TimeSpan LastSentAt { get; set; }
+
+            /// <summary>
+            /// The last generation whose reset THIS island has performed.
+            ///
+            /// Seeded on the FIRST tick to whatever is already due rather than to
+            /// zero, so a server that has been up for six hours before an operator
+            /// enables storms does not immediately fire five backdated resets per
+            /// island. The first storm a player sees is the first storm this service
+            /// scheduled.
+            /// </summary>
+            public long LastResetGeneration { get; set; } = -1;
         }
 
         private readonly IClock _clock;
         private readonly IIslandStormWire _wire;
         private readonly List<IslandState> _islands = new List<IslandState>();
-        private readonly TimeSpan _lastPhaseOffset;
-
-        /// <summary>
-        /// The last generation whose world reset has been performed.
-        ///
-        /// Seeded on the FIRST tick to whatever is already due rather than to zero,
-        /// so a server that has been up for six hours before an operator enables
-        /// storms does not immediately fire five backdated resets. The first storm a
-        /// player sees is the first storm this service scheduled.
-        /// </summary>
-        private long _lastResetGeneration = -1;
 
         public IslandStormService(IClock clock, IIslandStormWire wire,
             IReadOnlyList<string> islandIds, bool enabled, TimeSpan cadence, TimeSpan duration,
@@ -119,15 +126,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             JitterFraction = IslandStormPolicy.ClampJitter(jitterFraction);
             CountdownRefresh = countdownRefresh;
 
-            TimeSpan latest = TimeSpan.Zero;
             foreach (string id in islandIds)
             {
                 if (string.IsNullOrWhiteSpace(id)) continue;
-                TimeSpan offset = IslandStormPolicy.PhaseOffsetFor(id, cadence, JitterFraction);
-                if (offset > latest) latest = offset;
-                _islands.Add(new IslandState(id, offset));
+                _islands.Add(new IslandState(id,
+                    IslandStormPolicy.PhaseOffsetFor(id, cadence, JitterFraction)));
             }
-            _lastPhaseOffset = latest;
         }
 
         public bool Enabled { get; }
@@ -166,9 +170,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// idle: a walk of a handful of islands doing integer arithmetic, which
         /// almost always decides to send nothing.
         ///
-        /// ORDER. Pushes first, reset second, so the update that ENDS a storm is on
-        /// the wire before the resources it refreshed change under the player. They
-        /// land on the same loop turn either way; this is ordering, not atomicity.
+        /// ORDER. For each island: push first, reset second, so the update that ENDS
+        /// that island's storm is on the wire before the resources it refreshed change
+        /// under the player standing on it. They land on the same loop turn either
+        /// way; this is ordering, not atomicity.
         /// </summary>
         public void Tick()
         {
@@ -183,49 +188,60 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
                 IslandStormUpdate? next = IslandStormPush.Next(island.LastSent, sample,
                     now - island.LastSentAt, CountdownRefresh);
-                if (next == null) continue;
+                if (next != null)
+                {
+                    long? entityId = _wire.IslandEntityId(island.Id);
+                    if (entityId != null)   // null = not spawned yet; try again next turn
+                    {
+                        _wire.PushTimer(entityId.Value, next.Value);
+                        island.LastSent = next.Value;
+                        island.LastSentAt = now;
+                    }
+                }
 
-                long? entityId = _wire.IslandEntityId(island.Id);
-                if (entityId == null) continue;   // not spawned yet; try again next turn
-
-                _wire.PushTimer(entityId.Value, next.Value);
-                island.LastSent = next.Value;
-                island.LastSentAt = now;
+                // ⚠ NOT INSIDE THE PUSH BRANCH, AND NOT BEHIND EITHER OF ITS EARLY
+                // EXITS. The resources are server-side state; they must be restored
+                // when this island's storm ends whether or not anybody was owed a
+                // 1254 this turn and whether or not the island's AddEntityOp has run.
+                // Skipping it would also leave LastResetGeneration unseeded, so the
+                // island's FIRST real reset would replay every generation it slept
+                // through.
+                TickIslandReset(island, now);
             }
-
-            TickWorldReset(now);
         }
 
         /// <summary>
-        /// THE RESET, and it fires at the END of a storm, not the start.
+        /// THIS ISLAND'S RESET, at the END of THIS ISLAND'S storm.
         ///
-        /// The wiki has loose objects surfacing DURING the storm, so an
-        /// end-of-storm reset is a simplification and is declared one (WAREBORN
-        /// TUNING). It is the honest simplification rather than the convenient one:
-        /// resetting at the start would put every mined node back while the bolts
-        /// were still falling, so the storm would be an announcement of something
-        /// that had already happened.
+        /// It fires at the end rather than the start: the wiki has loose objects
+        /// surfacing DURING the storm, so an end-of-storm reset is a simplification
+        /// and is declared one (WAREBORN TUNING). It is the honest simplification
+        /// rather than the convenient one - resetting at the start would put every
+        /// mined node back while the bolts were still falling, so the storm would be
+        /// an announcement of something that had already happened.
         ///
-        /// Once per generation, at the last island's storm end - see
-        /// <see cref="IslandStormPolicy.WorldResetAt"/> for why it is the last one
-        /// and what S2 does about it.
+        /// It fires per island rather than once per generation because that is the
+        /// only way the player standing under the bolts sees their tree come back
+        /// when the bolts stop. See <see cref="IslandStormPolicy.ResetAt"/> for the
+        /// measured defect this replaced.
         /// </summary>
-        private void TickWorldReset(TimeSpan now)
+        private void TickIslandReset(IslandState island, TimeSpan now)
         {
-            long due = IslandStormPolicy.DueWorldResetGeneration(now, Cadence, Duration, _lastPhaseOffset);
+            long due = IslandStormPolicy.DueResetGeneration(now, Cadence, Duration,
+                island.PhaseOffset);
 
-            if (_lastResetGeneration < 0)
+            if (island.LastResetGeneration < 0)
             {
                 // First tick: adopt whatever is already behind us rather than
                 // replaying it.
-                _lastResetGeneration = due;
+                island.LastResetGeneration = due;
                 return;
             }
 
-            if (due <= _lastResetGeneration) return;
+            if (due <= island.LastResetGeneration) return;
 
-            _lastResetGeneration = due;
-            _wire.ResetWorldResources();
+            island.LastResetGeneration = due;
+            _wire.ResetIslandResources(island.Id);
         }
     }
 }

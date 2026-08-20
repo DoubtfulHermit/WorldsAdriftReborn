@@ -195,11 +195,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public int Count => _nodes.Count;
 
         /// <summary>Restores every tracked node's hit/depletion state.</summary>
-        public int ResetAll()
+        public int ResetAll() => ResetAll(null);
+
+        /// <summary>
+        /// The same restore, SCOPED to the deposits <paramref name="include"/>
+        /// accepts - an understorm strikes ONE island. Null means the whole world.
+        /// </summary>
+        public int ResetAll(Func<long, bool>? include)
         {
             int changed = 0;
-            foreach (Deposit node in _nodes.Values)
+            foreach (KeyValuePair<long, Deposit> entry in _nodes)
             {
+                if (include != null && !include(entry.Key)) continue;
+                Deposit node = entry.Value;
                 if (node.Hits != 0 || node.Depleted) changed++;
                 node.Hits = 0;
                 node.Depleted = false;

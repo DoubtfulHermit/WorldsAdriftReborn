@@ -246,9 +246,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public static readonly TimeSpan DefaultCountdownRefresh = TimeSpan.FromSeconds(8);
 
         /// <summary>
-        /// The largest jitter fraction accepted. Above a half, one island's storm can
-        /// overlap the next generation of another's and the "one world reset per
-        /// cadence" rule stops being true.
+        /// The largest jitter fraction accepted. Above a half the storm front takes
+        /// more than half the cadence to sweep the world, so an island near the end of
+        /// the sweep is still storming when islands at the start are being announced
+        /// again - which is not "varying frequency", it is a permanent world-wide
+        /// storm.
         /// </summary>
         public const double MaxJitterFraction = 0.5;
 
@@ -445,37 +447,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         }
 
         /// <summary>
-        /// WHEN THE WORLD RESET FOR A GENERATION FIRES, and why it is the LAST
-        /// island's storm end rather than each island's own.
+        /// WHEN ONE ISLAND'S RESOURCE RESET FIRES: at the end of THAT island's own
+        /// storm, computed from THAT island's own phase offset.
         ///
-        /// S1 reuses the server's existing reset, which is WORLD-WIDE
-        /// (<c>ResetHarvestResources()</c> walks every tree, node and canister in
-        /// the world). With jittered per-island storms and a world-wide reset, firing
-        /// at each island's own storm end would reset the whole world once per island
-        /// per cadence - twelve islands would refresh Haven's ore twelve times an
-        /// hour, eleven of them while Haven was perfectly calm. So the reset fires
-        /// ONCE per generation, at the instant the last island's storm ends, which is
-        /// the only moment at which "every island has just been struck" is true.
+        /// ⚠ THIS IS S2, AND IT IS THE FIX FOR A DEFECT A PLAYER FELT.
+        /// S1 reused the server's world-wide <c>ResetHarvestResources()</c>, so it
+        /// could only honestly fire ONCE per generation - at the LAST island's storm
+        /// end, the only instant at which "every island has just been struck" is
+        /// true. MEASURED on production 2026-08-20 with 47 islands, a 900 s cadence
+        /// and 0.2 jitter: the first island's storm started at 10:59:57 CEST and the
+        /// reset landed at 11:03:29 - <b>3 m 32 s late</b>. The maintainer watched
+        /// their own storm end under a clear sky and got their trees back minutes
+        /// later. At the authentic 6300 s cadence the sweep, and therefore the gap,
+        /// scales to ~15-20 minutes.
         ///
-        /// This is a KNOWN DIVERGENCE, stated rather than hidden: retail reset each
-        /// island when ITS storm ended. Closing it is S2's job and needs exactly one
-        /// thing this class does not have - a resource-to-island map (§14.10 S2).
+        /// The whole point of the feature is cause and effect: the bolts stop, the
+        /// forest is back. So the reset is now per island and per island's own clock,
+        /// which also happens to be what retail did (§14.6.3). The "last island"
+        /// special case is gone, and with it the reason it existed.
         /// </summary>
-        public static TimeSpan WorldResetAt(long generation, TimeSpan cadence, TimeSpan duration,
-            TimeSpan lastPhaseOffset) =>
-            StartOf(generation, cadence, lastPhaseOffset) + duration;
+        public static TimeSpan ResetAt(long generation, TimeSpan cadence, TimeSpan duration,
+            TimeSpan phaseOffset) =>
+            StartOf(generation, cadence, phaseOffset) + duration;
 
         /// <summary>
-        /// The highest generation whose world reset is already due at
+        /// The highest generation whose reset is already due for THIS island at
         /// <paramref name="now"/>, or 0 if none is. Monotonic in <paramref name="now"/>,
         /// which is what lets the caller fire each reset exactly once by remembering
         /// the last generation it acted on.
         /// </summary>
-        public static long DueWorldResetGeneration(TimeSpan now, TimeSpan cadence, TimeSpan duration,
-            TimeSpan lastPhaseOffset)
+        public static long DueResetGeneration(TimeSpan now, TimeSpan cadence, TimeSpan duration,
+            TimeSpan phaseOffset)
         {
             if (cadence <= TimeSpan.Zero) return 0;
-            long generation = (now - lastPhaseOffset - duration).Ticks / cadence.Ticks;
+            long generation = (now - phaseOffset - duration).Ticks / cadence.Ticks;
             return generation < 1 ? 0 : generation;
         }
 

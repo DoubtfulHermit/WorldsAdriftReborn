@@ -29,7 +29,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         private sealed class RecordingWire : IIslandStormWire
         {
             public readonly List<(string Island, IslandStormUpdate Update)> Pushes = new();
-            public readonly List<TimeSpan> Resets = new();
+            public readonly List<(string Island, TimeSpan At)> Resets = new();
             public readonly Dictionary<string, long?> Ids = new();
             public FakeClock? Clock;
 
@@ -42,10 +42,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 return 1;
             }
 
-            public string ResetWorldResources()
+            public string ResetIslandResources(string islandId)
             {
-                Resets.Add(Clock?.Elapsed ?? TimeSpan.Zero);
-                return "reset";
+                Resets.Add((islandId, Clock?.Elapsed ?? TimeSpan.Zero));
+                return "reset " + islandId;
             }
 
             private string NameOf(long entityId)
@@ -109,8 +109,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 p => p.Update.Phase == IslandStormPhase.Quiet && p.Update.Generation == 2
                     && p.Update.MillisTillLightningEnd == 0);
 
-            // And it refreshed the world exactly once.
+            // And it refreshed that island's own resources exactly once.
             Assert.Single(wire.Resets);
+            Assert.Equal("haven", wire.Resets[0].Island);
         }
 
         [Fact]
@@ -303,21 +304,132 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
             Run(service, clock, 6344, 6346);          // one second past the end
             Assert.Single(wire.Resets);
-            Assert.InRange(wire.Resets[0].TotalSeconds, 6345, 6346);
+            Assert.InRange(wire.Resets[0].At.TotalSeconds, 6345, 6346);
         }
 
+        // ====================================================================
+        // S2: THE RESET IS PER ISLAND, AT THAT ISLAND'S OWN STORM END
+        // ====================================================================
+
         [Fact]
-        public void Mutation_the_reset_happens_once_per_cycle_and_not_once_per_island()
+        public void Mutation_every_island_gets_its_OWN_reset_once_per_cycle()
         {
-            // With N islands and a WORLD-WIDE reset, firing at each island's own
-            // storm end would refresh the whole world N times per cadence - most of
-            // them while the island in question was perfectly calm.
+            // S1 fired ONE world-wide reset per generation, so this count was 2 for
+            // four islands over two cadences. Per island it must be 4 x 2 = 8, one
+            // for each island's own storm.
             (IslandStormService service, FakeClock clock, RecordingWire wire) =
                 Build(enabled: true, jitter: 0.2, "haven", "trades-challenge", "b3-01", "b3-02");
 
             Run(service, clock, 0, 6300 * 2 + 2000);
 
-            Assert.Equal(2, wire.Resets.Count);
+            Assert.Equal(8, wire.Resets.Count);
+            foreach (string island in new[] { "haven", "trades-challenge", "b3-01", "b3-02" })
+                Assert.Equal(2, wire.Resets.Count(r => r.Island == island));
+        }
+
+        [Fact]
+        public void Mutation_each_islands_reset_lands_at_that_islands_OWN_storm_end_tick()
+        {
+            // ⚠ THIS IS THE ACCEPTANCE CRITERION, IN ARITHMETIC.
+            // "Stand on one island, cut a tree, and the tree returns at the moment
+            // that island's bolts stop." A reset that is correct in COUNT but fires
+            // at the wrong instant is the S1 defect exactly: S1's resets were all
+            // present and all late.
+            string[] islands = { "haven", "trades-challenge", "b3-01", "b3-02", "b7-11" };
+            (IslandStormService service, FakeClock clock, RecordingWire wire) =
+                Build(enabled: true, jitter: 0.2, islands);
+
+            // One full cadence plus the widest possible jitter (0.2 x 6300 = 1260 s)
+            // and one storm: every island's GENERATION 1 reset has landed, and no
+            // island's generation 2 has.
+            Run(service, clock, 0, 6300 + 2000);
+
+            Assert.Equal(islands.Length, wire.Resets.Count);
+            foreach ((string island, TimeSpan at) in wire.Resets)
+            {
+                TimeSpan offset = service.PhaseOffsetOf(island);
+                TimeSpan due = IslandStormPolicy.ResetAt(1, Cadence, Duration, offset);
+
+                // Within one 20 Hz loop turn of that island's own storm end. Never
+                // before it, and never a tick later than the loop could notice.
+                Assert.InRange((at - due).TotalSeconds, 0.0, 0.06);
+            }
+        }
+
+        [Fact]
+        public void Mutation_an_early_islands_reset_does_not_wait_for_the_last_islands_storm()
+        {
+            // THE DEFECT, REPRODUCED AS A REGRESSION TEST. On production
+            // (47 islands, 900 s cadence, 0.2 jitter) the first island stormed at
+            // 10:59:57 and the reset landed at 11:03:29 - 3 m 32 s later, under a
+            // clear sky. Here: the earliest island's reset must land strictly BEFORE
+            // the latest island's storm even STARTS.
+            string[] islands =
+            {
+                "haven", "trades-challenge", "b3-01", "b3-02", "b7-11", "b5-04",
+                "b9-22", "b2-17", "b6-08", "b4-13",
+            };
+            (IslandStormService service, FakeClock clock, RecordingWire wire) =
+                Build(enabled: true, jitter: 0.2, islands);
+
+            Run(service, clock, 0, 6300 + 2000);
+
+            string earliest = islands.OrderBy(i => service.PhaseOffsetOf(i)).First();
+            string latest = islands.OrderBy(i => service.PhaseOffsetOf(i)).Last();
+            Assert.NotEqual(earliest, latest);
+
+            TimeSpan earliestReset = wire.Resets.First(r => r.Island == earliest).At;
+            TimeSpan latestStormStart =
+                IslandStormPolicy.StartOf(1, Cadence, service.PhaseOffsetOf(latest));
+
+            Assert.True(earliestReset < latestStormStart,
+                "the first island's resources came back at " + earliestReset
+                + ", which is not before the last island's storm even began at "
+                + latestStormStart + " - that is the S1 defect.");
+        }
+
+        [Fact]
+        public void The_resets_interleave_with_the_staggered_storm_starts()
+        {
+            // The headless shape of the acceptance: reset lines are SPREAD THROUGH
+            // the sweep, not bunched at the end of it. With a world-wide reset every
+            // reset lands after every Active push; per island they interleave.
+            string[] islands =
+            {
+                "haven", "trades-challenge", "b3-01", "b3-02", "b7-11", "b5-04",
+                "b9-22", "b2-17", "b6-08", "b4-13",
+            };
+            (IslandStormService service, FakeClock clock, RecordingWire wire) =
+                Build(enabled: true, jitter: 0.2, islands);
+
+            Run(service, clock, 0, 6300 + 2000);
+
+            TimeSpan lastActiveStart = islands
+                .Select(i => IslandStormPolicy.StartOf(1, Cadence, service.PhaseOffsetOf(i)))
+                .Max();
+
+            int before = wire.Resets.Count(r => r.At < lastActiveStart);
+            Assert.True(before > 0,
+                "not one island's resources came back before the last island had even "
+                + "started storming; the resets are still bunched at the end of the sweep.");
+            Assert.Equal(islands.Length, wire.Resets.Count);
+        }
+
+        [Fact]
+        public void An_island_whose_entity_has_not_spawned_still_gets_its_resources_reset()
+        {
+            // The resources are SERVER-side state. Whether any client has been served
+            // the island's 1254 has nothing to do with whether a chopped tree should
+            // be standing again. Putting the reset behind the push's early exit would
+            // make a storm on an unspawned island silently restore nothing.
+            (IslandStormService service, FakeClock clock, RecordingWire wire) = Build();
+            wire.Ids["haven"] = null;                     // AddEntityOp never runs
+
+            Run(service, clock, 0, 6400);
+
+            Assert.Empty(wire.Pushes);
+            Assert.Single(wire.Resets);
+            Assert.Equal("haven", wire.Resets[0].Island);
         }
 
         [Fact]

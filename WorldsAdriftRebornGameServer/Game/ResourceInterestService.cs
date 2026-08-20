@@ -121,6 +121,37 @@ namespace WorldsAdriftRebornGameServer.Game
         public bool Enabled => Interest.Enabled && _resources.Count > 0;
 
         /// <summary>
+        /// WHICH ISLAND OWNS A STREAMED RESOURCE. Read-only, and the map itself
+        /// rather than a copy - this is asked once per entity per understorm, and a
+        /// forty-seven-island world has thousands of entities.
+        ///
+        /// This service already had to answer this question for checkout (a peer
+        /// holds an island's WHOLE resource set), and this accessor exists so the
+        /// understorm can answer it too instead of growing a second, divergent
+        /// classification. That matters: if the two ever disagreed, a storm would
+        /// reset resources a player standing on the island does not hold, and hold
+        /// resources no storm ever reaches.
+        ///
+        /// ⚠ IT IS EMPTY WHEN SPATIAL INTEREST IS OFF, because the constructor
+        /// returns before populating it (fail-open compatibility). A caller that
+        /// treats "not in this map" as "on no island" therefore silently resets
+        /// NOTHING on a server with <c>WAREBORN_INTEREST_RADIUS_M</c> unset. See
+        /// <c>WorldsAdriftRebornGameServer.IslandOwningResource</c>, which falls back
+        /// to the same <see cref="IslandResourceInterestPolicy.ClosestIsland"/> this
+        /// map was built from. (Production reads 120 on 2026-08-20, so the map IS
+        /// populated there - the fallback is for the off configuration, not for it.)
+        /// </summary>
+        public IReadOnlyDictionary<long, IslandId> ResourceIslands => _resourceIslands;
+
+        /// <summary>
+        /// The island owning one resource, or null if this service has never
+        /// classified it. See <see cref="ResourceIslands"/> for when that is "no such
+        /// resource" and when it is "interest is switched off".
+        /// </summary>
+        public IslandId? IslandOf(long entityId) =>
+            _resourceIslands.TryGetValue(entityId, out IslandId island) ? island : (IslandId?)null;
+
+        /// <summary>
         /// Retained for the player-centred paths that still ask for it (the connect
         /// plan's telemetry and the operator console). Continuous checkout no longer
         /// consults it: see <see cref="IslandResourceCheckoutPolicy"/>.

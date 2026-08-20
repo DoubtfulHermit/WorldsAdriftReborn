@@ -1723,27 +1723,98 @@ namespace WorldsAdriftRebornGameServer
         /// Authenticated operator understorm: restore every damaged tree, metal
         /// node and fuel canister, then push the intact state only to peers that
         /// currently have each entity checked out.
+        ///
+        /// This stays WORLD-WIDE and it is the operator's <c>reset-resources all</c>,
+        /// which asks for exactly that. The UNDERSTORM no longer calls it - see
+        /// <see cref="ResetHarvestResourcesOn"/> for why, and for the 3 m 32 s
+        /// production defect that using this here produced.
         /// </summary>
-        internal static string ResetHarvestResources()
+        internal static string ResetHarvestResources() => ResetHarvestResourcesIn(null);
+
+        /// <summary>
+        /// ONE ISLAND'S UNDERSTORM RESET: restore only the trees, metal nodes and
+        /// fuel canisters that belong to <paramref name="island"/>.
+        ///
+        /// ⚠ WHY THIS EXISTS, AND WHY THE GLOBAL RESET IS NOT GOOD ENOUGH (S2,
+        /// §14.10). Storms are per island and jittered, so a world-wide reset can
+        /// only honestly fire once per generation, at the LAST island's storm end -
+        /// otherwise forty-seven islands reset the whole world forty-seven times per
+        /// cadence, forty-six of them while the island in question is calm. MEASURED
+        /// live on 2026-08-20: the first island's storm started 10:59:57 CEST and the
+        /// reset landed 11:03:29, <b>3 m 32 s later</b>, under a clear sky. At the
+        /// authentic 6300 s cadence that becomes ~15-20 minutes. The cause and effect
+        /// the whole feature exists to convey does not survive that gap.
+        /// </summary>
+        internal static string ResetHarvestResourcesOn(Multiplayer.Islands.IslandId island) =>
+            ResetHarvestResourcesIn(island);
+
+        /// <summary>
+        /// The one body behind both. <paramref name="island"/> null = the whole world.
+        /// </summary>
+        private static string ResetHarvestResourcesIn(Multiplayer.Islands.IslandId? island)
         {
-            IReadOnlyList<TreeRespawn> trees = Harvest.ResetAll();
+            // ⚠ THE SCOPE DECISION IS DELIBERATELY NOT INLINE HERE. It used to be,
+            // and replacing it with a bare `= null` reinstated the world-wide reset
+            // with the whole 4215-test suite still green - see
+            // Multiplayer.Islands.IslandResourceScope for the escaped mutation. The
+            // decision is now in the assembly that can be unit-tested; this line's
+            // only job is to hand over the island, and a wiring test reads it.
+            Func<long, bool>? include = Multiplayer.Islands.IslandResourceScope.Include(
+                island, IslandOwningResource);
+
+            IReadOnlyList<TreeRespawn> trees = Harvest.ResetAll(include);
             foreach (TreeRespawn tree in trees)
                 PushTreeSectionMask(tree.TreeEntityId, tree.SectionMask);
 
             List<long> metal = Nodes.EntityIds
-                .Where(id => Nodes.IsDestroyed(id) || Nodes.ShotPointsOf(id).Count > 0
-                    || MetalHarvest.HitsOn(id) > 0).ToList();
-            Nodes.ResetAll();
-            MetalHarvest.ResetAll();
+                .Where(id => (include == null || include(id))
+                    && (Nodes.IsDestroyed(id) || Nodes.ShotPointsOf(id).Count > 0
+                        || MetalHarvest.HitsOn(id) > 0)).ToList();
+            Nodes.ResetAll(include);
+            MetalHarvest.ResetAll(include);
             foreach (long nodeId in metal) BroadcastNodeReset(nodeId);
 
             List<long> fuel = FuelCanisters.EntityIds
-                .Where(id => FuelCanisters.ShotsOn(id) > 0).ToList();
-            FuelCanisters.ResetAll();
+                .Where(id => (include == null || include(id)) && FuelCanisters.ShotsOn(id) > 0)
+                .ToList();
+            FuelCanisters.ResetAll(include);
             foreach (long canisterId in fuel) BroadcastFuelCanisterReset(canisterId);
 
             return "Reset " + trees.Count + " tree(s), " + metal.Count
-                + " metal node(s), and " + fuel.Count + " fuel canister(s).";
+                + " metal node(s), and " + fuel.Count + " fuel canister(s)"
+                + (island == null ? "" : " on " + island.Value.Value) + ".";
+        }
+
+        /// <summary>
+        /// WHICH ISLAND A HARVESTABLE BELONGS TO, for the per-island understorm reset.
+        ///
+        /// The answer comes from <see cref="ResourceInterest"/>, which already had to
+        /// classify every streamed resource in order to check it out per island. Using
+        /// its map rather than a second one is deliberate: two classifications that
+        /// could disagree would mean a storm resetting resources the player standing
+        /// on the island does not hold.
+        ///
+        /// ⚠ THE FALLBACK IS NOT DECORATION. That map is only populated when spatial
+        /// interest is on (<c>WAREBORN_INTEREST_RADIUS_M</c>; PROVED to be 120 on
+        /// production, read 2026-08-20). With interest off the map is EMPTY, and a
+        /// per-island reset that trusted it would silently restore nothing at all -
+        /// green tests, dead feature, which is the exact failure mode this repo has
+        /// shipped twice. So an unclassified id is re-derived from its position with
+        /// the same <c>ClosestIsland</c> the map itself was built from.
+        /// </summary>
+        internal static Multiplayer.Islands.IslandId? IslandOwningResource(long entityId)
+        {
+            Multiplayer.Islands.IslandId? known = ResourceInterest.IslandOf(entityId);
+            if (known != null) return known;
+
+            Multiplayer.WorldEntity? entity = WorldEntities.ByEntityId(entityId);
+            if (entity == null) return null;
+
+            IReadOnlyList<Multiplayer.Islands.IslandDefinition> islands = IslandTopology.All;
+            if (islands.Count == 0) return null;
+
+            return Multiplayer.Islands.IslandResourceInterestPolicy.ClosestIsland(
+                entity.Position, islands);
         }
 
         private static void BroadcastFuelCanisterReset(long entityId)
@@ -2878,7 +2949,7 @@ namespace WorldsAdriftRebornGameServer
 
         /// <summary>
         /// THE UNDERSTORM. Each island's 1254 lightning timer, and the world
-        /// resource reset that a storm ending performs.
+        /// per-island resource reset that a storm ending performs.
         ///
         /// OFF unless <c>WAREBORN_STORMS</c> says otherwise. With it off this costs
         /// one bool per main-loop turn and this server is byte-identical on the wire
@@ -4702,7 +4773,8 @@ namespace WorldsAdriftRebornGameServer
                     + " s. The client rumbles and shakes for the last "
                     + Multiplayer.Islands.IslandStormPolicy.TelegraphSeconds.ToString("0")
                     + " s within " + Multiplayer.Islands.IslandStormPolicy.TelegraphRadiusMetres.ToString("0")
-                    + " m. World resources reset when the last island's storm ends.");
+                    + " m. Each island's own resources reset the moment ITS storm "
+                    + "ends - not the world's, and not when the last island is done.");
             }
             else
             {
@@ -4789,7 +4861,7 @@ namespace WorldsAdriftRebornGameServer
                 // Game.SkyWhaleService for the wire-shape contract.
                 SkyWhale.Tick();
                 // THE UNDERSTORM: each island's 1254 countdown, the storm switch, and
-                // the world resource reset when the last island's storm ends. Off
+                // that island's OWN resource reset when ITS storm ends. Off
                 // unless WAREBORN_STORMS=1; cheap when off (one bool) and cheap when
                 // on (a walk of a handful of islands doing integer arithmetic that
                 // almost always decides to send nothing). Deliberately AFTER the

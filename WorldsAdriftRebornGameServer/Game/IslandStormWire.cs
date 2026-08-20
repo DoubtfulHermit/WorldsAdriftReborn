@@ -10,8 +10,8 @@ namespace WorldsAdriftRebornGameServer.Game
     /// THE UNDERSTORM ON THE WIRE. The impure half of
     /// <see cref="IslandStormService"/>, <see cref="IslandStormPolicy"/> and
     /// <see cref="IslandStormPush"/>: it resolves an island's entity id, puts one
-    /// 1254 update in front of the peers holding that component, and calls the
-    /// world resource reset that already existed.
+    /// 1254 update in front of the peers holding that component, and restores that
+    /// ONE island's harvested resources when its storm ends.
     ///
     /// Everything that DECIDES anything lives next door in the pure assembly and is
     /// unit-tested there. This file is wiring, and it is written to the same two
@@ -68,10 +68,21 @@ namespace WorldsAdriftRebornGameServer.Game
             public int PushTimer(long islandEntityId, IslandStormUpdate update) =>
                 Push(islandEntityId, update);
 
-            public string ResetWorldResources()
+            /// <summary>
+            /// ONE ISLAND'S RESET, at that island's own storm end.
+            ///
+            /// ⚠ IT MUST STAY SCOPED. Calling the world-wide
+            /// <c>ResetHarvestResources()</c> here is the S1 defect: it would restore
+            /// forty-six calm islands as collateral, and it is why S1 had to defer the
+            /// reset to the LAST island's storm end and so landed 3 m 32 s late
+            /// (MEASURED on production 2026-08-20). The island id is logged so a
+            /// player report and a server line can be lined up.
+            /// </summary>
+            public string ResetIslandResources(string islandId)
             {
-                string summary = WorldsAdriftRebornGameServer.ResetHarvestResources();
-                Console.WriteLine("[storm] understorm reset: " + summary);
+                string summary = WorldsAdriftRebornGameServer.ResetHarvestResourcesOn(
+                    new Multiplayer.Islands.IslandId(islandId));
+                Console.WriteLine("[storm] understorm reset on " + islandId + ": " + summary);
                 return summary;
             }
         }
