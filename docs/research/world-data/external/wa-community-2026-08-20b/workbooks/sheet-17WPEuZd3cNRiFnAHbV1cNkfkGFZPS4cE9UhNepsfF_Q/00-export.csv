@@ -1,0 +1,18 @@
+Name,Material Type,Tier,Main Stat,Body/Metal,Body/Wood,Bandages,Object file
+Barrel,Wood,1,,Metal,Wood,Bandages,Object
+Bonebare,Metal,1,,Image,,,Object
+Bucket,Wood,1,,Metal,Wood,Bandages,
+Tube,Wood,1,,Metal,Wood,,
+Bracebox,Wood,2,,Metal,Wood,Bandages,
+Machine,Wood,2,,Metal,Wood,Bandages,
+Needleframe,Wood,2,,Metal,Wood,,
+Trunkmaw,Wood,2,,Metal,Wood,,
+Banshee,Metal,3,,Image,,,Object
+Comet,Metal,3,,Image,,,Object
+Narwhal,Metal,3,,Image,,,Object
+Stonehide,Metal,3,,Image,,,Object
+Aurora,Metal,4,,Image,,,Object
+Leviathan,Metal,4,,Image,,,Object
+Nemesis,Metal,4,,Image,,,Object
+Supernova,Metal,4,,Image,,,Object
+Titan,Metal,4,,Image,,,Object

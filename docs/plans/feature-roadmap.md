@@ -2291,8 +2291,23 @@ at `acs/ShipControlsBehaviour.cs:283`.)
   the wiki's Metal/Wood tables, quality explicitly free
   (*"without any additional cost of weight"*), and `UnitsPerHullCell = 2000` /
   `UnitsPerDeck = 500` / `MetalShareOfMixedHull = 0.20` **CHOSEN** and labelled.
-  Corroborated independently: the community panel-mass table divides by exactly
-  40 to give the same per-material kg/unit figures, 20 rows out of 20.
+- **⚠ CORRECTED 2026-08-20 — the corroboration claim that used to sit here was
+  pointed at the wrong table.** It read: *"Corroborated independently: the
+  community panel-mass table divides by exactly 40 to give the same per-material
+  kg/unit figures, 20 rows out of 20."* The ÷40 relation is real and exact, but
+  what it corroborates is that the **community "Large Panel Kg" column and the
+  WAEngenius WEIGHT column are the same table ×40** — i.e. they are *not*
+  independent of each other. That community table is **not the table we ship**;
+  it differs from ours on **14 of 16** shared materials (cedar 0.15 vs our 0.13,
+  tungsten 0.80 vs our 0.70, and so on). Citing it as corroboration of our
+  numbers was double-counting one source *and* aiming it at the wrong epoch.
+- **What our table actually is corroborated by**, verified row-for-row this
+  session: the wiki Metal/Wood pages **and** the `weight` column of
+  `sciencesheet.xls` (Worlds-Adrift-Engine-Science repo) agree on **all 15
+  metals**, including orthite, epilar and eternium, which no community weight
+  table carries at all. See `docs/research/findings-material-mass.md` §2.7 and
+  the epoch guard in
+  `WorldsAdriftRebornGameServer.Multiplayer/Materials/MaterialMassEpoch.cs`.
 
 #### 6. WIND AND DRAG — the world, not a component
 
@@ -2770,6 +2785,15 @@ and our `1121 OriginalMassState` seed of **50 kg per mounted part**:
 | **legacy birch/iron, 1 cell 1 deck** | **595 kg** | **695 kg** | **6** |
 | iron, 1 cell | 780 kg | 880 kg | **2** |
 | legacy birch/iron, 2 cell 1 deck | 1071 kg | 1171 kg | already overloaded |
+
+> **Re-verified 2026-08-20 (`feat/massalign`).** Every row above recomputes
+> exactly from the shipped final-era table, so **none of these numbers moved**:
+> cedar `2500 × 0.13 = 325`; birch `2500 × 0.20 = 500`; legacy
+> `2500 × (0.20×0.8 + 0.39×0.2) = 595`; iron `2000 × 0.39 = 780`; legacy 2-cell
+> `4500 × 0.238 = 1071`. The **1071 kg** figure is now pinned by
+> `MaterialMassEpochTests.Changing_the_hull_mass_of_the_legacy_ship_is_a_deliberate_act`,
+> so a future mass edit fails a test here rather than silently invalidating this
+> table.
 
 **Independently corroborated.** Players quote the mass gauge directly, and the
 numbers land on our arithmetic: *"2 wings, 2 sails, 1 cannon and a barrel puts me

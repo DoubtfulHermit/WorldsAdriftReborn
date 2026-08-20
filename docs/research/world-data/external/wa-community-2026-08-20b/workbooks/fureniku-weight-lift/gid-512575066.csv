@@ -1,0 +1,52 @@
+,,Made by @Fureniku#4839 ,,,Shameless Alliance plug. Join Knights of Silvania today! ,,,,https://www.worldsadrift.com/alliances/knights-of-silvania/,,,,,,,,,,
+,,L O N G        L I V E        T H E        S U N,,,,,,,,,,,,,,,,,
+,,"To use the calculator, please clone the sheet - or use my simple JavaScript calc:",,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,Costs,,
+Remember to reset Sky Core upgrades to only show what you have!,,,Frame Material,Material Cost,Weight,Total Frame Weight,,,,1 Deck = 30 Material,,"Your total frame & core weight is below. Remember, you still need to add at least a helm - and probably other stuff too!",,Core Component,Lift Added,Found,Metal,,Shard
+,,,,,,,,,,,,,,Sky Core Base:,1000 KG,Start With,100,40,1
+Frame,,,Aluminium,,0 KG,0 KG,,,,,,,,Generator,400 KG,Expanse (T2),40,20,5
+Decking,,,Iron,,0 KG,,,,,Your ship has 0 Deck panels,,0 / 1000,,Enhancer,400 KG,Expanse (T2),40,40,3
+vvv     Installed Core Upgrades     vvv,,,,,,,,,,,,,,Coolant System,600 KG,Remnants (T3),60,50,3
+Sky Core,,Generator,Enhancer,Coolant System,Air Filter,Stabiliser,Computer,Circuitry Network,Efficiency Module,Total Lift:,,Your ship frame is a good weight,,Air Filter,600 KG,Remnants (T3),50,50,4
+Yes,,No,No,No,No,No,No,No,No,1000 KG,,You are close to the limit,,Stabiliser,600 KG,Remnants (T3),40,40,6
+,,,,,,,,,,,,Your ship frame is too heavy!,,Computer,800 KG,Badlands (T4),40,50,10
+1000 KG,,,,,,,,,,,,,,Circuitry Network,800 KG,Badlands (T4),60,50,8
+Aluminium,,Aluminium,,,,,,,,<Casing,,,,Efficiency Module,800 KG,Badlands (T4),70,60,6
+Gold,,,,,,,,,,<Internals,,,,Total:,6000 KG,Build Costs:,900,,46
+"0,2",,0,0,0,0,0,0,0,0,"0,2",,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+Material Weights,,,Material Description,,,,,Colour,Known biomes to spawn in,,,,,,,,,,
+Material,,Unit Mass,,,,,,,Wilderness (1),Expanse (2),Remnants (3),Badlands (4),,,,,,,
+Cedar,,"0,2000","Extremely light and soft, cannot withstand much damage.",,,,,,,,,,,,,,,,
+Hemlock,,"0,2200",Very light but tough enough to be used in certain scenarios.,,,,,,,,,,,,,,,,
+Chestnut,,"0,2500",Lightweight but nevertheless impressively versatile timber.,,,,,,,,,,,,,,,,
+Elm,,"0,2800",Medium weight with no outstanding strengths or vulnerabilities.,,,,,,,,,,,,,,,,
+Birch,,"0,3200",Relatively heavy but worth it for the performance.,,,,,,,,,,,,,,,,
+Ash,,"0,3500",Heavy but extremely flexible possessing no weaknesses.,,,,,,,,,,,,,,,,
+Oak,,"0,3800",Reliable in any context especially bearing loads but heavy.,,,,,,,,,,,,,,,,
+Palm,,"0,4100",Very heavy but exceptionally hard with broad applications.,,,,,,,,,,,,,,,,
+-,,0,,,,,,,,,,,,,,,,,
+Aluminium,,"0,2600",Extremely light without compromising too much on strength,,,,,,,,,,,,,,,,
+Titanium,,"0,3000",Very light for such a hard metal but a bad conductor.,,,,,,,,,,,,,,,,
+Tin,,"0,3400","Lightweight but weak, soft and susceptible to heat.",,,,,,,,,,,,,,,,
+Iron,,"0,3800",Reasonably tough and heat resistant given its modest weight.,,,,,,,,,,,,,,,,
+Steel,,"0,4000",Very hard and high performance metal for its weight.,,,,,,,,,,,,,,,,
+Bronze,,"0,4200",Capable of withstanding a lot of stress for its medium weight.,,,,,,,,,,,,,,,,
+Nickel,,"0,4600",Versatile thanks to its medium weight and a few weaknesses.,,,,,,,,,,,,,,,,
+Copper,,"0,5000",A great conductor but otherwise unexceptional.,,,,,,,,,,,,,,,,
+Silver,,"0,5500",A jack of all trades but master of only conductivity,,,,,,,,,,,,,,,,
+Lead,,"0,6000",Durable and strong but too heavy for many uses.,,,,,,,,,,,,,,,,
+Gold,,"0,69",Dense yet malleable with extremely high conductivity.,,,,,,,,,,,,,,,,
+Tungsten,,"0,74",Unparalelled resistance to the elements but very heavy.,,,,,,,,,,,,,,,,
+Atlas Shard,,"0,2",Shards of a mysterious stone which can be energized to produce lift.,,,,,,,,,,,,,,,,
+Fuel,,"0,2",Energy rich liquid that can power a ship's engine,,,,,,Yes,Yes,Yes,No,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,
+Storage,,Capacity,Material Cost,Avg. Weight,Weight Per Slot,,,,,,,,,,,,,,
+Barrel,,40 Slots,80,"36,8","0,92",,,,,,,,,,,,,,
+Cupboard,,72 Slots,130,"59,8","0,8305555556",,,,,,,,,,,,,,
+Storage Container,,100 Slots,160,"73,6","0,736",,,,,,,,,,,,,,
+Mounted Box,,32 Slots,60,"27,6","0,8625",,,,,,,,,,,,,,
+Trunk,,48 Slots,100,46,"0,9583333333",,,,,,,,,,,,,,
+Shipping Container,,324 Slots,300,138,"0,4259259259",,,,,,,,,,,,,,

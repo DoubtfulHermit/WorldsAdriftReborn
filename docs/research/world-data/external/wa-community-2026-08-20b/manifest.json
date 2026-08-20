@@ -1,0 +1,205 @@
+{
+  "retrievedAtUtc": "2026-08-20T11:05:00Z",
+  "retrievedBy": "feat/massalign",
+  "classification": "community-measured; cross-check against the shipped client/decompile before any retail-fidelity claim",
+  "supersedes": null,
+  "complements": [
+    "wa-community-2026-08-16",
+    "wa-community-2026-08-20"
+  ],
+  "immutabilityNote": "Named -20b because wa-community-2026-08-20 was taken earlier the SAME DAY and is immutable and checksum-verified. NEITHER of the earlier snapshots was read-modified or written to by this session.",
+  "whyThisSnapshotExists": "findings-material-mass.md section 1.2 records that one sheet in this lineage is already HTTP 410 and permanently lost, with three of its four tabs unrecoverable. Every source here is one owner-deletion from the same fate, so they are copied rather than linked. The sciencesheet.xls was fetched FIRST because it is the source of the mass table the server ships.",
+  "epochWarning": "Two DIFFERENT PATCH EPOCHS are represented in this directory and they must never be mixed. FINAL ERA (what WAReborn ships): sciencesheet.xls - aluminium 0.33, iron 0.39, tungsten 0.70, gold 0.73. CALCULATOR ERA: Metal Chart and Fureniku - aluminium 0.26, iron 0.38, tungsten 0.80, gold 0.69. The orderings differ: the final era puts gold above tungsten, the calculator era the reverse. See docs/research/findings-material-mass.md and Multiplayer/Materials/MaterialMassEpoch.cs.",
+  "retrievalNotes": [
+    "worldsadrift.fandom.com HTML returns 403 to curl; .../api.php?action=parse&page=X&format=json&prop=wikitext returns 200 and is the way in.",
+    "All ten fetches returned HTTP 200. No source in this snapshot was walled, rate-limited or partially recovered.",
+    "Google Sheets /export?format=csv returns only the DEFAULT tab unless a gid is given. Where only one tab was fetched, that is what is held - other tabs of those workbooks are NOT archived."
+  ],
+  "workbooks": [
+    {
+      "title": "Worlds Adrift Engine Science - sciencesheet.xls",
+      "priority": "ARCHIVED FIRST - this is the source of the mass table WAReborn ships",
+      "sourceUrl": "https://raw.githubusercontent.com/looy3/Worlds-Adrift-Engine-Science/master/data/sciencesheet.xls",
+      "liveStatus": "http-200",
+      "epoch": "final-era",
+      "holds": [
+        "weight (15 metals: the final-era mass table verbatim, incl. orthite/epilar/eternium)",
+        "resilience boost (every value an exact multiple of 1/78)",
+        "cooling factor",
+        "barrel / mechanical-internals / propeller material effectiveness"
+      ],
+      "significance": "INDEPENDENT corroboration of the wiki Metal-page mass table: 15 of 15 metals, zero residual. Before this the wiki was the sole witness for the table we ship. It also independently confirms tungsten 0.70 and gold 0.73 in this epoch, disagreeing with the calculator-era cannon back-solve (0.74) exactly as the epoch model predicts.",
+      "files": [
+        {
+          "path": "workbooks/engine-science-sciencesheet-xls/sciencesheet.xls",
+          "bytes": 34304,
+          "sha256": "1f2b5ee4517011b3b71a6c5e2a24d91d1aa97de080b7755f8772eb77b105821f"
+        }
+      ],
+      "derived": [
+        {
+          "path": "workbooks/engine-science-sciencesheet-xls/00-Sheet1.derived.csv",
+          "note": "NOT an as-retrieved export. Produced this session by dumping Sheet1 with xlrd. Verify against the .xls before trusting.",
+          "bytes": 1867,
+          "sha256": "78b92cb0833f6cadf426d61af3f38ea8d4c64c55b16b365ec9fd05292434886f"
+        }
+      ],
+      "fileNote": "The .xls is itself a CloudConvert re-encode (Last Saved By: cloudconvert_21, 2025-05-22) of an upstream Google Sheet, per its OLE metadata. Preserved as served."
+    },
+    {
+      "title": "Metal Chart",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSp_I2pWc9NEfgrpQ1Lnylm162GFvpnseivxqUVq_WaAZBlhDce8LrQH4Mp0_Fe8QK0g9Ktd3SM0YaN/pub?output=csv",
+      "liveStatus": "http-200",
+      "epoch": "calculator-era",
+      "holds": [
+        "per-metal ENDURANCE",
+        "ENDUR/WEIGHT",
+        "WEIGHT (calculator era: .26kg aluminium, .38kg iron, .40kg steel)",
+        "per-metal usage notes"
+      ],
+      "significance": "A per-metal durability table we did not previously hold. Its bundled WEIGHT column dates it to the calculator era, so its endurance figures must not be mixed with the Update 29.4 resilience table.",
+      "wired": false,
+      "files": [
+        {
+          "path": "workbooks/metal-chart-endurance/00-published.csv",
+          "bytes": 1144,
+          "sha256": "332bb308911f839f6e3ace4bf323991ad02b7c7b5a103ae3ac29743d54df6eae"
+        }
+      ]
+    },
+    {
+      "title": "Node Resilience Sheet",
+      "author": "Ryu_Khan#3747 / Simayi",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1iJsqx6uJGvFD9dXe77MXv9UWIyo_s86hsNgnjdWNCt4/export?format=csv",
+      "liveStatus": "http-200",
+      "holds": [
+        "Q1-Q10 salvage pulses to falloff per metal",
+        "falloff seconds",
+        "pulse/resilience ratio",
+        "self-declared 'Large Panel - 60 Resilience'"
+      ],
+      "significance": "Independently confirms the flat 60-resilience large panel that findings-material-mass.md section 6.2 relies on. Wood is marked Work In Progress by the author, consistent with our finding that no wood durability figure exists in any source.",
+      "wired": false,
+      "files": [
+        {
+          "path": "workbooks/node-resilience-sheet/00-export.csv",
+          "bytes": 5804,
+          "sha256": "1f23421e7aef1b6ef8ac671b7058384b5184209778629b31bbdcdaf95b04826f"
+        }
+      ]
+    },
+    {
+      "title": "Fureniku ship weight / lift calculator",
+      "author": "Fureniku#4839",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1O4vqe-QnSbE-HO_ReShWnOXyFkj2AbRcw5Bcmt1Lz0k/",
+      "requestedGids": [
+        "512575066",
+        "720499601"
+      ],
+      "liveStatus": "http-200",
+      "holds": [
+        "frame material weight calculator",
+        "sky core base 1000 KG + per-upgrade lift",
+        "per-metal Unit Weight (calculator era) AND Max Lift / KG per Quality / Q1-Q10"
+      ],
+      "significance": "THE EPOCH TRAP CAUGHT IN THE WILD, and the provenance of our own lift column. One table carries calculator-era weights (titanium 0.30, iron 0.38, tungsten 0.80, aluminium 0.26) beside the atlas lift rates we actually ship (titanium 1, steel 1.5, lead 2, bronze 2.5, iron 3, tungsten 3.5, nickel 4, tin 4.5, aluminium 6, copper 7.5). It also reproduces iron's anomalous +1 max lift (61, not 60), confirming that as a source quirk rather than our transcription error.",
+      "files": [
+        {
+          "path": "workbooks/fureniku-weight-lift/gid-512575066.csv",
+          "bytes": 4347,
+          "sha256": "a647fa65e2f68b5f9e240ef0f8e3e5c4ddcb82c6318570c0bc689773a5287cd7"
+        },
+        {
+          "path": "workbooks/fureniku-weight-lift/gid-720499601.csv",
+          "bytes": 1464,
+          "sha256": "74840a8f4c2cce2ded56f0f91a1146a998892028c75ab8f481974645106a3dca"
+        }
+      ]
+    },
+    {
+      "title": "Atlas lift table (third independent copy)",
+      "googleSheetId": "1fPpHFB3kPaV6LNJoWZET1ooEoZSSgy_hbBXfBHCwFGs",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1fPpHFB3kPaV6LNJoWZET1ooEoZSSgy_hbBXfBHCwFGs/export?format=csv",
+      "liveStatus": "http-200",
+      "holds": [
+        "INCREASE IN KG PER QUALITY LEVEL, Q1-Q10, MAX INCREASE, per metal"
+      ],
+      "significance": "A third independent copy of the atlas lift rates MaterialCatalog.AtlasLiftPerQualityKg ships. Also carries iron's +1 anomaly (max 61).",
+      "files": [
+        {
+          "path": "workbooks/sheet-1fPpHFB3kPaV6LNJoWZET1ooEoZSSgy_hbBXfBHCwFGs/00-export.csv",
+          "bytes": 1043,
+          "sha256": "f3703fbe6b923e6defe55bfa886395f5d28f3b5069d493c0b2b0a83940b4d07d"
+        }
+      ]
+    },
+    {
+      "title": "Cannon barrel material effectiveness",
+      "googleSheetId": "1dO2jRfS85iE2UIWWNLerA7hA4Y3-rZRCU0i3Ho5jv1M",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1dO2jRfS85iE2UIWWNLerA7hA4Y3-rZRCU0i3Ho5jv1M/export?format=csv",
+      "liveStatus": "http-200",
+      "holds": [
+        "BARREL: per-material POWER, OVERHEAT, TOTAL INCREASE as percentages"
+      ],
+      "wired": false,
+      "files": [
+        {
+          "path": "workbooks/sheet-1dO2jRfS85iE2UIWWNLerA7hA4Y3-rZRCU0i3Ho5jv1M/00-export.csv",
+          "bytes": 2453,
+          "sha256": "3d195b78a133e23c950d0971a61b3fb72e7c1c6aca088f762141da8271489107"
+        }
+      ]
+    },
+    {
+      "title": "Alerion / wing material effectiveness",
+      "googleSheetId": "1Psd3FAxVGsfV7aLiVqtFAv140VqM2c0y3h3rjC3AcNM",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1Psd3FAxVGsfV7aLiVqtFAv140VqM2c0y3h3rjC3AcNM/export?format=csv",
+      "liveStatus": "http-200",
+      "holds": [
+        "ALERION: per-material POWER, PIVOT SPEED, TOTAL INCREASE as percentages"
+      ],
+      "wired": false,
+      "files": [
+        {
+          "path": "workbooks/sheet-1Psd3FAxVGsfV7aLiVqtFAv140VqM2c0y3h3rjC3AcNM/00-export.csv",
+          "bytes": 1967,
+          "sha256": "93f00a79aac956c48f50a605593e775c1a53c7cb15f4669129d5b91864d5b712"
+        }
+      ]
+    },
+    {
+      "title": "Engine part catalogue by tier",
+      "googleSheetId": "1HWwusbRuvW3Pn-kol5VlUQwX44MtkD0EKLDJXkDzUv8",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1HWwusbRuvW3Pn-kol5VlUQwX44MtkD0EKLDJXkDzUv8/export?format=csv",
+      "liveStatus": "http-200",
+      "holds": [
+        "engine part name, material type, tier, main stat (Spin Up / Resilience / FE / OH / Power)"
+      ],
+      "wired": false,
+      "files": [
+        {
+          "path": "workbooks/sheet-1HWwusbRuvW3Pn-kol5VlUQwX44MtkD0EKLDJXkDzUv8/00-export.csv",
+          "bytes": 752,
+          "sha256": "5eebe262b8876f7a4dd291dc5a86071f8d288ee15e0d8706946036713e5360b2"
+        }
+      ]
+    },
+    {
+      "title": "Ship part catalogue by tier",
+      "googleSheetId": "17WPEuZd3cNRiFnAHbV1cNkfkGFZPS4cE9UhNepsfF_Q",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/17WPEuZd3cNRiFnAHbV1cNkfkGFZPS4cE9UhNepsfF_Q/export?format=csv",
+      "liveStatus": "http-200",
+      "holds": [
+        "part name, material type, tier, body/metal, body/wood, bandages"
+      ],
+      "wired": false,
+      "files": [
+        {
+          "path": "workbooks/sheet-17WPEuZd3cNRiFnAHbV1cNkfkGFZPS4cE9UhNepsfF_Q/00-export.csv",
+          "bytes": 656,
+          "sha256": "56bab714bc8f217b3560dda061cc474dc0f13a9cd9ccc72278c75f2d4b06552e"
+        }
+      ]
+    }
+  ]
+}
