@@ -1,0 +1,40 @@
+Engine,,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze
+Materials:,,, ,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze
+Casing:,240.0,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Bronze
+Combustion Internals:,167.0,,,,Propeller:,Aluminium,,,,Propeller:,Iron,,,,Propeller:,Nickel,,,,Propeller:,Lead
+Mechanical Internals:,98.0,,,,,,,,,,,,,,,,,,,,
+Propeller:,165.0,,,,Power:,31.0,,,,Power:,27.0,,,,Power:,28.0,,,,Power:,29.0
+,,,,,Spin Up:,64.0,,,,Spin Up:,68.0,,,,Spin Up:,76.0,,,,Spin Up:,81.0
+Base Stats,,,,,Weight:,31 kg,,,,Weight:,45 kg,,,,Weight:,54 kg,,,,Weight:,70 kg
+Resilience:,47.0,,,,,,,,,,,,,,,,,,,,
+Fuel Efficiency:,24.0,,,,,,,,,,,,,,,,,,,,
+Overheat Limit:,34.0,,,,,,,,,,,,,,,,,,,,
+Power:,24.0,,,,,,,,,,,,,,,,,,,,
+Spin Up:,47.0,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze
+,,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze
+,,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Bronze
+,,,,,Propeller:,Titanium,,,,Propeller:,Steel,,,,Propeller:,Copper,,,,Propeller:,Gold
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,Power:,27.0,,,,Power:,28.0,,,,Power:,27.0,,,,Power:,28.0
+,,,,,Spin Up:,66.0,,,,Spin Up:,70.0,,,,Spin Up:,63.0,,,,Spin Up:,73.0
+,,,,,Weight:,35 kg,,,,Weight:,47 kg,,,,Weight:,59 kg,,,,Weight:,81 kg
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze
+,,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze
+,,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Bronze
+,,,,,Propeller:,Tin,,,,Propeller:,Bronze,,,,Propeller:,Silver,,,,Propeller:,Tungsten
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,Power:,27.0,,,,Power:,30.0,,,,Power:,29.0,,,,Power:,28.0
+,,,,,Spin Up:,66.0,,,,Spin Up:,64.0,,,,Spin Up:,70.0,,,,Spin Up:,83.0
+,,,,,Weight:,40 kg,,,,Weight:,49 kg,,,,Weight:,65 kg,,,,Weight:,87 kg
