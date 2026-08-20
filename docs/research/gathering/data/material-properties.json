@@ -1,6 +1,20 @@
 {
   "$comment": "Consolidated per-material mass/durability research. See docs/research/findings-material-mass.md for the argument, the negatives and the controls. NOT a server config file - nothing reads this.",
-  "generated": "2026-08-20",
+  "shipped_mass_epoch": {
+    "READ_THIS_FIRST": "EPOCH TRAP. The surviving weight tables are DIFFERENT PATCH EPOCHS, not competing measurements of one truth. Their material ORDERINGS genuinely differ (final era: gold > tungsten; calculator era: tungsten > gold). PICK AN EPOCH AND BE INTERNALLY CONSISTENT; NEVER MIX ROWS ACROSS EPOCHS. Averaging or cherry-picking the best-evidenced value per material produces a ranking no version of the game ever had.",
+    "epoch_shipped": "final-era",
+    "field_carrying_it": "materials[].mass_used_by_wareborn_server, and materials[].mass_per_unit_kg.wiki_alpha6 - they are equal for all 23 retail materials",
+    "verified_2026_08_20": "MaterialCatalog.cs parsed and compared row-for-row: 23 of 23 retail materials match exactly. There is exactly one mass table in the codebase. ShipMaterial.cs declares the property but carries no values; itemData.json has no mass field.",
+    "why_this_epoch": [
+      "1. RIGHT QUANTITY (decisive): it is PANEL weight-per-unit, and HullMassCalculator computes hull mass from hull cells and panels. The calculator-era table is ENGINE-COMPONENT WPU, a different component class, additionally tier-scaled by wpuFactors [1, 0.875, 0.7777, 0.7083].",
+      "2. ONLY COMPLETE SET: the only table carrying orthite, epilar and eternium.",
+      "3. LATEST EPOCH: matches the Update 29.4 resilience data now held."
+    ],
+    "THE_MISTAKE_TO_AVOID": "Do NOT import tungsten 0.74 from tungsten_resolution below into the shipped table. That back-solve is correct and it belongs to the CALCULATOR era, where it corrects that sheet's 0.80. The final era independently publishes 0.70. Importing 0.74 leaves 22 final-era rows and one calculator-era row.",
+    "mechanical_guard": "WorldsAdriftRebornGameServer.Multiplayer/Materials/MaterialMassEpoch.cs enumerates the forbidden foreign-epoch values (incl. tungsten 0.74 and 0.80) and MaterialMassEpochTests fails with a message naming the trap.",
+    "known_deliberate_epoch_crossing": "AtlasLiftPerQualityKg is CALCULATOR-era while mass is FINAL-era. Defensible - lift is a different quantity and three independent sources publish the same rates - but recorded so it is not mistaken for the bug above. See findings-material-mass.md section 2.7."
+  },
+  "generated": "2026-08-20 (updated by feat/massalign: shipped_mass_epoch added, tungsten_resolution scoped to its epoch, 5 sources added)",
   "join_key": "itemTypeId, joins docs/research/gathering/data/materials.json",
   "provenance_labels": {
     "RECOVERED": "from a retail artefact (shipped client, itemData.json, or the archived official-adjacent wiki)",
@@ -66,6 +80,38 @@
       "what": "'Engine Materials Sheet' by Gouki - a SIXTH workbook, absent from the 2026-08-16 snapshot, still live and downloaded 2026-08-20. Carries the per-material Casing Health durability ranking.",
       "path": "docs/research/world-data/external/wa-community-2026-08-20/workbooks/engine-materials-sheet/",
       "patch": "Worlds Adrift Closed Beta 0.1.3.3"
+    },
+    "sciencesheet_xls": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "'weight' column of sciencesheet.xls, Worlds-Adrift-Engine-Science repo (looy3). 15 metals: the FINAL-ERA table verbatim, incl. orthite/epilar/eternium. Also carries a 'resilience boost' column (exact multiples of 1/78) and a 'cooling factor' column.",
+      "url": "https://raw.githubusercontent.com/looy3/Worlds-Adrift-Engine-Science/master/data/sciencesheet.xls",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/engine-science-sciencesheet-xls/",
+      "note": "INDEPENDENT corroboration of the wiki_alpha6 mass table: 15 of 15 metals, zero residual. Before this, the wiki was the sole witness for the table we ship.",
+      "epoch": "final-era"
+    },
+    "metal_chart_endurance": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "'Metal Chart': per-metal ENDURANCE and ENDUR/WEIGHT, plus a calculator-era WEIGHT column (.26kg aluminium, .38kg iron, .40kg steel).",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/metal-chart-endurance/00-published.csv",
+      "epoch": "calculator-era",
+      "wired": false
+    },
+    "node_resilience_sheet": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "Q1-Q10 salvage-pulses-to-falloff per metal, by Ryu_Khan#3747 / Simayi. Independently confirms the flat 'Large Panel - 60 Resilience'.",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/node-resilience-sheet/00-export.csv",
+      "wired": false
+    },
+    "fureniku_weight_lift": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "Fureniku's ship calculator: calculator-era 'Unit Weight' AND the atlas 'KG per Quality' lift rates, side by side in one table.",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/fureniku-weight-lift/",
+      "significance": "This is the epoch trap caught in the wild, and the provenance of our own lift column: its weights are calculator era (tungsten 0.80) while its lift rates are exactly the ones we ship. Also reproduces iron's anomalous +1 max lift (61, not 60)."
+    },
+    "atlas_lift_table_third_copy": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "A third independent copy of the atlas lift table, Q1-Q10 per metal - the same rates our AtlasLiftPerQualityKg ships.",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/sheet-1fPpHFB3kPaV6LNJoWZET1ooEoZSSgy_hbBXfBHCwFGs/00-export.csv"
     }
   },
   "quality_scaling": {
@@ -817,7 +863,9 @@
       "falagar_2017": 0.74,
       "wing_measurement_implied": 0.726
     },
-    "conclusion": "THREE of the four sources cluster at 0.70-0.74 and the WAEngenius/panel value of 0.80 is the outlier. Two of those three are independent of each other: Falagar's 2017 guide (0.74) and my own fit to the wing-science raw kilogram readings (0.726-0.738, computed before the Falagar table was retrieved). That convergence is the strongest single piece of evidence in this investigation, because the wing fit reproduces every other metal within integer-rounding while missing tungsten by ~4 kg against the 0.80 value - and lands on Falagar's number instead. I would treat 0.80 as an error in the WAEngenius weight column, propagated into the panel sheet via the shared x40 table."
+    "conclusion": "THREE of the four sources cluster at 0.70-0.74 and the WAEngenius/panel value of 0.80 is the outlier. Two of those three are independent of each other: Falagar's 2017 guide (0.74) and my own fit to the wing-science raw kilogram readings (0.726-0.738, computed before the Falagar table was retrieved). That convergence is the strongest single piece of evidence in this investigation, because the wing fit reproduces every other metal within integer-rounding while missing tungsten by ~4 kg against the 0.80 value - and lands on Falagar's number instead. I would treat 0.80 as an error in the WAEngenius weight column, propagated into the panel sheet via the shared x40 table.",
+    "EPOCH_WARNING": "This section resolves tungsten WITHIN THE CALCULATOR ERA (0.80 -> 0.74). It does NOT apply to the final-era table we ship, which independently says 0.70 and is corroborated by sciencesheet.xls. DO NOT COPY 0.74 INTO THE SHIPPED TABLE. See shipped_mass_epoch at the top of this file.",
+    "applies_to_shipped_table": false
   },
   "wood_mass_has_three_tiers": {
     "label": "DERIVED",

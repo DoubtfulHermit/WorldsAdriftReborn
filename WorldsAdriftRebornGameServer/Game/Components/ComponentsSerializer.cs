@@ -638,11 +638,26 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // So climb works because TotalLift really is 1e6 against hull
                         // masses of 500-1700 kg - not because either side is absent.
                         // See docs/research/findings-material-mass.md section 4.
+                        //
+                        // The seed itself lives in Multiplayer, at
+                        // Materials/ShipLiftPolicy.SeededTotalLiftKg, and NOT as a
+                        // literal here. Reason, found by mutation testing on
+                        // 2026-08-20: this assembly has no test project, so while the
+                        // number sat inline it was guarded by nothing at all. Changing
+                        // it from 1e6 to 1e3 - which grounds every ship in the live
+                        // world, the legacy 2-cell hull already massing 1071 kg -
+                        // passed all 5,422 tests in silence. ShipLiftPolicyTests now
+                        // holds the seed against the heaviest buildable hull, so that
+                        // edit fails a test. Do not re-inline this value.
                         obj = new ShipLiftState.Data(new ShipLiftStateData(
-                            1000000f, new Improbable.Math.Vector3f(0f, 0f, 0f), true));
+                            (float)Multiplayer.Materials.ShipLiftPolicy.SeededTotalLiftKg,
+                            new Improbable.Math.Vector3f(0f, 0f, 0f), true));
 
                         Console.WriteLine("[info] seeding 1258 ShipLiftState for built hull entity " + entityId
-                            + " (totalLift=1e6): the sky core lifts, vertical input stays unblocked.");
+                            + " (totalLift=" + Multiplayer.Materials.ShipLiftPolicy.SeededTotalLiftKg.ToString("0")
+                            + " kg, margin " + Multiplayer.Materials.ShipLiftPolicy.LiftMargin().ToString("0")
+                            + "x over the heaviest buildable hull): the sky core lifts, "
+                            + "vertical input stays unblocked.");
                     }
                     else if(componentId == 190601)
                     {
