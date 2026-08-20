@@ -124,11 +124,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Walls
         /// <c>TransformChildHierarchyBehaviour</c>, <c>StaticGlobalTransformBehaviour</c>
         /// and <c>StaticLocalTransformBehaviour</c> - no renderer, no collider, no
         /// other visualiser - and their <c>[Require]</c>s are 1204,
-        /// <c>TransformState</c>, <c>TransformHierarchyState</c> and
-        /// <c>GlobalTransformState</c>. The last two belong to the PARENT-hierarchy
-        /// and GLOBAL-mode behaviours, which a free-standing local-mode object does
-        /// not need enabled - the same stack every island, tree and node in this
-        /// world already runs on 190602 alone.
+        /// <c>TransformState</c> (190602), <c>TransformHierarchyState</c> (190601)
+        /// and <c>GlobalTransformState</c> (190604).
+        ///
+        /// THE OTHER TWO ARE ANSWERABLE, WHICH IS THE POINT. 190601 and 190604 both
+        /// already have entity-generic branches in <c>ComponentsSerializer</c> (an
+        /// empty child list, and a zeroed global transform), so if a client asks for
+        /// either on a wall it gets an answer and no batch is dropped. They are not
+        /// SEEDED because the wall does not need them: with the 190602 <c>parent</c>
+        /// ABSENT - what this server sends for everything except a bolted ship part -
+        /// <c>TransformChildHierarchyBehaviour</c> takes <c>SetNoParent()</c> and sets
+        /// <c>HierarchyMode.Local</c> (acs/…/TransformChildHierarchyBehaviour.cs:258-270),
+        /// which enables <c>StaticLocalTransformBehaviour</c> and NOT
+        /// <c>StaticGlobalTransformBehaviour</c>. So the wall is placed from our
+        /// 190602 and the zeroed 190604 is never read - and that matters, because if
+        /// global mode ever won, every wall would stack at the world origin. This is
+        /// the same stack every island, tree and node in this world is already placed
+        /// by, on 190602 alone.
         /// </summary>
         public static readonly IReadOnlyList<uint> SeedComponents =
             new[] { TransformStateComponentId, WallSegmentStateComponentId };
