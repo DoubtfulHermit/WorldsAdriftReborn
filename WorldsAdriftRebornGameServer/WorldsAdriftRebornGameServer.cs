@@ -1749,6 +1749,64 @@ namespace WorldsAdriftRebornGameServer
             ResetHarvestResourcesIn(island);
 
         /// <summary>
+        /// ONE ISLAND'S UNDERSTORM RE-ROLL (S3): move that island's deposits to the
+        /// seats <see cref="Multiplayer.Islands.IslandResourceReroll"/> chose for this
+        /// storm generation, and tell the peers holding them.
+        ///
+        /// Call this AFTER the reset. The reset restores a mined deposit to intact at
+        /// its old position; the re-roll then moves the intact deposit to its new one.
+        /// Doing it in the other order would broadcast the restore to the seat the rock
+        /// has already left.
+        ///
+        /// ⚠ NO DECISION IS TAKEN IN THIS METHOD, deliberately, and that is S2's lesson
+        /// applied a second time. Which seat each deposit takes is
+        /// <c>IslandResourceReroll.SeatsFor</c>, in the assembly that HAS a test
+        /// project; this file cannot be unit-tested (it needs a Windows game install to
+        /// compile against), so all it is allowed to do is loop, call, and broadcast.
+        /// A source-reading wiring test reads the one line that asks for the seats.
+        ///
+        /// SCOPE: Haven's own static <c>deposit-N</c> field only.
+        /// <c>MetalDeposits.HavenIndexOf</c> returns null for release-world and
+        /// Trades-Challenge deposits, which are placed from their own catalogues and
+        /// have no seat pool, so they are restored in place exactly as before. That is a
+        /// stated S3 limit, not an oversight - extending the re-roll to the release
+        /// world needs a per-island seat pool first, which is the same prerequisite the
+        /// 1010/1011 handshake route has.
+        /// </summary>
+        /// <returns>How many deposits actually moved.</returns>
+        internal static int RerollIslandDeposits(
+            Multiplayer.Islands.IslandId island, long generation)
+        {
+            int moved = 0;
+            foreach (long entityId in Nodes.EntityIds)
+            {
+                Multiplayer.MetalNode? node = Nodes.NodeOf(entityId);
+                if (node == null) continue;
+
+                // THE WHOLE DECISION IS ONE CALL, and that is deliberate - see
+                // MetalDeposits.RerolledNode for the mutation that escaped when this
+                // loop did its own seat arithmetic. Null means "does not move": not
+                // Haven's static field, generation 0, or this deposit kept its seat.
+                Multiplayer.MetalNode? reseated =
+                    Multiplayer.MetalDeposits.RerolledNode(island, generation, node.Key);
+                if (reseated == null) continue;
+
+                if (!Nodes.Reseat(entityId, reseated)) continue;
+
+                BroadcastNodeReset(entityId);
+                moved++;
+            }
+
+            if (moved > 0)
+            {
+                Console.WriteLine("[storm] understorm re-roll on " + island.Value
+                    + ": moved " + moved + " deposit(s) into generation " + generation
+                    + "'s layout.");
+            }
+            return moved;
+        }
+
+        /// <summary>
         /// The one body behind both. <paramref name="island"/> null = the whole world.
         /// </summary>
         private static string ResetHarvestResourcesIn(Multiplayer.Islands.IslandId? island)

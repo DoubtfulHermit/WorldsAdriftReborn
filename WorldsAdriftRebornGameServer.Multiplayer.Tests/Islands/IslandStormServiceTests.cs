@@ -30,6 +30,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         {
             public readonly List<(string Island, IslandStormUpdate Update)> Pushes = new();
             public readonly List<(string Island, TimeSpan At)> Resets = new();
+            public readonly List<(string Island, long Generation)> ResetGenerations = new();
             public readonly Dictionary<string, long?> Ids = new();
             public FakeClock? Clock;
 
@@ -42,9 +43,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 return 1;
             }
 
-            public string ResetIslandResources(string islandId)
+            public string ResetIslandResources(string islandId, long generation)
             {
                 Resets.Add((islandId, Clock?.Elapsed ?? TimeSpan.Zero));
+                ResetGenerations.Add((islandId, generation));
                 return "reset " + islandId;
             }
 

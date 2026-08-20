@@ -293,8 +293,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // SOMETHING was reset.
             string wire = Wire();
 
-            Contains(wire, "public string ResetIslandResources(string islandId)",
-                "The wire's reset must take an island.");
+            Contains(wire, "public string ResetIslandResources(string islandId, long generation)",
+                "The wire's reset must take an island (and, since S3, the generation "
+                + "the re-rolled layout is seeded from).");
             Contains(wire, "new Multiplayer.Islands.IslandId(islandId)",
                 "...and must actually pass it through, not drop it on the floor.");
 
@@ -305,6 +306,71 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
             Assert.DoesNotContain("ResetHarvestResources()", wire.Substring(body, end - body),
                 StringComparison.Ordinal);
+        }
+
+        // ====================================================================
+        // S3 MUTATIONS: "the storm restores but never re-rolls"
+        // ====================================================================
+
+        [Fact]
+        public void Mutation_the_storm_re_rolls_placement_as_well_as_restoring_it()
+        {
+            // ⚠ THE S3 DEFECT. Deleting the RerollIslandDeposits call leaves a storm
+            // that resets perfectly, logs perfectly, and puts every rock back exactly
+            // where it was - the S1/S2 behaviour, and a known divergence from retail
+            // (roadmap §14.6.3: retail re-rolled, PROVED). Every pure test next door
+            // stays green, because they only ever see that SOMETHING was reset.
+            Contains(Wire(), "RerollIslandDeposits(island, generation)",
+                "The wire must re-roll the island's deposits after resetting them, "
+                + "and must pass BOTH the island and the generation - a re-roll seeded "
+                + "on the wrong generation produces the wrong layout, and one that "
+                + "ignores the island re-rolls the wrong world.");
+        }
+
+        [Fact]
+        public void Mutation_the_re_roll_happens_after_the_reset_not_before()
+        {
+            // ORDER IS LOAD-BEARING AND SILENT WHEN WRONG. The reset broadcasts a
+            // restored deposit at its CURRENT seat. Re-rolling first means that
+            // broadcast names the seat the rock has just left, so the client is told
+            // the OLD position last and the rock renders back where it was - a storm
+            // that visibly does nothing, with the whole suite green.
+            string wire = Collapsed(Wire());
+            int reset = wire.IndexOf("ResetHarvestResourcesOn(island)", StringComparison.Ordinal);
+            int reroll = wire.IndexOf("RerollIslandDeposits(island", StringComparison.Ordinal);
+
+            Assert.True(reset > 0, "the scoped reset call was not found in the wire");
+            Assert.True(reroll > 0, "the re-roll call was not found in the wire");
+            Assert.True(reset < reroll,
+                "the re-roll must come AFTER the reset; restoring a rock after moving "
+                + "it broadcasts the position it just left");
+        }
+
+        [Fact]
+        public void Mutation_the_re_roll_asks_the_tested_decision_which_seats_to_use()
+        {
+            // S2's escaped mutation, one layer down. The game-server assembly has no
+            // test project, so a seat choice written inline there would be guarded by
+            // nothing but string matching - and `seats[i] = i` would restore the old
+            // in-place behaviour with every test green. The decision must come from
+            // IslandResourceReroll, which IS unit-tested.
+            string server = Collapsed(Server());
+            Contains(server, "Multiplayer.MetalDeposits.RerolledNode(island, generation, node.Key)",
+                "The ENTIRE seat decision must come from the pure, unit-tested "
+                + "RerolledNode - one call, no arithmetic in this assembly. An earlier "
+                + "version asked for the seat LIST here and indexed it, and changing "
+                + "`seats[index]` to `index` killed the feature outright with all 4252 "
+                + "tests green. See MetalDeposits.RerolledNode.");
+            DoesNotContain(server, "IslandResourceReroll.SeatsFor(",
+                "The game server must NOT compute seats itself. SeatsFor belongs to "
+                + "MetalDeposits.RerolledNode, in the assembly that can be tested; "
+                + "calling it here reopens the escaped mutation.");
+            Contains(server, "Nodes.Reseat(",
+                "...and the registry must actually be updated, or a later joiner is "
+                + "seeded at the deposit's old position and sees a rock nobody else does.");
+            Contains(server, "BroadcastNodeReset(entityId)",
+                "...and the peers holding the deposit must be told, or it moves only "
+                + "on the server.");
         }
 
         [Fact]

@@ -4596,11 +4596,105 @@ The decision now lives in `Multiplayer.Islands.IslandResourceScope.Include`,
 where it is unit-tested, and one wiring test reads the single line that hands the
 island over.
 
-#### S3 — Re-rolled placement
-Re-request `SpawnResources` for `Metal` **and** `Egg` at storm end via the
-existing handshake, after clearing the island's ledger. **Blocked on
-per-island `IslandBounds`.** Chest re-roll follows the same shape once loot
-placement is per-island.
+#### S3 — Re-rolled placement — **BUILT, `feat/storm-s3`, not deployed**
+
+The original plan was: re-request `SpawnResources` for `Metal` **and** `Egg` at
+storm end via the existing 1010/1011 handshake, after clearing the island's
+ledger. **That route is blocked, and doubly so** — see the box below, which the
+S3 work confirmed rather than removed. So S3 re-rolls **the path production
+actually runs** instead, and leaves the handshake route untouched for whenever
+its two blockers are cleared.
+
+**What shipped.** Placement is now re-rolled per island at that island's own
+storm end, with no client mod, no schema migration, no flag flip and no new
+component:
+
+- **`HavenSurface.DepositPool()`** — the SAME generator over the SAME surface
+  and the SAME `DepositConfig` as the boot layout, run out to a saturating
+  target instead of stopping at 40. Haven yields **107 seats** (MEASURED; 1
+  anchor + 106 generated).
+- **`Islands.IslandResourceReroll.SeatsFor`** — the pure, unit-tested decision:
+  which seats are occupied at generation *g*, seeded FNV-1a over
+  (island, generation), shuffled by SplitMix64. No RNG, no clock.
+- **`MetalDeposits.RerolledNode`** — the whole per-deposit decision in one call.
+- **`NodeRegistry.Reseat`** — the first and only writer of a placed node's
+  position (see the §4 warning in the S1 live findings).
+
+**Two properties make this safe, and both are asserted:**
+
+1. **Prefix stability.** The generator is a greedy pass over a fixed hash order,
+   so a larger target can only APPEND. The pool's first 40 seats are
+   byte-identical to today's layout (MEASURED 39/39 plus the pinned anchor), so
+   **generation 0 IS the current production world** and nothing changes until
+   the first storm.
+2. **Every pair in the pool is already ≥22 m apart**, because the pool was
+   thinned by that same pass. So *any* subset is a valid layout, the re-roll can
+   never produce a rock carpet, and — the point — **there is one placement
+   policy, not two that can disagree.** That was S2's lesson applied one layer
+   down.
+
+**Deposit identity is carried across; only position moves** (key, metal type,
+quality, 1255 variant). That matches the wiki, which says the *locations*
+changed, and it keeps "index 0 is always iron" and every resolvable variant id
+intact — an unresolvable variant leaves the entity invisible.
+
+**deposit-0 is PINNED** — the hand-measured tutorial rock 8.9 m from spawn.
+A new player's first mining lesson must not become a search. **WAREBORN TUNING.**
+
+**LIVE, end to end** (headless soak, cadence 60 s, `WAREBORN_DEPOSIT_COUNT=40`):
+`understorm re-roll on haven: moved 39 deposit(s) into generation 1's layout`,
+then **38** at generation 2, with `the-trades-challenge` correctly untouched.
+
+**Persistence is coherent without a migration.** Resource positions are not
+persisted (PROVED — no resource table in `SchemaScripts`, no resource record in
+`WorldStateSnapshot`) and neither is the generation counter, so a restart
+returns the world to generation 0 — the boot layout — at the same moment it
+returns every mined node to intact. Layout and harvest state reset together;
+nothing can survive a restart half re-rolled.
+
+**Scope limit, stated not hidden:** Haven's own static `deposit-N` field only.
+`MetalDeposits.HavenIndexOf` returns null for release-world and
+Trades-Challenge deposits, which are placed from their own catalogues and have
+no seat pool. Extending the re-roll to the release world needs a per-island seat
+pool — the same shape of prerequisite the handshake route has. **Trees, fuel
+canisters and chests are also not re-rolled yet**; the wiki says trees were
+author-fixed anyway, but fuel pods and chests were explicitly re-rolled and are
+the natural next increment.
+
+**One mutation escaped, exactly as hard rule 9 predicts, and it was S2's hole
+again.** The re-roll was first a loop in the game server that asked for the seat
+LIST and indexed it; changing `NodeAtSeat(index, seats[index])` to
+`NodeAtSeat(index, index)` moved not one rock, printed no log line, and left all
+4252 tests green, because the untestable assembly was guarded only by string
+matches on `SeatsFor(` and `NodeAtSeat(` — both of which still appeared. Fixed
+structurally: the arithmetic moved into `MetalDeposits.RerolledNode`, and a
+`DoesNotContain` keeps `SeatsFor` out of the game server so the hole cannot
+reopen.
+
+> ⚠ **S3'S TWO PREREQUISITES ARE BOTH STILL UNMET — they were not worked around,
+> they were routed around.** The 1010/1011 handshake remains the more faithful
+> mechanism (retail's client re-sampled its own mesh), and it is still available:
+>
+> 1. **The flags are off.** Re-read live 2026-08-20: `WAREBORN_METAL_HANDSHAKE=0`
+>    and `WAREBORN_SPAWN_METAL=0`. **Why they were turned off is still
+>    unrecorded** and should be found before anyone flips them.
+> 2. **Per-island `IslandBounds`.** The coordinate guard is `IslandBounds.Haven()`
+>    HARDCODED at `Game/Gathering/IslandResourceService.cs:111`, so on the
+>    release world every reply from a non-Haven island is refused.
+>
+> They are also **mutually exclusive with what S3 shipped**: turning the
+> handshake on makes `WAREBORN_SPAWN_DEPOSIT=1` a no-op
+> (`WorldsAdriftRebornGameServer.cs:3312-3314`) and the static field — the thing
+> S3 re-rolls — disappears entirely. So this is an either/or, not a stack, and
+> flipping those flags would turn S3's re-roll off. It is a deploy decision for
+> the maintainer.
+>
+> (Same read, for context: `WAREBORN_DEPOSIT_COUNT=40`, not the dangerous default
+> of **1** — and that default is worth remembering, because with one deposit the
+> only rock in the world is the pinned tutorial one and the re-roll correctly
+> does nothing.)
+
+Chest re-roll follows the same shape once loot placement is per-island.
 
 > ⚠ **S3 HAS A SECOND, PREVIOUSLY UNRECORDED PREREQUISITE.** The 1010/1011
 > handshake S3 rides is **switched off in production**: read live 2026-08-20,

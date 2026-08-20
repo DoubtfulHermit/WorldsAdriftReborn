@@ -332,6 +332,49 @@ Note for context: `WAREBORN_SPAWN_METAL=0` and `WAREBORN_METAL_HANDSHAKE=0` on
 production, so the client-side re-sample handshake that S3 would use is **off**
 today. That is also S3's unrecorded prerequisite.
 
+### ✅ RESOLVED 2026-08-20 during S3 — THE ROCK DID NOT MOVE. Possibility 1 or 2.
+
+**Verdict: the reset provably cannot move a deposit, so this was observer error
+(possibility 1) or a different pre-existing deposit (possibility 2).**
+Possibility 3 — "the node reset path genuinely moves the entity" — is **DEAD**,
+and with it the worry that the roadmap's "RESTORED not re-rolled" claim was
+false. It was true. **PROVED**, four independent ways:
+
+1. **Every position in the chain was immutable.** `MetalNode.Position` is a
+   get-only property assigned once in the constructor (`MetalNode.cs:83`, ctor
+   `:33`); `NodeRegistry.NodeState.Node` was get-only, assigned once
+   (`NodeRegistry.cs:98`); `MetalDeposits.HavenPlacements` is `static readonly`
+   over a `readonly struct` (`:207`, `:157`). Before S3 there was **no writer at
+   all** — nothing in the server could change a placed node's position.
+2. **`ResetAll` never touches it.** `NodeRegistry.ResetAll` (`:212-224`) sets
+   `IsDestroyed = false` and clears `ShotPoints`. `MetalHarvest.ResetAll`
+   (`:204`) clears `Hits`/`Depleted` and stores no position at all.
+   `BroadcastNodeReset` (`:1838-1889`) re-sends `node.Position` verbatim.
+3. **`MetalNodes.Sink` is a pure function**, not a mutation: it returns a new
+   `FixedPointPosition` and every caller assigns it to a local. The 1000 m
+   depletion sink and its inverse are an exact round-trip.
+4. **The boot layout is deterministic and the server never restarted.**
+   `SurfacePlacementGenerator` has no RNG and no clock — candidate order is an
+   FNV-1a hash of each point's own coordinates (`:15-22`, confirmed against the
+   implementation). Positions are **not persisted** (no resource table in
+   `SchemaScripts`, no resource record in `WorldStateSnapshot`), so they are
+   rebuilt identically each boot. And `systemctl show` reads `NRestarts=0` with
+   `ExecMainStartTimestamp = 10:44:53 CEST` — one process across the whole
+   observation, so no redeploy could have shifted the layout mid-session either.
+
+**Which of 1 or 2 it was cannot be settled from here**, and does not matter now.
+For context on how easy possibility 2 is: Haven carries **40** deposits at a
+**22 m** minimum spacing (`HavenSurface.DepositMinSpacing`), so there is nearly
+always another rock within sight of the one you mined.
+
+⚠ **This finding is now load-bearing in a way it was not before.** S3
+deliberately introduces the first and only writer of a placed node's position,
+`NodeRegistry.Reseat`. If a future agent investigates another "the rock moved"
+report, the answer is no longer automatically "impossible" — check whether a
+storm re-roll ran (grep `understorm re-roll` in the journal, which logs the
+island and the generation) before considering anything else. Keeping `Reseat`
+the *single* writer is what keeps that question cheap to answer.
+
 ---
 
 ## 5. METHOD — THE ERROR CLASS THAT HAS COST THIS PROJECT THE MOST
