@@ -774,12 +774,37 @@ namespace WorldsAdriftRebornGameServer
             // and plays NOTHING (TreeClientVisualizer's break effect fires only on
             // bits LEAVING the mask). No wood is granted: regrowth is not a harvest,
             // so there is no CutterEntityId and no HarvestReward.Award here.
+            //
+            // ...UNLESS AN UNDERSTORM IS GOING TO DO IT. TreeHarvest's own doc names
+            // DueRespawns as the seam a storm should take over, and retail's shape is
+            // the one this switch restores: you could strip an area bare and it
+            // STAYED bare until the storm. With WAREBORN_STORMS on and no explicit
+            // WAREBORN_TREE_RESPAWN_SECONDS, the per-tree timers stop firing and the
+            // forest comes back with the lightning instead (Harvest.ResetAll, inside
+            // ResetHarvestResources). An operator who set the tree knob keeps their
+            // per-tree timers - that is the revert path. See
+            // Multiplayer.Islands.IslandStormPolicy.PerTreeRegrowthEnabled.
+            if (!PerTreeRegrowth)
+            {
+                return;
+            }
+
             foreach (TreeRespawn respawn in Harvest.DueRespawns())
             {
                 Console.WriteLine("[info] " + respawn + ".");
                 PushTreeSectionMask(respawn.TreeEntityId, respawn.SectionMask);
             }
         }
+
+        /// <summary>
+        /// Whether a chopped tree still heals on its own five-minute timer, or waits
+        /// for the next understorm. See
+        /// <see cref="Multiplayer.Islands.IslandStormPolicy.PerTreeRegrowthEnabled"/>.
+        /// </summary>
+        private static readonly bool PerTreeRegrowth =
+            Multiplayer.Islands.IslandStormPolicy.PerTreeRegrowthEnabled(
+                Multiplayer.Islands.IslandStormPolicy.EnabledFromEnvironment(),
+                Environment.GetEnvironmentVariable("WAREBORN_TREE_RESPAWN_SECONDS"));
 
         /// <summary>
         /// Pushes one tree's new <c>1036 sectionMask</c> to every peer that holds
@@ -2852,6 +2877,62 @@ namespace WorldsAdriftRebornGameServer
                 : Multiplayer.Regions.RegionRegistry.CreateDefault(IslandTopology);
 
         /// <summary>
+        /// THE UNDERSTORM. Each island's 1254 lightning timer, and the world
+        /// resource reset that a storm ending performs.
+        ///
+        /// OFF unless <c>WAREBORN_STORMS</c> says otherwise. With it off this costs
+        /// one bool per main-loop turn and this server is byte-identical on the wire
+        /// to one built without the feature: 1254 is still seeded exactly as it
+        /// always was and simply never updated.
+        ///
+        /// The schedule, the two integers and the decision to send anything at all
+        /// are the pure <see cref="Multiplayer.Islands.IslandStormPolicy"/>,
+        /// <see cref="Multiplayer.Islands.IslandStormPush"/> and
+        /// <see cref="Multiplayer.Islands.IslandStormService"/>; the wire is
+        /// <see cref="Game.IslandStormWire"/>. Nothing in that chain can write
+        /// <c>isLightningActive</c> - see the wire's remarks for the island-drop
+        /// hazard that rule exists for.
+        /// </summary>
+        /// <remarks>
+        /// DECLARED HERE, AFTER <see cref="IslandTopology"/>, AND THAT IS LOAD-BEARING.
+        /// Static field initialisers run in TEXTUAL order, so a declaration up beside
+        /// <see cref="Fauna"/> would read a null topology and schedule storms for an
+        /// empty world - silently, and only on the release path. Fauna and SkyWhale
+        /// solve the same problem by seeding themselves later in Main; this one needs
+        /// the island list at construction, so it is simply declared after it.
+        /// </remarks>
+        internal static readonly Multiplayer.Islands.IslandStormService Storms = BuildStormService();
+
+        private static Multiplayer.Islands.IslandStormService BuildStormService()
+        {
+            TimeSpan duration = Multiplayer.Islands.IslandStormPolicy.DurationFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Islands.IslandStormPolicy.DurationEnvVar));
+
+            List<string> islandIds = new List<string>();
+            foreach (Multiplayer.Islands.IslandDefinition island in IslandTopology.All)
+            {
+                islandIds.Add(island.Id.Value);
+            }
+
+            return new Multiplayer.Islands.IslandStormService(
+                ServerClock,
+                new Game.IslandStormWire.Wire(),
+                islandIds,
+                Multiplayer.Islands.IslandStormPolicy.EnabledFromEnvironment(),
+                Multiplayer.Islands.IslandStormPolicy.CadenceFrom(
+                    Environment.GetEnvironmentVariable(
+                        Multiplayer.Islands.IslandStormPolicy.CadenceEnvVar), duration),
+                duration,
+                Multiplayer.Islands.IslandStormPolicy.JitterFrom(
+                    Environment.GetEnvironmentVariable(
+                        Multiplayer.Islands.IslandStormPolicy.JitterEnvVar)),
+                Multiplayer.Islands.IslandStormPolicy.CountdownRefreshFrom(
+                    Environment.GetEnvironmentVariable(
+                        Multiplayer.Islands.IslandStormPolicy.CountdownRefreshEnvVar)));
+        }
+
+        /// <summary>
         /// EVERY non-player thing this server puts in the world, and the one
         /// entity id each is known by on every client.
         ///
@@ -4607,6 +4688,29 @@ namespace WorldsAdriftRebornGameServer
                     + "stream each client the world entities near it; unset = every entity is sent, as before).");
             }
 
+            // The understorm's settled configuration, printed whether it is on or
+            // off. A feature that is off should SAY it is off with the name of the
+            // variable that turns it on: this repo has twice shipped a green suite
+            // over an unplugged feature, and a silent boot is how that survives.
+            if (Storms.Enabled)
+            {
+                Console.WriteLine("[info] understorms: ON over " + Storms.IslandCount
+                    + " island(s); one every " + Storms.Cadence.TotalMinutes.ToString("0.#")
+                    + " min per island (jitter " + Storms.JitterFraction.ToString("0.##")
+                    + " of that), lasting " + Storms.Duration.TotalSeconds.ToString("0.#")
+                    + " s, countdown refreshed every " + Storms.CountdownRefresh.TotalSeconds.ToString("0.#")
+                    + " s. The client rumbles and shakes for the last "
+                    + Multiplayer.Islands.IslandStormPolicy.TelegraphSeconds.ToString("0")
+                    + " s within " + Multiplayer.Islands.IslandStormPolicy.TelegraphRadiusMetres.ToString("0")
+                    + " m. World resources reset when the last island's storm ends.");
+            }
+            else
+            {
+                Console.WriteLine("[info] understorms: OFF (set "
+                    + Multiplayer.Islands.IslandStormPolicy.EnabledEnvVar
+                    + "=1 to schedule island lightning and the resource reset it drives).");
+            }
+
             while (keepRunning)
             {
                 // Fallback flush for parked mirror ops. The ack-driven flush only
@@ -4684,6 +4788,17 @@ namespace WorldsAdriftRebornGameServer
                 // idle (an empty-dictionary walk that allocates nothing). See
                 // Game.SkyWhaleService for the wire-shape contract.
                 SkyWhale.Tick();
+                // THE UNDERSTORM: each island's 1254 countdown, the storm switch, and
+                // the world resource reset when the last island's storm ends. Off
+                // unless WAREBORN_STORMS=1; cheap when off (one bool) and cheap when
+                // on (a walk of a handful of islands doing integer arithmetic that
+                // almost always decides to send nothing). Deliberately AFTER the
+                // per-entity services and BEFORE DeferredActions, so the reset's
+                // resource pushes ride the same turn as the storm's own end update.
+                // See Game.IslandStormWire for the wire-shape contract and the
+                // island-drop hazard the "never write isLightningActive" rule exists
+                // for.
+                Storms.Tick();
                 // Fire any due one-shot "seed in-progress then flip" completions on the main
                 // loop: the shipyard fold-out flip (1205 deployed=true), the crafted-part
                 // materialize flip (1013 spawning=false), and timed station-craft completions.
