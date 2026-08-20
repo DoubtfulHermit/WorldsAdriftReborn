@@ -176,31 +176,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         // --------------------------------------------------------------------
-        // The world reset
+        // The per-island reset (S2)
         // --------------------------------------------------------------------
 
         [Fact]
-        public void The_world_reset_is_due_at_the_last_islands_storm_END_not_its_start()
+        public void An_islands_reset_is_due_at_its_OWN_storm_END_not_its_start()
         {
-            TimeSpan last = TimeSpan.FromSeconds(600);
+            TimeSpan offset = TimeSpan.FromSeconds(600);
 
-            // The last island's storm STARTS at 6900. Nothing is due yet.
-            Assert.Equal(0, IslandStormPolicy.DueWorldResetGeneration(
-                TimeSpan.FromSeconds(6900), Cadence, Duration, last));
-            Assert.Equal(0, IslandStormPolicy.DueWorldResetGeneration(
-                TimeSpan.FromSeconds(6944), Cadence, Duration, last));
+            // This island's storm STARTS at 6900. Nothing is due yet.
+            Assert.Equal(0, IslandStormPolicy.DueResetGeneration(
+                TimeSpan.FromSeconds(6900), Cadence, Duration, offset));
+            Assert.Equal(0, IslandStormPolicy.DueResetGeneration(
+                TimeSpan.FromSeconds(6944), Cadence, Duration, offset));
 
             // It ENDS at 6945. Now it is.
-            Assert.Equal(1, IslandStormPolicy.DueWorldResetGeneration(
-                TimeSpan.FromSeconds(6945), Cadence, Duration, last));
+            Assert.Equal(1, IslandStormPolicy.DueResetGeneration(
+                TimeSpan.FromSeconds(6945), Cadence, Duration, offset));
+        }
+
+        [Fact]
+        public void Two_islands_with_different_offsets_are_due_at_different_instants()
+        {
+            // ⚠ THIS IS THE S2 DEFECT, EXPRESSED AS ARITHMETIC.
+            // S1 answered this question ONCE, with the LAST island's offset, so an
+            // early island's reset was deferred until the storm front had swept the
+            // whole world - MEASURED at 3 m 32 s late on production with 47 islands.
+            // The early island must now be due while the late one still is not.
+            TimeSpan early = TimeSpan.Zero;
+            TimeSpan late = TimeSpan.FromSeconds(600);
+
+            TimeSpan whenEarlyEnds = TimeSpan.FromSeconds(6345);
+
+            Assert.Equal(1, IslandStormPolicy.DueResetGeneration(
+                whenEarlyEnds, Cadence, Duration, early));
+            Assert.Equal(0, IslandStormPolicy.DueResetGeneration(
+                whenEarlyEnds, Cadence, Duration, late));
         }
 
         [Fact]
         public void Nothing_is_due_before_the_first_cycle_completes()
         {
-            Assert.Equal(0, IslandStormPolicy.DueWorldResetGeneration(
+            Assert.Equal(0, IslandStormPolicy.DueResetGeneration(
                 TimeSpan.Zero, Cadence, Duration, TimeSpan.Zero));
-            Assert.Equal(0, IslandStormPolicy.DueWorldResetGeneration(
+            Assert.Equal(0, IslandStormPolicy.DueResetGeneration(
                 TimeSpan.FromSeconds(6300), Cadence, Duration, TimeSpan.Zero));
         }
 
@@ -210,7 +229,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             long previous = 0;
             for (double t = 0; t < 6300 * 4; t += 13)
             {
-                long due = IslandStormPolicy.DueWorldResetGeneration(
+                long due = IslandStormPolicy.DueResetGeneration(
                     TimeSpan.FromSeconds(t), Cadence, Duration, TimeSpan.Zero);
                 Assert.True(due >= previous, "due reset generation went backwards at t=" + t);
                 previous = due;
@@ -219,13 +238,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
-        public void The_reset_instant_matches_the_last_islands_storm_end()
+        public void The_reset_instant_matches_that_islands_own_storm_end()
         {
-            TimeSpan last = TimeSpan.FromSeconds(600);
+            TimeSpan offset = TimeSpan.FromSeconds(600);
             Assert.Equal(TimeSpan.FromSeconds(6945),
-                IslandStormPolicy.WorldResetAt(1, Cadence, Duration, last));
+                IslandStormPolicy.ResetAt(1, Cadence, Duration, offset));
             Assert.Equal(TimeSpan.FromSeconds(13245),
-                IslandStormPolicy.WorldResetAt(2, Cadence, Duration, last));
+                IslandStormPolicy.ResetAt(2, Cadence, Duration, offset));
+
+            // And it is exactly StartOf + Duration, for every offset.
+            foreach (double seconds in new[] { 0.0, 137.0, 600.0, 1259.0 })
+            {
+                TimeSpan phase = TimeSpan.FromSeconds(seconds);
+                Assert.Equal(IslandStormPolicy.StartOf(3, Cadence, phase) + Duration,
+                    IslandStormPolicy.ResetAt(3, Cadence, Duration, phase));
+            }
+        }
+
+        [Fact]
+        public void The_last_island_special_case_is_gone_from_the_policy_surface()
+        {
+            // MUTATION GUARD, and a deliberate one: S1's WorldResetAt /
+            // DueWorldResetGeneration were the "reset once, at the last island"
+            // arithmetic. If either comes back, something has quietly reintroduced a
+            // world-scoped reset and the 3 m 32 s delay with it.
+            System.Reflection.MethodInfo[] methods = typeof(IslandStormPolicy).GetMethods();
+            Assert.DoesNotContain(methods, m => m.Name == "WorldResetAt");
+            Assert.DoesNotContain(methods, m => m.Name == "DueWorldResetGeneration");
         }
 
         // --------------------------------------------------------------------

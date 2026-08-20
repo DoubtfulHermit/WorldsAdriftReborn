@@ -201,11 +201,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public IReadOnlyList<long> EntityIds => _byEntityId.Keys.ToArray();
 
         /// <summary>Restores every depleted/damaged node and clears crust history.</summary>
-        public int ResetAll()
+        public int ResetAll() => ResetAll(null);
+
+        /// <summary>
+        /// The same restore, SCOPED to the nodes <paramref name="include"/> accepts -
+        /// an understorm strikes ONE island, so only that island's ore comes back.
+        /// Null means the whole world, which is the operator's
+        /// <c>reset-resources all</c>.
+        /// </summary>
+        public int ResetAll(Func<long, bool>? include)
         {
             int changed = 0;
-            foreach (NodeState state in _byEntityId.Values)
+            foreach (KeyValuePair<long, NodeState> entry in _byEntityId)
             {
+                if (include != null && !include(entry.Key)) continue;
+                NodeState state = entry.Value;
                 if (state.IsDestroyed || state.ShotPoints.Count > 0) changed++;
                 state.IsDestroyed = false;
                 state.ShotPoints.Clear();

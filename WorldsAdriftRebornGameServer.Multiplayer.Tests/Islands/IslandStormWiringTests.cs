@@ -249,24 +249,114 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         // ====================================================================
 
         [Fact]
-        public void Mutation_the_storm_calls_the_real_world_resource_reset()
+        public void Mutation_the_storm_calls_the_real_resource_reset()
         {
-            Contains(Wire(), "ResetHarvestResources()",
+            Contains(Wire(), "ResetHarvestResourcesOn(",
                 "The storm must reuse the reset that already exists and is already "
-                + "tested, not a second implementation of it. A ResetWorldResources "
+                + "tested, not a second implementation of it. A ResetIslandResources "
                 + "that logs and returns is a storm that refreshes nothing.");
         }
 
         [Fact]
         public void The_reset_the_storm_calls_is_the_one_that_drives_all_four_ledgers()
         {
-            // Guards against ResetHarvestResources itself being hollowed out under
-            // the storm's feet.
+            // Guards against the reset body itself being hollowed out under the
+            // storm's feet. Note the `include` argument: these are the SCOPED
+            // overloads, and a call site that dropped it would silently go back to
+            // resetting the whole world.
             string server = Server();
-            Contains(server, "Harvest.ResetAll()", "trees");
-            Contains(server, "Nodes.ResetAll()", "metal nodes");
-            Contains(server, "MetalHarvest.ResetAll()", "metal deposits");
-            Contains(server, "FuelCanisters.ResetAll()", "fuel canisters");
+            Contains(server, "Harvest.ResetAll(include)", "trees");
+            Contains(server, "Nodes.ResetAll(include)", "metal nodes");
+            Contains(server, "MetalHarvest.ResetAll(include)", "metal deposits");
+            Contains(server, "FuelCanisters.ResetAll(include)", "fuel canisters");
+        }
+
+        // ====================================================================
+        // S2 MUTATION: "make the per-island reset global again"
+        // ====================================================================
+
+        [Fact]
+        public void Mutation_the_storms_reset_is_scoped_to_the_island_that_stormed()
+        {
+            // ⚠ THE S2 DEFECT, AND IT IS INVISIBLE TO EVERY OTHER TEST IN THIS FILE.
+            // A ResetIslandResources(islandId) that ignores its argument and calls
+            // the world-wide ResetHarvestResources() ticks, logs, and reintroduces
+            // the 3 m 32 s delay MEASURED on production on 2026-08-20 - while the
+            // pure service tests next door stay green, because they only see that
+            // SOMETHING was reset.
+            string wire = Wire();
+
+            Contains(wire, "public string ResetIslandResources(string islandId)",
+                "The wire's reset must take an island.");
+            Contains(wire, "new Multiplayer.Islands.IslandId(islandId)",
+                "...and must actually pass it through, not drop it on the floor.");
+
+            int body = wire.IndexOf("public string ResetIslandResources(", StringComparison.Ordinal);
+            Assert.True(body > 0, "ResetIslandResources was not found in the wire");
+            int end = wire.IndexOf("\n        }", body, StringComparison.Ordinal);
+            Assert.True(end > body, "the end of ResetIslandResources was not found");
+
+            Assert.DoesNotContain("ResetHarvestResources()", wire.Substring(body, end - body),
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void The_per_island_reset_resolves_ownership_from_the_interest_services_own_map()
+        {
+            // Two classifications that could disagree would mean a storm resetting
+            // resources the player standing on the island does not hold. There is one
+            // map, and the understorm reads it.
+            string server = Server();
+            Contains(server, "ResourceInterest.IslandOf(entityId)",
+                "The understorm must ask the service that already classified every "
+                + "streamed resource per island for checkout.");
+
+            string interest = Source("WorldsAdriftRebornGameServer", "Game",
+                "ResourceInterestService.cs");
+            Contains(interest, "public IslandId? IslandOf(long entityId)",
+                "The accessor over _resourceIslands is the S2 seam (§14.10).");
+            Contains(interest, "public IReadOnlyDictionary<long, IslandId> ResourceIslands",
+                "The map itself is exposed read-only for anything that needs the whole set.");
+        }
+
+        [Fact]
+        public void The_per_island_reset_does_not_silently_do_nothing_when_interest_is_off()
+        {
+            // ⚠ THE FAIL-SILENT. ResourceInterestService only populates
+            // _resourceIslands when spatial interest is on (production reads
+            // WAREBORN_INTEREST_RADIUS_M=120, PROVED 2026-08-20 - but an operator can
+            // unset it). With an empty map and no fallback, every storm would reset
+            // exactly zero resources and every test here would still be green.
+            string server = Server();
+            Contains(server, "IslandResourceInterestPolicy.ClosestIsland(",
+                "An unclassified resource must be re-derived from its position with "
+                + "the same rule the interest map was built from.");
+            Contains(server, "internal static Multiplayer.Islands.IslandId? IslandOwningResource(",
+                "One seam answers 'which island owns this resource', for both paths.");
+        }
+
+        [Fact]
+        public void The_operators_reset_resources_all_is_still_world_wide()
+        {
+            // S2 scopes the STORM's reset. It does not take the world-wide reset
+            // away from the authenticated operator, who asked for exactly that.
+            string server = Server();
+            Contains(server, "internal static string ResetHarvestResources() => ResetHarvestResourcesIn(null);",
+                "reset-resources all must still mean all.");
+
+            string admin = Source("WorldsAdriftRebornGameServer", "Game",
+                "AdminWorldCommandService.cs");
+            Contains(admin, "WorldsAdriftRebornGameServer.ResetHarvestResources()",
+                "The operator command keeps the global body.");
+        }
+
+        [Fact]
+        public void The_boot_log_no_longer_promises_a_last_island_world_reset()
+        {
+            // The S1 log line described the defect accurately. Leaving it in place
+            // after the fix would make a correct server describe itself as broken.
+            DoesNotContain(Server(), "World resources reset when the last island's storm ends.",
+                "S2 resets each island at its own storm end; the log must say so.");
         }
 
         // ====================================================================
