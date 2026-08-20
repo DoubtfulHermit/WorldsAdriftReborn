@@ -34,8 +34,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// on 2026-08-20. An implementation of this method that ignores
         /// <paramref name="islandId"/> and resets the world reintroduces the defect
         /// while every test still passes, so a source-reading wiring test guards it.
+        ///
+        /// <paramref name="generation"/> is the storm cycle this reset belongs to, and
+        /// it is what S3's RE-ROLL is seeded from: retail did not restore resources in
+        /// place, it moved them (roadmap §14.6.3, WIKI), and the new layout must be a
+        /// pure function of (island, generation) so it is reproducible off the server.
+        /// Generation 0 is the boot layout.
         /// </summary>
-        string ResetIslandResources(string islandId);
+        string ResetIslandResources(string islandId, long generation);
     }
 
     /// <summary>
@@ -241,7 +247,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             if (due <= island.LastResetGeneration) return;
 
             island.LastResetGeneration = due;
-            _wire.ResetIslandResources(island.Id);
+
+            // The generation travels with the reset because S3 RE-ROLLS placement as
+            // well as restoring it, and the new layout must be a pure function of
+            // (island, generation) - not of the wall clock or of how many storms this
+            // process happened to see. Two servers replaying the same generation
+            // produce the same field.
+            _wire.ResetIslandResources(island.Id, due);
         }
     }
 }

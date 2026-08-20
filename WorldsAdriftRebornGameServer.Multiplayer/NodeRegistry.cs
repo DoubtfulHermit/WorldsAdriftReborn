@@ -95,7 +95,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 Node = node;
             }
 
-            public MetalNode Node { get; }
+            /// <summary>
+            /// Settable ONLY for the understorm re-roll - see
+            /// <see cref="NodeRegistry.Reseat"/>, which is the single writer.
+            /// </summary>
+            public MetalNode Node { get; set; }
             public bool IsDestroyed { get; set; }
             public List<ShotPoint> ShotPoints { get; } = new List<ShotPoint>();
         }
@@ -126,6 +130,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>Whether an entity id is a placed node.</summary>
         public bool IsNode(long entityId) => _byEntityId.ContainsKey(entityId);
+
+        /// <summary>
+        /// MOVES AN ALREADY-REGISTERED NODE (the understorm re-roll, S3).
+        ///
+        /// Replaces the node FACTS for <paramref name="entityId"/> while leaving its
+        /// harvest state - destroyed flag and crust shot points - untouched. The caller
+        /// re-rolls at storm END, immediately after <see cref="ResetAll(Func{long,bool})"/>
+        /// has already cleared that state, so in practice it is being moved intact; the
+        /// separation is kept because "where it is" and "how mined it is" are genuinely
+        /// different facts and a future caller may want one without the other.
+        ///
+        /// ⚠ THIS IS THE ONLY WRITER OF <c>NodeState.Node</c>, and the only reason that
+        /// property is settable at all. Everything else in this server treats a placed
+        /// node as immutable, which is exactly what made the §4 "the rock moved"
+        /// observation impossible to explain from the code: before this method existed,
+        /// NOTHING could change a node's position, so a reset provably restored it in
+        /// place. Keep that property - if a second writer ever appears, the next agent
+        /// investigating a moved resource has to consider both.
+        ///
+        /// The new position reaches players two ways and both matter: peers holding the
+        /// entity get an explicit 190602 transform push from the caller, and peers who
+        /// join later are SEEDED from this registry, so the seed cannot disagree with
+        /// what the movers were told.
+        /// </summary>
+        /// <returns>True if the node existed and its position actually changed.</returns>
+        public bool Reseat(long entityId, MetalNode node)
+        {
+            if (node == null) throw new ArgumentNullException(nameof(node));
+            if (!_byEntityId.TryGetValue(entityId, out NodeState? state)) return false;
+
+            MetalNode previous = state.Node;
+            state.Node = node;
+
+            return previous.Position.X != node.Position.X
+                || previous.Position.Y != node.Position.Y
+                || previous.Position.Z != node.Position.Z;
+        }
 
         /// <summary>The node facts for an entity id, or null if it is not a node.</summary>
         public MetalNode? NodeOf(long entityId) =>

@@ -78,11 +78,21 @@ namespace WorldsAdriftRebornGameServer.Game
             /// (MEASURED on production 2026-08-20). The island id is logged so a
             /// player report and a server line can be lined up.
             /// </summary>
-            public string ResetIslandResources(string islandId)
+            public string ResetIslandResources(string islandId, long generation)
             {
-                string summary = WorldsAdriftRebornGameServer.ResetHarvestResourcesOn(
-                    new Multiplayer.Islands.IslandId(islandId));
+                Multiplayer.Islands.IslandId island =
+                    new Multiplayer.Islands.IslandId(islandId);
+
+                string summary = WorldsAdriftRebornGameServer.ResetHarvestResourcesOn(island);
                 Console.WriteLine("[storm] understorm reset on " + islandId + ": " + summary);
+
+                // S3: RESTORE, THEN RE-ROLL, IN THAT ORDER. The reset puts a mined
+                // deposit back at the seat it was mined on; the re-roll then moves the
+                // now-intact deposit to this generation's seat. Reversed, the restore
+                // would be broadcast to a seat the rock has already left, and the
+                // client would be told the old position last.
+                WorldsAdriftRebornGameServer.RerollIslandDeposits(island, generation);
+
                 return summary;
             }
         }

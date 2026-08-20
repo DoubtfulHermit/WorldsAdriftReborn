@@ -293,8 +293,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // SOMETHING was reset.
             string wire = Wire();
 
-            Contains(wire, "public string ResetIslandResources(string islandId)",
-                "The wire's reset must take an island.");
+            Contains(wire, "public string ResetIslandResources(string islandId, long generation)",
+                "The wire's reset must take an island (and, since S3, the generation "
+                + "the re-rolled layout is seeded from).");
             Contains(wire, "new Multiplayer.Islands.IslandId(islandId)",
                 "...and must actually pass it through, not drop it on the floor.");
 
@@ -305,6 +306,79 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
             Assert.DoesNotContain("ResetHarvestResources()", wire.Substring(body, end - body),
                 StringComparison.Ordinal);
+        }
+
+        // ====================================================================
+        // S3 MUTATIONS: "the storm restores but never re-rolls"
+        // ====================================================================
+
+        [Fact]
+        public void Mutation_the_storm_re_rolls_placement_as_well_as_restoring_it()
+        {
+            // ⚠ THE S3 DEFECT. Deleting the RerollIslandDeposits call leaves a storm
+            // that resets perfectly, logs perfectly, and puts every rock back exactly
+            // where it was - the S1/S2 behaviour, and a known divergence from retail
+            // (roadmap §14.6.3: retail re-rolled, PROVED). Every pure test next door
+            // stays green, because they only ever see that SOMETHING was reset.
+            Contains(Wire(), "RerollIslandDeposits(island, generation)",
+                "The wire must re-roll the island's deposits after resetting them, "
+                + "and must pass BOTH the island and the generation - a re-roll seeded "
+                + "on the wrong generation produces the wrong layout, and one that "
+                + "ignores the island re-rolls the wrong world.");
+        }
+
+        [Fact]
+        public void Mutation_the_re_roll_happens_after_the_reset_not_before()
+        {
+            // ORDER IS LOAD-BEARING AND SILENT WHEN WRONG. The reset broadcasts a
+            // restored deposit at its CURRENT seat. Re-rolling first means that
+            // broadcast names the seat the rock has just left, so the client is told
+            // the OLD position last and the rock renders back where it was - a storm
+            // that visibly does nothing, with the whole suite green.
+            string wire = Collapsed(Wire());
+            int reset = wire.IndexOf("ResetHarvestResourcesOn(island)", StringComparison.Ordinal);
+            int reroll = wire.IndexOf("RerollIslandDeposits(island", StringComparison.Ordinal);
+
+            Assert.True(reset > 0, "the scoped reset call was not found in the wire");
+            Assert.True(reroll > 0, "the re-roll call was not found in the wire");
+            Assert.True(reset < reroll,
+                "the re-roll must come AFTER the reset; restoring a rock after moving "
+                + "it broadcasts the position it just left");
+        }
+
+        [Fact]
+        public void Mutation_the_re_roll_asks_the_tested_decision_which_seats_to_use()
+        {
+            // S2's escaped mutation, one layer down. The game-server assembly has no
+            // test project, so a seat choice written inline there would be guarded by
+            // nothing but string matching - and `seats[i] = i` would restore the old
+            // in-place behaviour with every test green. The decision must come from
+            // IslandResourceReroll, which IS unit-tested.
+            string server = Collapsed(Server());
+            Contains(server, "Multiplayer.Islands.IslandResourceReroll.SeatsFor(",
+                "The seat choice must come from the pure, unit-tested decision, not "
+                + "from a loop written in the untestable game-server assembly.");
+            Contains(server, "Multiplayer.MetalDeposits.NodeAtSeat(",
+                "...and the moved node must be built by the tested factory, which "
+                + "carries the deposit's key, metal, quality and 1255 variant across.");
+            Contains(server, "Nodes.Reseat(",
+                "...and the registry must actually be updated, or a later joiner is "
+                + "seeded at the deposit's old position and sees a rock nobody else does.");
+            Contains(server, "BroadcastNodeReset(entityId)",
+                "...and the peers holding the deposit must be told, or it moves only "
+                + "on the server.");
+        }
+
+        [Fact]
+        public void Mutation_a_world_that_has_never_stormed_is_not_re_rolled()
+        {
+            // Generation 0 is the boot layout. A re-roll that fired at generation 0
+            // would move every rock the first time the service ticked, before any storm
+            // - which reads to a player exactly like the §4 "the rock moved" report
+            // that S3 had to investigate before it could be believed.
+            Contains(Collapsed(Server()), "if (generation <= 0) return 0;",
+                "The re-roll must be a no-op at generation 0 so an unstormed world is "
+                + "byte-identical to a pre-S3 one.");
         }
 
         [Fact]
