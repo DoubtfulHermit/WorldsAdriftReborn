@@ -185,8 +185,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
             if (live)
             {
+                // The wind field's clock is the server's own millisecond clock, so
+                // every hull in the world samples the SAME wind at the same moment
+                // - two ships side by side must not disagree about the weather.
                 _state = FlightIntegrator.Step(
-                    _state, _input, stepSeconds, tuning, unfurledSails, agilityScale, propulsion);
+                    _state, _input, stepSeconds, tuning, unfurledSails, agilityScale, propulsion,
+                    nowMs / 1000.0);
 
                 if (_state.IsAtRest && !_manned)
                 {

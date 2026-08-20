@@ -188,6 +188,12 @@ variable to <code>username:hash</code> and restart the login server to enable th
             // it sits with the map fragments it decorates so the load order
             // reads as what it is.
             "admin-map-loot.js",
+            // Same shape and the same reason: the wind field is an operator
+            // diagnostic, and naming it admin-* is what mechanically keeps it
+            // off the public map. It injects its own SVG layer and its own
+            // controls rather than adding markup to the SHARED map-body.html,
+            // so the public page grows no inert checkbox.
+            "admin-map-wind.js",
             "admin-console.js",
             "admin-operator.js",
             "admin-topology.js",
