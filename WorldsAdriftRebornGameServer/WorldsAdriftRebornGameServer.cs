@@ -3017,6 +3017,26 @@ namespace WorldsAdriftRebornGameServer
         /// 190602 position: the question "where does this entity go" used to have
         /// exactly two possible answers and now has one per registration.
         /// </summary>
+        /// <remarks>
+        /// STATIC-FIELD TEXTUAL ORDER IS LOAD-BEARING, as it is for
+        /// <c>Storms</c>: C# initialises static fields in declaration order, so
+        /// <see cref="WeatherWallsEnabled"/> and <see cref="WeatherWallTypes"/> are
+        /// declared immediately ABOVE this. Declared below it they would still be at
+        /// their default (<c>false</c>/<c>null</c>) when this line runs, and
+        /// WAREBORN_WALLS would read as permanently off no matter what the operator
+        /// set - a feature flag that silently does nothing.
+        /// <c>WallSegmentWiringTests</c> pins the order.
+        /// </remarks>
+        internal static readonly bool WeatherWallsEnabled =
+            Multiplayer.Walls.WallPolicy.EnabledFromEnvironment();
+
+        /// <summary>
+        /// WAREBORN_WALL_TYPES, raw. Null means every wall type. Read once here; see
+        /// the ordering remark on <see cref="WorldEntities"/>.
+        /// </summary>
+        internal static readonly string? WeatherWallTypes =
+            Environment.GetEnvironmentVariable(Multiplayer.Walls.WallPolicy.TypesEnvVar);
+
         internal static readonly WorldEntityRegistry WorldEntities =
             Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree, SpawnMetal, MetalOnlyProven,
                 Environment.GetEnvironmentVariable("WAREBORN_TREE_COUNT"),
@@ -3037,7 +3057,9 @@ namespace WorldsAdriftRebornGameServer
                 ReleaseWorldEnabled ? ReleaseWorldDistricts : null,
                 WildernessShrineEnabled,
                 SpawnLootContainers,
-                Environment.GetEnvironmentVariable("WAREBORN_LOOT_COUNT"));
+                Environment.GetEnvironmentVariable("WAREBORN_LOOT_COUNT"),
+                WeatherWallsEnabled,
+                WeatherWallTypes);
 
         internal static readonly Game.ResourceInterestService ResourceInterest =
             new Game.ResourceInterestService(
@@ -4782,6 +4804,21 @@ namespace WorldsAdriftRebornGameServer
                     + Multiplayer.Islands.IslandStormPolicy.EnabledEnvVar
                     + "=1 to schedule island lightning and the resource reset it drives).");
             }
+
+            // The weather walls, printed on the same principle: a feature that is off
+            // says so, with the name of the variable that turns it on. When it is ON
+            // the line names the STORM-RIFT KILOMETRAGE, because that single number
+            // is the world-wide ambient-bolt spawn-rate input and is the one cost of
+            // this feature that was derived from the client's formula rather than
+            // measured - an operator watching frame times needs it in the log.
+            Console.WriteLine("[info] " + Multiplayer.Walls.WorldWalls.Describe(
+                WeatherWallsEnabled, WeatherWallTypes)
+                + (WeatherWallsEnabled
+                    ? ". Visual only: the wall force paths are UnityWorker-side and are not on our hulls, "
+                      + "so this applies zero newtons. Trim with "
+                      + Multiplayer.Walls.WallPolicy.TypesEnvVar + "=0,3,5 to drop the storm rifts."
+                    : " - set " + Multiplayer.Walls.WallPolicy.EnabledEnvVar
+                      + "=1 to put the release map's 44 storm/wind/sand walls in the sky."));
 
             while (keepRunning)
             {
