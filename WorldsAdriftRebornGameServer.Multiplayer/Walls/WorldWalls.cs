@@ -27,6 +27,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Walls
         /// sequence, which is what makes "off" byte-identical on the wire: with no
         /// registration there is no entity id, no AddEntityOp, no asset request and
         /// no component seed.
+        ///
+        /// The <c>enabled</c> check is FIRST in the iterator body on purpose, before
+        /// anything touches <see cref="WallCatalog"/>. That catalogue is a static
+        /// field initialised from an embedded file, and a corrupt or degenerate
+        /// record in it throws; putting the flag first means a bad data file cannot
+        /// stop a walls-OFF server from booting. It would still be loud on a
+        /// walls-ON one, which is the right way round.
         /// </param>
         /// <param name="typesEnv">
         /// The raw <c>WAREBORN_WALL_TYPES</c> value; null for every type. The lever
