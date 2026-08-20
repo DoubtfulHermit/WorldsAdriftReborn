@@ -46,6 +46,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         private static string Wire() => Source(
             "WorldsAdriftRebornGameServer", "Game", "IslandStormWire.cs");
 
+        /// <summary>
+        /// Runs of whitespace collapsed to one space, so a source assertion pins the
+        /// CODE rather than the line wrapping a reformat might change.
+        /// </summary>
+        private static string Collapsed(string source) =>
+            System.Text.RegularExpressions.Regex.Replace(source, @"[ \t\r\n]+", " ");
+
         private static void Contains(string haystack, string needle, string why) =>
             Assert.True(haystack.Contains(needle, StringComparison.Ordinal),
                 "Expected to find `" + needle + "`. " + why);
@@ -298,6 +305,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
             Assert.DoesNotContain("ResetHarvestResources()", wire.Substring(body, end - body),
                 StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Mutation_the_reset_body_hands_the_island_to_the_tested_scope_decision()
+        {
+            // ⚠ THIS TEST EXISTS BECAUSE A MUTATION ESCAPED, AND IT IS WORTH SAYING
+            // WHICH ONE. The scope was first decided inline in the game server:
+            //
+            //     Func<long,bool>? include = island == null ? null
+            //         : id => IslandOwningResource(id) == island.Value;
+            //
+            // Replacing that whole declaration with `= null` restored the S1
+            // world-wide reset - the defect that landed 3 m 32 s late on production -
+            // and every one of the 4215 tests still passed, because the
+            // `ResetAll(include)` strings the wiring test looks for were untouched.
+            //
+            // The decision now lives in Multiplayer.Islands.IslandResourceScope,
+            // where it is unit-tested. This is the only remaining freedom the game
+            // server has, so this is the line that has to be read.
+            Contains(Collapsed(Server()),
+                "IslandResourceScope.Include( island, IslandOwningResource)",
+                "The scope must come from the tested pure decision, with the island "
+                + "and the ownership lookup actually handed to it. An inline "
+                + "`include = null` here is the S1 defect wearing the S2 signature.");
         }
 
         [Fact]

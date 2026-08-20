@@ -1753,9 +1753,14 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static string ResetHarvestResourcesIn(Multiplayer.Islands.IslandId? island)
         {
-            Func<long, bool>? include = island == null
-                ? null
-                : id => IslandOwningResource(id) == island.Value;
+            // ⚠ THE SCOPE DECISION IS DELIBERATELY NOT INLINE HERE. It used to be,
+            // and replacing it with a bare `= null` reinstated the world-wide reset
+            // with the whole 4215-test suite still green - see
+            // Multiplayer.Islands.IslandResourceScope for the escaped mutation. The
+            // decision is now in the assembly that can be unit-tested; this line's
+            // only job is to hand over the island, and a wiring test reads it.
+            Func<long, bool>? include = Multiplayer.Islands.IslandResourceScope.Include(
+                island, IslandOwningResource);
 
             IReadOnlyList<TreeRespawn> trees = Harvest.ResetAll(include);
             foreach (TreeRespawn tree in trees)

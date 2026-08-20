@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
@@ -250,6 +251,68 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             Assert.Equal(1, canisters.ShotsOn(12));
 
             Assert.Equal(new[] { 10L, 11L, 11L, 12L }, asked.OrderBy(a => a).ToArray());
+        }
+
+        // ------------------------------------------------------------------
+        // The scope decision itself (IslandResourceScope)
+        // ------------------------------------------------------------------
+
+        private static readonly IslandId Haven = new IslandId("haven");
+        private static readonly IslandId B301 = new IslandId("b3-01");
+
+        private static IslandId? OwnerOf(long entityId) =>
+            entityId < 100 ? Haven : entityId < 1000 ? B301 : (IslandId?)null;
+
+        [Fact]
+        public void No_island_means_the_whole_world_which_is_reset_resources_all()
+        {
+            Assert.Null(IslandResourceScope.Include(null, OwnerOf));
+        }
+
+        [Fact]
+        public void Mutation_an_islands_scope_admits_only_that_islands_resources()
+        {
+            // ⚠ THIS IS THE GUARD THE FIRST ATTEMPT DID NOT HAVE.
+            // Writing this decision inline in the game server left it covered only by
+            // a source-reading test for `ResetAll(include)` at the call sites, and
+            // replacing the declaration with `= null` reinstated the S1 world-wide
+            // reset with all 4215 tests green. The decision lives in this assembly
+            // now, so nulling it out is a test failure rather than a silent
+            // regression to a defect a player already felt.
+            Func<long, bool>? include = IslandResourceScope.Include(Haven, OwnerOf);
+
+            Assert.NotNull(include);
+            Assert.True(include!(10), "a resource on the storming island must be in scope");
+            Assert.False(include(200), "a resource on a calm island must NOT be in scope");
+        }
+
+        [Fact]
+        public void An_unclassifiable_resource_is_left_alone_rather_than_swept_up()
+        {
+            // Wrong in the direction a player can see and report (a node stays mined
+            // one more cadence) rather than wrong in the direction nobody notices (a
+            // storm over Haven restoring a node on the far side of the world).
+            Func<long, bool>? include = IslandResourceScope.Include(Haven, OwnerOf);
+            Assert.False(include!(5000));
+        }
+
+        [Fact]
+        public void A_scope_for_an_island_nothing_belongs_to_admits_nothing()
+        {
+            Func<long, bool>? include =
+                IslandResourceScope.Include(new IslandId("b9-99"), OwnerOf);
+
+            foreach (long id in new long[] { 10, 200, 5000 })
+                Assert.False(include!(id));
+        }
+
+        [Fact]
+        public void A_scope_without_an_owner_lookup_is_refused_rather_than_matching_nothing()
+        {
+            // A null lookup that quietly produced a never-matching predicate is a
+            // storm that resets nothing, forever, with no log line and no red test.
+            Assert.Throws<ArgumentNullException>(
+                () => IslandResourceScope.Include(Haven, null!));
         }
     }
 }
