@@ -3803,12 +3803,50 @@ writes the player's plaintext password into the system log. Gate it before
 serving any web traffic."* That note predates the finding above. The failure was
 not detection; it was that a written-down finding had no owner.
 
-**Not yet measured:** whether the production journal currently *contains*
-captured credentials, and how far back. Two `journalctl` count-only probes over
-ssh returned nothing within the timeout and the question is still open — it is
-the input that decides whether rotation is needed at all, so **measure before
-assuming, and do not assume the journal is clean.** Count occurrences; never
-print the values.
+**MEASURED 2026-08-20, and the journal is NOT clean.** Count-only probe against
+production, values never printed:
+
+| probe (exact pattern) | count |
+|---|---|
+| `"password"`/`"passwd"` **JSON key** occurrences — i.e. credential-bearing bodies | **31** |
+| lines merely *mentioning* `password` (broader, includes prose/headers) | 331 |
+| lines carrying a `wa_player=` session cookie | **10,513** |
+| lines carrying a `Security:` bearer header | 691 |
+| `POST /login`, `/register`, `/authenticate` | 521 |
+| `wareborn-login` journal size | **137 MB**, ~1,369,900 lines |
+| span | **2026-08-08 00:08 → 2026-08-20 09:52** — 12 days |
+| all journals on the box | **3.9 GB** |
+
+Two probes with different patterns are listed rather than one headline number,
+because they disagree for a legitimate reason and the disagreement is
+informative: 521 auth POSTs produced only 31 `"password"`-keyed bodies, since
+`/authenticate` carries a *token* rather than a password. **31 is the number
+that matters for password exposure; ~10.5k is the number that matters for
+session exposure.** Do not quote the 331 as "331 passwords" — it is a
+substring count over prose and headers too.
+
+*(Method note: the first two probe attempts returned empty and the reason was
+mine, not the server's — `J=$(journalctl …)` assigns 137 MB into a shell
+variable. Stream it; do not capture it.)*
+
+**What the numbers mean, separately, because they decay differently:**
+
+- **The 11,058 token lines largely self-heal.** Player sessions expire after
+  7 days and admin sessions after 12 h sliding (`AccountPolicy.cs`,
+  `PlayerSessions.Issue:56-66`). The journal spans 12 days, so most captured
+  tokens are already dead; only the trailing ~7 days are live. Rotation kills
+  that remainder in one action.
+- **The 31 passwords do not decay at all.** They are valid until each player
+  changes one, and the realistic harm is not this server — it is **password
+  reuse against the player's email or other accounts.** No rotation on our side
+  fixes that; only telling the affected players does. That is the part of this
+  finding with a duty attached, and it is why the phase should not slip
+  indefinitely even though it is correctly *ordered* last.
+
+**Consequence for §15.2: step 4 is NOT optional.** The precondition it was gated
+on has been measured and is non-zero. Additionally, `journalctl --vacuum-time`
+must cover **archived** journals and any off-box backups, or the gate plus the
+rotation still leaves the captured copies in place.
 
 ### 15.2 The phase, when it runs
 
