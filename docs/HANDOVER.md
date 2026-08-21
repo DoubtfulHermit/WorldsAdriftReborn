@@ -128,6 +128,22 @@ changes.
 
 ### Exact deployed revisions
 
+**WORLD INSPECTOR LOCAL IMPLEMENTATION 2026-08-21 — NOT DEPLOYED.** Commits
+`d258883`, `1a5a427`, `4e4ee7d` and `030da36` formalise authenticated
+game-stats schema v16 as World Inspector contract v1 and reshape the existing
+Simulation Fabric into linked World, Simulation and Infrastructure modes. The
+observer retains a bounded 128-event history for domain/entity ownership,
+interest checkout, terrain readiness, authority generation, shadow refresh and
+flight activity. It reports only the real `local-single-process` host
+`local:primary`; remote workers, migration and domain sleep are explicit
+unavailable states. Reader sizes and domain identities are bounded and
+sanitised, and no inspector endpoint or identity-bearing code was added to the
+public map. Integrated verification passed **4522/4522** Multiplayer tests and
+**1221** login/admin tests with 26 intentional database-dependent skips; both
+Release builds passed with zero errors. The in-app browser was unavailable for
+the final local visual pass, so visual acceptance remains outstanding. Nothing
+has been pushed, deployed or restarted for this work.
+
 **HELM TAKEOVER LATENCY FOLLOW-UP 2026-08-21.** Game server `9c7fc08` is
 deployed. Live traces showed the neutral-edge takeover gate rejecting every
 initial throttle packet for 5–10 seconds; the generated client suppresses an

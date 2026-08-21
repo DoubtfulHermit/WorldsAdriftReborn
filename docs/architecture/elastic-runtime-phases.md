@@ -138,6 +138,17 @@ SVG map refreshes live markers on the existing bounded stats cadence, reports
 snapshot age and unknown player positions explicitly, and never turns the
 static MapFile into runtime authority. Pan, zoom and independent
 island/wall/ship/player layers are operator presentation only.
+The authenticated observer has now been formalised as World Inspector contract
+v1 (game-stats schema v16). It publishes three projections of the same local
+truth: WORLD counts and interest, SIMULATION activity and authority generations,
+and INFRASTRUCTURE identity for the real `local:primary` process. A bounded
+128-event ring retains observed domain membership, entity ownership, checkout,
+terrain readiness, authority-generation and flight-activity transitions across
+the three-second snapshot cadence. The admin console presents linked World,
+Simulation and Infrastructure modes with one stable domain selection. Remote
+workers, migration and domain sleep remain explicitly unavailable; the observer
+does not manufacture them in advance of Phase 7. This extension is implemented
+and test-covered locally but is not yet deployed or visually accepted.
 Moving actual simulation services behind the host and a live acceptance pass
 remain outstanding. The first live two-player pass also exposed remote-avatar/ship coordinate-frame
 divergence, a five-second client spline wake after manned-idle stream starvation,
