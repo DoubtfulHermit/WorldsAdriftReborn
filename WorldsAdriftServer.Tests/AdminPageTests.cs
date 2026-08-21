@@ -13,7 +13,9 @@ namespace WorldsAdriftServer.Tests
             string csrf = new string('a', 64);
             string html = AdminPage.Dashboard("{}", csrf);
 
-            Assert.Contains("id=\"world\"", html);
+            Assert.Contains("id=\"page-overview\"", html);
+            Assert.Contains("id=\"page-observatory\"", html);
+            Assert.Contains("data-admin-route=\"world\"", html);
             Assert.Contains("id=\"simulation\"", html);
             Assert.Contains("id=\"operations\"", html);
             Assert.Contains("data-command=\"resources-reset\"", html);
@@ -44,6 +46,32 @@ namespace WorldsAdriftServer.Tests
             Assert.DoesNotContain("authority migrat", html, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("migrates authority", html, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("worker migrat", html, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void Dashboard_presents_routed_workspaces_in_an_accessible_application_shell()
+        {
+            string html = AdminPage.Dashboard("{}", new string('r', 64));
+
+            Assert.Contains("class=\"admin-shell\"", html);
+            Assert.Contains("id=\"adminSidebar\"", html);
+            Assert.Contains("id=\"navToggle\"", html);
+            Assert.Contains("id=\"adminPageHost\"", html);
+            foreach (string route in new[]
+            {
+                "overview", "world", "simulation", "infrastructure", "streaming",
+                "terrain", "operator", "operations", "system",
+            })
+            {
+                Assert.Contains("data-admin-route=\"" + route + "\"", html);
+            }
+
+            Assert.Contains("function navigateAdmin", html);
+            Assert.Contains("history.pushState", html);
+            Assert.Contains("aria-current", html);
+            Assert.Contains(".admin-page[hidden]{display:none!important}", html);
+            Assert.Contains("@media(max-width:900px)", html);
+            Assert.DoesNotContain("<nav class=\"nav\"", html);
         }
 
         [Fact]

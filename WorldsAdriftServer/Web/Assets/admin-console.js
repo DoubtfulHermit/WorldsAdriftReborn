@@ -364,6 +364,7 @@
     text('uptime', reporting?fmtDur(g.uptimeSeconds):'—');
     text('relay', reporting?(g.relayMode||'—'):'—');
     gameReporting=reporting && !g.stale;
+    updateAdminShell(reporting,g);
     secondIslandRegistered=gameReporting && g.secondIslandRegistered===true;
     firstRegionTerrainCount=gameReporting?Math.max(0,Number(g.firstRegionTerrainCount)||0):0;
     text('testIsland',reporting?(secondIslandRegistered?'ready':'off'):'—');

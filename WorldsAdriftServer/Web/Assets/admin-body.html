@@ -1,17 +1,38 @@
-<div class="topbar">
-  <div>
-    <p class="mark">Worlds Adrift Reborn</p>
-    <h1 id="serverName">&hellip;</h1>
-    <div class="asof" id="asof">Loading&hellip;</div>
-  </div>
-  <form method="post" action="/admin/logout"><input type="hidden" name="csrf" value="{{csrfTokenAttr}}"><button class="btn ghost" type="submit">Sign out</button></form>
-</div>
-<nav class="nav" aria-label="Control panel sections"><a href="#world">Live game</a><a href="#observatory">Observatory</a><a href="#streaming">Streaming</a><a href="#terrain">Terrain checkout</a><a href="#operator">Operator</a><a href="#operations">Operations</a><a href="#system">System</a></nav>
+<div class="admin-shell" id="adminShell">
+<aside class="admin-sidebar" id="adminSidebar" aria-label="Administration">
+  <div class="sidebar-brand"><span class="brand-mark" aria-hidden="true">W</span><div><small>Wareborn</small><strong id="serverName">&hellip;</strong></div></div>
+  <nav class="admin-nav" aria-label="Admin workspaces">
+    <div class="nav-group"><span>Observe</span>
+      <a href="#overview" data-admin-route="overview" data-icon="O"><b>Overview</b><small>Players and server health</small></a>
+      <a href="#world" data-admin-route="world" data-icon="W"><b>World</b><small>Live geography and traffic</small></a>
+      <a href="#simulation" data-admin-route="simulation" data-icon="S"><b>Simulation</b><small>Domains and interactions</small></a>
+      <a href="#infrastructure" data-admin-route="infrastructure" data-icon="I"><b>Infrastructure</b><small>Process and authority host</small></a>
+    </div>
+    <div class="nav-group"><span>Operate</span>
+      <a href="#streaming" data-admin-route="streaming" data-icon="R"><b>Streaming</b><small>Interest and checkout</small></a>
+      <a href="#terrain" data-admin-route="terrain" data-icon="T"><b>Terrain</b><small>Loading lifecycle</small></a>
+      <a href="#operator" data-admin-route="operator" data-icon="C"><b>World controls</b><small>Travel and summon</small></a>
+      <a href="#operations" data-admin-route="operations" data-icon="X"><b>Recovery</b><small>Guarded interventions</small></a>
+    </div>
+    <div class="nav-group"><span>Manage</span>
+      <a href="#system" data-admin-route="system" data-icon="M"><b>System</b><small>Accounts and presentation</small></a>
+    </div>
+  </nav>
+  <div class="sidebar-foot"><span class="status-dot" id="sidebarStatusDot"></span><div><strong id="sidebarStatus">Connecting</strong><small id="sidebarBuild">Awaiting game snapshot</small></div></div>
+</aside>
+<button class="sidebar-scrim" id="sidebarScrim" type="button" aria-label="Close navigation"></button>
+<div class="admin-workspace">
+  <header class="workspace-header">
+    <button class="nav-toggle btn ghost" id="navToggle" type="button" aria-controls="adminSidebar" aria-expanded="false" aria-label="Open navigation"><span></span><span></span><span></span></button>
+    <div class="workspace-heading"><span id="pageEyebrow">Administration</span><h1 id="pageTitle">Overview</h1><p id="pageDescription">Players, health and current server activity.</p></div>
+    <div class="workspace-actions"><div class="asof" id="asof">Loading&hellip;</div><form method="post" action="/admin/logout"><input type="hidden" name="csrf" value="{{csrfTokenAttr}}"><button class="btn ghost" type="submit">Sign out</button></form></div>
+  </header>
+  <main class="workspace-content" id="adminPageHost" tabindex="-1">
+    <div class="banner" id="spiralBanner"><strong>Wire-health warning</strong><span id="spiralText"></span></div>
+    <div class="banner" id="downBanner"><strong>Game server not reporting</strong><span id="downText"></span></div>
 
-<div class="banner" id="spiralBanner"><strong>Wire-health warning</strong><span id="spiralText"></span></div>
-<div class="banner" id="downBanner"><strong>Game server not reporting</strong><span id="downText"></span></div>
-
-<div class="section-head" id="world">World</div>
+<section class="admin-page" data-admin-page="overview" id="page-overview">
+<div class="section-head" id="overview">Overview</div>
 <div class="card">
   <h2>Live game</h2>
   <div class="grid">
@@ -36,6 +57,9 @@
 </div>
 
 {{viewersCard}}
+
+</section>
+<section class="admin-page" data-admin-page="observatory" id="page-observatory" hidden>
 
 <div class="section-head" id="observatory">World observatory</div>
 <div class="card observatory" id="simulation" data-observatory-mode="world">
@@ -121,6 +145,9 @@
   </section>
 </div>
 
+</section>
+<section class="admin-page" data-admin-page="streaming" id="page-streaming" hidden>
+
 <div class="section-head" id="streaming">Interest &amp; streaming</div>
 <div class="card">
   <div class="row"><div class="grow"><h2>How this boot streams the world <span class="provenance-tag live">live simulation state</span></h2></div><div class="fit"><span class="pill warn" id="intPresence">waiting&hellip;</span></div></div>
@@ -156,6 +183,9 @@
     <div class="peer-holdings" id="peerHoldings" aria-live="polite"><p class="muted">Select a connected peer to see exactly what this boot has streamed to them.</p></div>
   </div>
 </div>
+
+</section>
+<section class="admin-page" data-admin-page="terrain" id="page-terrain" hidden>
 
 <div class="section-head" id="terrain">Terrain checkout</div>
 <div class="card">
@@ -216,6 +246,9 @@
     <p class="note" id="acceptanceNote">Both steps dispatch the same allowlisted, CSRF-bound travel commands as the Operations panel.</p>
   </div>
 </div>
+
+</section>
+<section class="admin-page" data-admin-page="operator" id="page-operator" hidden>
 
 <div class="section-head" id="operator">Operator commands</div>
 <div class="card">
@@ -307,6 +340,9 @@
   </div>
 </div>
 
+</section>
+<section class="admin-page" data-admin-page="operations" id="page-operations" hidden>
+
 <div class="section-head" id="operations">Operations</div>
 <div class="card">
   <div class="row">
@@ -371,6 +407,9 @@
   <p class="muted" id="noCommands" style="font-size:.85rem">No operator actions since this login-server boot.</p>
 </div>
 
+</section>
+<section class="admin-page" data-admin-page="system" id="page-system" hidden>
+
 <div class="section-head" id="system">System</div>
 <div class="card">
   <h2>Accounts</h2>
@@ -403,5 +442,10 @@
 {{patchNotesCard}}
 {{welcomeCard}}
 
+</section>
+
 <footer>Operator console. Auto-refreshes every few seconds. Not affiliated with Bossa Studios.</footer>
+</main>
+</div>
+</div>
 </div>

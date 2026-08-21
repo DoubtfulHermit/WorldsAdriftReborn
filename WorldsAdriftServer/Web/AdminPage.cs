@@ -146,7 +146,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
 <meta charset=""utf-8""><meta name=""viewport"" content=""width=device-width, initial-scale=1"">
 <meta name=""color-scheme"" content=""light dark""><meta name=""robots"" content=""noindex"">
 <title>Operator console - Worlds Adrift Reborn</title>" + Style + @"</head>
-<body><div class=""wrap"">
+<body class=""admin-body""><div class=""wrap admin-root"">
 " + body + @"<script id=""bootstrap"" type=""application/json"">" + bootstrapJson + @"</script>
 <script id=""releaseWorldMap"" type=""application/json"">" + worldMapJson + @"</script>
 <script>
@@ -170,6 +170,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
         internal static readonly string[] AdminScriptFragments =
         {
             "console-core.js",
+            "admin-navigation.js",
             "admin-domains.js",
             "map-render.js",
             "map-fauna.js",

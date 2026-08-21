@@ -255,7 +255,7 @@ namespace WorldsAdriftServer.Tests
             // always been self-contained anyway.
             string[] assets =
             {
-                "console.css", "console-core.js", "admin-domains.js",
+                "console.css", "console-core.js", "admin-navigation.js", "admin-domains.js",
                 "map-render.js", "map-fauna.js", "map-ships.js",
                 "map-interaction.js", "map-body.html",
                 "admin-console.js", "admin-wiring.js", "admin-body.html",
