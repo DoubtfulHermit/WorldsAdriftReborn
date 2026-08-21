@@ -176,6 +176,48 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     }
 
     /// <summary>
+    /// One read-only evaluation of the force model for one live hull. These are
+    /// inputs and consequences of the same model flight is executing, never a
+    /// second browser-side approximation. <see cref="Present"/> false means the
+    /// force model is disabled or the hull could not be evaluated.
+    /// </summary>
+    public readonly struct ShipFlightStat
+    {
+        public static ShipFlightStat Unavailable => default;
+
+        public ShipFlightStat(double massKg, int mountedSails, int unfurledSails,
+            double windX, double windZ, double windAngleDegrees,
+            double sailForceNewtons, double engineForceNewtons,
+            double propulsionAccelerationMps2, double predictedTerminalSpeedMps)
+        {
+            Present = true;
+            MassKg = massKg;
+            MountedSails = mountedSails;
+            UnfurledSails = unfurledSails;
+            WindX = windX;
+            WindZ = windZ;
+            WindAngleDegrees = windAngleDegrees;
+            SailForceNewtons = sailForceNewtons;
+            EngineForceNewtons = engineForceNewtons;
+            PropulsionAccelerationMps2 = propulsionAccelerationMps2;
+            PredictedTerminalSpeedMps = predictedTerminalSpeedMps;
+        }
+
+        public bool Present { get; }
+        public double MassKg { get; }
+        public int MountedSails { get; }
+        public int UnfurledSails { get; }
+        public double WindX { get; }
+        public double WindZ { get; }
+        public double WindSpeedMps => Math.Sqrt((WindX * WindX) + (WindZ * WindZ));
+        public double WindAngleDegrees { get; }
+        public double SailForceNewtons { get; }
+        public double EngineForceNewtons { get; }
+        public double PropulsionAccelerationMps2 { get; }
+        public double PredictedTerminalSpeedMps { get; }
+    }
+
+    /// <summary>
     /// One truthful in-process whole-ship domain as exported to the operator UI.
     /// This is observation only: no worker, migration or authority-control fields
     /// are implied beyond the local domain generation the runtime already owns.
@@ -223,6 +265,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>The shape, dimensions, owner and materials of this hull.</summary>
         public ShipHullStat Hull { get; }
 
+        /// <summary>The force model's live inputs and prediction for this hull.</summary>
+        public ShipFlightStat Flight { get; }
+
         /// <summary>
         /// The character uid this hull belongs to, or "" when the owner is not
         /// known to this boot. The operator surface answers "the ship this player
@@ -247,7 +292,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int mountedPartCount, int subscriberCount,
             double yawRadians = 0, double yawRateRadPerSec = 0,
             double vxMps = 0, double vyMps = 0, double vzMps = 0,
-            ShipHullStat hull = default)
+            ShipHullStat hull = default, ShipFlightStat flight = default)
         {
             YawRadians = yawRadians;
             YawRateRadPerSec = yawRateRadPerSec;
@@ -255,6 +300,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             VyMps = vyMps;
             VzMps = vzMps;
             Hull = hull;
+            Flight = flight;
             DomainId = domainId ?? string.Empty;
             HullEntityId = hullEntityId;
             AuthorityGeneration = authorityGeneration;
@@ -428,7 +474,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // shadow model" from "the shadow model is switched off" from "on but not yet
         // warm". Its `pressure` numbers are UNCALIBRATED by construction (see
         // InteractionPressure) and must never be rendered as a measurement.
-        public const int SchemaVersion = 14;
+        // v15: every ship domain gains a `flight` block carrying the live force
+        // model's mass, canvas, wind sample, forces, acceleration and predicted
+        // settled speed. `present:false` is explicit when force flight is off.
+        public const int SchemaVersion = 15;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -1277,7 +1326,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Num(b, "vyMps", Trim(d.VyMps)); b.Append(',');
             Num(b, "vzMps", Trim(d.VzMps)); b.Append(',');
 
-            AppendHull(b, d.Hull);
+            AppendHull(b, d.Hull); b.Append(',');
+            AppendShipFlight(b, d.Flight);
+            b.Append('}');
+        }
+
+        private static void AppendShipFlight(StringBuilder b, ShipFlightStat f)
+        {
+            Key(b, "flight"); b.Append('{');
+            Bool(b, "present", f.Present); b.Append(',');
+            Num(b, "massKg", Trim(f.MassKg)); b.Append(',');
+            Num(b, "mountedSails", f.MountedSails); b.Append(',');
+            Num(b, "unfurledSails", f.UnfurledSails); b.Append(',');
+            Num(b, "windX", Trim(f.WindX)); b.Append(',');
+            Num(b, "windZ", Trim(f.WindZ)); b.Append(',');
+            Num(b, "windSpeedMps", Trim(f.WindSpeedMps)); b.Append(',');
+            Num(b, "windAngleDegrees", Trim(f.WindAngleDegrees)); b.Append(',');
+            Num(b, "sailForceNewtons", Trim(f.SailForceNewtons)); b.Append(',');
+            Num(b, "engineForceNewtons", Trim(f.EngineForceNewtons)); b.Append(',');
+            Num(b, "propulsionAccelerationMps2", Trim(f.PropulsionAccelerationMps2)); b.Append(',');
+            Num(b, "predictedTerminalSpeedMps", Trim(f.PredictedTerminalSpeedMps));
             b.Append('}');
         }
 

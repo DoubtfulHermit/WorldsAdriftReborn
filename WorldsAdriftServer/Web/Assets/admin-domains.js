@@ -67,6 +67,21 @@
       addDetailItem(grid,'Crew',(ship.aboardPlayerEntityIds||[]).length?(ship.aboardPlayerEntityIds||[]).join(', '):'none');
       addDetailItem(grid,'Checkout subscribers',String(ship.subscriberCount));
       addDetailItem(grid,'Structure',ship.deckCount+' decks · '+ship.mountedPartCount+' mounted');
+      var flight=ship.flight;
+      if(flight&&flight.present===true){
+        addDetailItem(grid,'Flight mass',Number(flight.massKg).toFixed(0)+' kg');
+        addDetailItem(grid,'Canvas',String(flight.unfurledSails)+' / '+String(flight.mountedSails)+' sails unfurled');
+        addDetailItem(grid,'Wind sample',Number(flight.windSpeedMps).toFixed(2)+' m/s · '
+          +Number(flight.windAngleDegrees).toFixed(1)+'° from bow · ['
+          +Number(flight.windX).toFixed(2)+', '+Number(flight.windZ).toFixed(2)+']');
+        addDetailItem(grid,'Sail force',Number(flight.sailForceNewtons).toFixed(1)+' N');
+        addDetailItem(grid,'Engine force',Number(flight.engineForceNewtons).toFixed(1)+' N');
+        addDetailItem(grid,'Propulsion acceleration',Number(flight.propulsionAccelerationMps2).toFixed(3)+' m/s²');
+        addDetailItem(grid,'Predicted settled speed',Number(flight.predictedTerminalSpeedMps).toFixed(2)+' m/s · '
+          +(Number(flight.predictedTerminalSpeedMps)*1.94384449).toFixed(1)+' kn');
+      }else{
+        addDetailItem(grid,'Flight forces','not reported (force model off or older server)');
+      }
     }
     text('detailNote',ship
       ? 'Ship motion is emitted hull-first under one authority generation and replication sequence. Affinity is spatial context, not authority ownership.'
@@ -173,4 +188,3 @@
     });
     text('domainResultCount',rows.length+' domain'+(rows.length===1?'':'s')+(rows.length>250?' · first 250 shown':''));
   }
-

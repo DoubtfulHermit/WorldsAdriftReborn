@@ -18,7 +18,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// <c>ShipMotionVisualizer.AddForce(ShipThrustMultiplier * spin * (boost +
     /// power) * forward)</c>. Sails sampled the wind and called
     /// <c>AddSailForce</c> with a force perpendicular to the trimmed sail. Wind
-    /// drag pulled the hull toward the local wind velocity with a quadratic law.
+    /// drag pulled the hull toward the local wind velocity with a 2.5-power law.
     /// The atlas core cancelled the ship's weight up to a lift ceiling. Nothing
     /// anywhere set a top speed: a ship's top speed is simply where thrust and
     /// drag balance, which is why "power to weight" was the only ship-building
@@ -39,9 +39,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// PROVED - <c>ShipConfiguration.AirResistanceCoefficient</c> (decompile
-        /// <c>acs/ShipConfiguration.cs:68</c>). The quadratic drag constant, in
-        /// units of 1/metre: drag DECELERATION is <c>c * v^exponent</c>.
+        /// RECOVERED SHIPPED VALUE - the serialized
+        /// <c>Resources/Configs/ShipConfig</c> ScriptableObject in
+        /// <c>resources.assets</c>. The decompiled field initializer is 0.01, but
+        /// Unity serialization overrides it with 0.007 in the build players ran.
+        /// Drag DECELERATION is <c>c * v^exponent</c>.
         ///
         /// Note this is an ACCELERATION, not a force - retail computed the drag
         /// acceleration and only then multiplied by mass
@@ -50,15 +52,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// is exactly why top speed depends on thrust-to-weight and not on mass
         /// alone.
         /// </summary>
-        public const double AirResistanceCoefficient = 0.01;
+        public const double AirResistanceCoefficient = 0.007;
 
         /// <summary>
-        /// PROVED - <c>ShipConfiguration.AirResistanceExponent</c> (decompile
-        /// <c>acs/ShipConfiguration.cs:66</c>). Drag goes as the SQUARE of the
-        /// relative airspeed, which is what makes top speed scale as the square
-        /// ROOT of thrust-to-weight.
+        /// RECOVERED SHIPPED VALUE - the same serialized ShipConfig. The
+        /// decompiled initializer is 2.0; the shipped asset overrides it with 2.5.
+        /// ShipConfiguration was remotely overridable, so retail live may have
+        /// changed it, but the client-shipped pair is the strongest surviving
+        /// authority.
         /// </summary>
-        public const double AirResistanceExponent = 2.0;
+        public const double AirResistanceExponent = 2.5;
 
         /// <summary>
         /// PROVED - <c>ShipConfiguration.ShipThrustMultiplier</c> (decompile
@@ -84,12 +87,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>
         /// PROVED magnitude, DELIBERATELY REAIMED - retail's low-speed settling
         /// term, the second half of <c>WindPhysicsVisualizer.GetDrag</c>. After the
-        /// quadratic term, retail added a correction capped at <c>0.03f * dt</c>
+        /// primary drag term, retail added a correction capped at <c>0.03f * dt</c>
         /// per step, i.e. an acceleration of at most 0.03 m/s^2, pointing from the
         /// ship's velocity toward the LOCAL WIND velocity.
         ///
-        /// It exists because quadratic drag alone can never stop anything: at
-        /// 0.08 m/s the quadratic term is 0.000064 m/s^2 and a coasting ship crawls
+        /// It exists because power-law drag alone can never stop anything: at
+        /// 0.08 m/s the primary term is under 0.000013 m/s^2 and a coasting ship crawls
         /// forever. Retail's term closes that gap.
         ///
         /// OUR DEPARTURE, stated plainly: retail aimed this term at the wind, so a
@@ -106,8 +109,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         /// <summary>
         /// WAREBORN TUNING - the speed below which <see cref="LowSpeedSettleAccelMps2"/>
-        /// is applied. At 1 m/s the recovered quadratic term has fallen to
-        /// 0.01 m/s^2, a third of the settling term, so this is the point where
+        /// is applied. At 1 m/s the recovered primary term has fallen to
+        /// 0.007 m/s^2, under a quarter of the settling term, so this is the point where
         /// drag has stopped doing the job and something else must finish it. A ship
         /// coasting down from cruise therefore decelerates on the recovered law
         /// almost the whole way and only picks this up for the last metre per
@@ -147,7 +150,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// The wind a hull actually feels is attenuated by its own mass: a 4000 kg
         /// ship feels 25% of the wind, a 500 kg one feels 91%. Heavy ships are
         /// shoved around less by weather - but note this multiplies the WIND only,
-        /// never the quadratic self-drag, so heavy ships still coast identically.
+        /// never the power-law self-drag, so heavy ships still coast identically.
         /// </summary>
         public const double WindMassAttenuationReferenceKg = 4000.0;
         public const double WindMassAttenuationMax = 0.75;
@@ -181,7 +184,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// It had ONE term, and this is the single most useful thing to know about
         /// its flight model: <c>WindPhysicsVisualizer.ApplyWindDrag</c> computes
         /// <c>GetDrag(wind * windMultiplier - rb.velocity, ...)</c>, i.e. the
-        /// quadratic law acts on the RELATIVE wind. Set the wind to zero and it is
+        /// power law acts on the RELATIVE wind. Set the wind to zero and it is
         /// ordinary drag opposing travel; set the velocity to zero and the very
         /// same term ACCELERATES a stationary hull toward the wind. A ship's
         /// terminal drift is therefore just <c>|wind| * windMultiplier(mass)</c>.
@@ -248,18 +251,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// (<c>HullMassCalculator.ReferenceHullMassKg</c>), and the speed the
         /// server has flown at since flight shipped is
         /// <c>FlightTuning.DefaultMaxSpeedMps</c> = 12 m/s. Inverting the recovered
-        /// drag law for a two-engine reference ship:
-        /// <c>a = v^2 * c = 144 * 0.01 = 1.44 m/s^2</c>, so
-        /// <c>F = 1.44 * 800 = 1152 N</c> total, i.e. 576 N per engine. Rounded to
-        /// 600, which puts the reference two-engine ship at 12.2 m/s - within a
-        /// fifth of a metre per second of the speed players already have.
+        /// serialized drag law for a two-engine reference ship:
+        /// <c>a = 0.007 * 12^2.5 = 3.492 m/s^2</c>, so
+        /// <c>F = 3.492 * 800 = 2794 N</c> total, i.e. 1397 N per engine. Rounded
+        /// to 1400. This independently lands inside the 1,200-1,850 N range inferred
+        /// from the surviving WAEngenius community power law.
         ///
         /// That is the point: turning the force model on must not lurch the live
         /// game. It re-derives today's speed from real quantities, and only THEN
         /// starts to differ for ships that are unusually light, heavy, or
         /// unusually engined.
         /// </summary>
-        public const double DefaultEngineThrustNewtons = 600.0;
+        public const double DefaultEngineThrustNewtons = 1400.0;
 
         /// <summary>
         /// WAREBORN TUNING - one unfurled sail's <c>SailState.Power</c>, the
@@ -270,16 +273,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// 2.2 newtons and would move an 800 kg ship at 0.003 m/s^2 - i.e. the
         /// seed is a stub, not a physical value.
         ///
-        /// CALIBRATION: chosen so that a reference 800 kg hull under sail ALONE,
-        /// engines idle, settles at a believable drift-to-cruise. Two well-trimmed
-        /// sails give <c>F = 2 * 1.0 * 2.236 * 30 = 134 N</c>, so
-        /// <c>a = 0.168 m/s^2</c> and terminal <c>v = 10*sqrt(a) = 4.1 m/s</c>;
-        /// badly trimmed, the 0.3 efficiency floor still yields 2.2 m/s. Sails are
-        /// therefore worth roughly a third of a ship's speed on their own and a
-        /// few percent on top of a fully engined ship - supplementary, free, and
-        /// always working, which is what retail's always-on wind force made them.
+        /// CALIBRATION (2026-08-21): this is solved from three independent anchors,
+        /// not from one live hull. The shipped airspeed dial calls 30 knots "fast";
+        /// the remembered useful rig is three-to-four sails; and the recovered
+        /// recovered 2.5-power drag law says exactly what force makes those two statements
+        /// meet. Four well-trimmed sails on the 800 kg reference hull at the
+        /// client's 2.236 m/s fallback wind need about 422 N/(m/s) each to settle
+        /// just under 30 knots including the recovered hull-wind carry. The same
+        /// value puts one sail at about 17 knots, two at 22 and three at 26, so the
+        /// square-root law gives the documented sharply diminishing fourth-sail
+        /// return without inventing a cap or changing wind.
+        ///
+        /// This remains WAREBORN TUNING: retail's per-sail data is lost. What is
+        /// materially stronger than the former 30 is the evidence chain and the
+        /// full mass/sail/heading matrix pinned in SailCalibrationMatrixTests.
+        /// The 3,094 kg live hull is one row of that matrix, not the calibration
+        /// target: two sails range from roughly 2.6 to 13.4 knots by heading.
         /// </summary>
-        public const double DefaultSailPowerNewtonsPerWind = 30.0;
+        public const double DefaultSailPowerNewtonsPerWind = 420.0;
 
         // ------------------------------------------------------------------
         // The equations.
@@ -292,7 +303,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 + (DefaultWindZ * DefaultWindZ));
 
         /// <summary>
-        /// Drag DECELERATION, m/s^2, at a given airspeed. RECOVERED shape and
+        /// Drag DECELERATION, m/s^2, at a given airspeed. RECOVERED shipped shape and
         /// constants; mass-independent by construction (see
         /// <see cref="AirResistanceCoefficient"/>).
         ///
@@ -315,10 +326,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// actual top speed. This is a CONSEQUENCE of the model, never an input:
         /// retail set no speed cap anywhere, and neither does this.
         ///
-        /// <c>F/m = c * v^2</c> so <c>v = sqrt(F / (m * c)) = 10 * sqrt(F/m)</c>
-        /// with the recovered c = 0.01. The square root is the single most
+        /// <c>F/m = c * v^p</c> so <c>v = (F / (m*c))^(1/p)</c> with the
+        /// recovered shipped <c>p = 2.5</c>. The 0.4 power is the single most
         /// important consequence for ship building: DOUBLING a ship's engines buys
-        /// only 1.41x the top speed, and doubling its mass costs only 0.71x. It is
+        /// only 1.32x the top speed, and doubling its mass costs only 0.76x. It is
         /// also why "power to weight" was the statistic retail players optimised,
         /// and it agrees in shape - though not in units - with the one published
         /// community speed model, WAEngenius's <c>50*sqrt(2*power/weight)</c>.
@@ -338,18 +349,61 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             {
                 return 0.0;
             }
-            return Math.Sqrt(thrustNewtons / (massKg * AirResistanceCoefficient));
+            return Math.Pow(
+                thrustNewtons / (massKg * AirResistanceCoefficient),
+                1.0 / AirResistanceExponent);
         }
 
         /// <summary>
-        /// One explicit-Euler step of <c>dv/dt = a_thrust - c*v*|v|</c>, returning
+        /// The signed equilibrium speed for a longitudinal force in moving air.
+        /// RECOVERED equation: <c>F/m = c*sign(v-w)*|v-w|^2.5</c>. This is the exact
+        /// prediction used by the operator inspector; keeping it here prevents a
+        /// browser or stats writer from growing a second flight model.
+        /// </summary>
+        public static double PredictedSettledSpeedMps(
+            double thrustNewtons, double massKg, double windAlongHeadingMps)
+        {
+            if (!double.IsFinite(thrustNewtons) || !double.IsFinite(massKg)
+                || massKg <= 0.0 || !double.IsFinite(windAlongHeadingMps))
+            {
+                return 0.0;
+            }
+            if (Math.Abs(thrustNewtons) <= 1e-12)
+            {
+                return windAlongHeadingMps;
+            }
+            return windAlongHeadingMps
+                + (Math.Sign(thrustNewtons) * TerminalSpeedMps(Math.Abs(thrustNewtons), massKg));
+        }
+
+        /// <summary>
+        /// Signed angle from the bow to the direction the wind is travelling,
+        /// degrees in [-180, 180]. Zero is a tailwind and +/-180 a headwind.
+        /// </summary>
+        public static double WindAngleDegrees(double headingRadians, double windX, double windZ)
+        {
+            if (!double.IsFinite(headingRadians) || !double.IsFinite(windX)
+                || !double.IsFinite(windZ) || ((windX * windX) + (windZ * windZ)) <= 1e-18)
+            {
+                return 0.0;
+            }
+            double windHeading = Math.Atan2(windX, windZ);
+            double angle = windHeading - headingRadians;
+            while (angle > Math.PI) angle -= Math.PI * 2.0;
+            while (angle < -Math.PI) angle += Math.PI * 2.0;
+            return angle * (180.0 / Math.PI);
+        }
+
+        /// <summary>
+        /// One explicit-Euler step of <c>dv/dt = a_thrust - c*sign(v)*|v|^2.5</c>, returning
         /// the new speed. Drag always opposes travel, so it brakes a reversing
         /// ship as readily as a forward one.
         ///
-        /// STABILITY: the explicit step is stable while <c>2*c*|v|*dt &lt; 2</c>,
-        /// i.e. below <c>1/(c*dt)</c> = 416 m/s at the 0.24 s control-point
-        /// cadence. The wire clamp lands at 60 m/s, seven times inside that, so
-        /// this cannot ring. Guarded anyway: a non-finite input returns the old
+        /// STABILITY: Euler is stable while
+        /// <c>dt * p * c * |v|^(p-1) &lt; 2</c>. At the 60 m/s wire clamp and
+        /// 0.24 s cadence that product is 1.95: inside the bound, deliberately
+        /// close enough that the wire clamp remains load-bearing. Guarded anyway:
+        /// a non-finite input returns the old
         /// speed rather than propagating NaN into the control-point stream, which
         /// would strand the hull for every client watching it.
         /// </summary>
@@ -366,7 +420,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 windAlongHeadingMps = 0.0;
             }
 
-            // Quadratic drag alone can never STOP anything - it vanishes faster
+            // Power-law drag alone can never STOP anything - it vanishes faster
             // than the speed it is killing, so a coasting ship crawls forever at a
             // tenth of a metre per second and never settles, which on the wire
             // means it never goes quiet either. Retail's own answer is the second
@@ -388,11 +442,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // stream per hull that never goes quiet. Real forces here are either
             // zero or thousands of times this.
             // RETAIL HAD ONE TERM, NOT TWO. WindPhysicsVisualizer.ApplyWindDrag
-            // evaluates the quadratic law on the RELATIVE wind,
+            // evaluates the recovered power law on the RELATIVE wind,
             // GetDrag(wind - velocity), so the identical expression is drag when
             // the ship outruns the air and THRUST when the air outruns the ship.
             // With windAlongHeadingMps at its default of 0 this reduces exactly to
-            // "0.01 * v^2 opposing travel", which is what every existing caller
+            // "0.007 * |v|^2.5 opposing travel", which is what every existing caller
             // and test gets; passing a wind is what lets a bare hull get under way
             // (see BaselineDriveSpeedMps for the magnitude and for the one way the
             // aim differs from retail's).
@@ -400,13 +454,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double relativeMagnitude = Math.Abs(relativeWind);
             double accel = DragDecelerationMps2(relativeWind);
 
-            // The settling term. It exists because the quadratic law vanishes
+            // The settling term. It exists because the primary law vanishes
             // faster than the gap it is closing - relative wind decays as
             // 1/(1 + c*u0*t), so a hull approaching the air's speed crawls the last
             // metre per second for ever and, on the wire, never goes quiet.
             //
             // IT AIMS AT THE RELATIVE WIND, not at zero. Retail's own term does
-            // (GetDrag's vector5 is the relative wind LEFT OVER after the quadratic
+            // (GetDrag's vector5 is the relative wind LEFT OVER after the primary
             // step, capped at 0.03 m/s^2), and the distinction is invisible until a
             // wind exists: with no wind the relative wind IS -velocity, so this
             // stays exactly the brake-to-a-stop it has always been. With a wind it

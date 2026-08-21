@@ -56,8 +56,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         /// <summary>
         /// Thrust-to-weight as an acceleration, m/s^2 - the single number that
-        /// decides how this ship flies. Top speed is
-        /// <c>10 * sqrt(this)</c>; see <see cref="ShipForceModel.TerminalSpeedMps"/>.
+        /// decides how this ship flies. Top speed is the recovered
+        /// <c>(acceleration / 0.007)^0.4</c>; see
+        /// <see cref="ShipForceModel.TerminalSpeedMps"/>.
         /// </summary>
         public double ThrustAccelerationMps2 =>
             MassKg > 0.0 ? EngineThrustNewtons / MassKg : 0.0;

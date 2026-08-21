@@ -159,8 +159,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// the helm, and "our speeds are wrong" should be a restart, not a
         /// rebuild. The default is calibrated rather than picked - see
         /// <see cref="ShipForceModel.DefaultEngineThrustNewtons"/> - and because
-        /// top speed is 10*sqrt(thrust/mass), this knob moves speed only as its
-        /// SQUARE ROOT: quadrupling it doubles how fast ships fly.
+        /// the shipped drag exponent is 2.5, this knob moves speed only as the
+        /// 0.4 power: doubling thrust buys about 1.32x speed.
         /// </summary>
         public double EngineThrustNewtons { get; }
 

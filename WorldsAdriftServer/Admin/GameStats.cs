@@ -1368,8 +1368,32 @@ namespace WorldsAdriftServer.Admin
                 ["vyMps"] = Finite((double?)d["vyMps"] ?? 0, MaxHullMetres),
                 ["vzMps"] = Finite((double?)d["vzMps"] ?? 0, MaxHullMetres),
                 ["hull"] = Hull(hull, revision),
+                ["flight"] = Flight(d["flight"] as JObject),
             }};
         }
+
+        /// <summary>
+        /// Allowlisted live force-model telemetry. Signed force, angle and
+        /// acceleration remain signed; every value is bounded before the browser
+        /// can use it as text or in a future graph.
+        /// </summary>
+        private static JObject Flight(JObject? f) => new JObject
+        {
+            ["present"] = f != null && ((bool?)f["present"] ?? false),
+            ["massKg"] = Math.Max(0, Finite((double?)f?["massKg"] ?? 0, 1_000_000)),
+            ["mountedSails"] = Count((int?)f?["mountedSails"] ?? 0),
+            ["unfurledSails"] = Count((int?)f?["unfurledSails"] ?? 0),
+            ["windX"] = Finite((double?)f?["windX"] ?? 0, 100),
+            ["windZ"] = Finite((double?)f?["windZ"] ?? 0, 100),
+            ["windSpeedMps"] = Math.Max(0, Finite((double?)f?["windSpeedMps"] ?? 0, 100)),
+            ["windAngleDegrees"] = Finite((double?)f?["windAngleDegrees"] ?? 0, 180),
+            ["sailForceNewtons"] = Finite((double?)f?["sailForceNewtons"] ?? 0, 10_000_000),
+            ["engineForceNewtons"] = Finite((double?)f?["engineForceNewtons"] ?? 0, 10_000_000),
+            ["propulsionAccelerationMps2"] = Finite(
+                (double?)f?["propulsionAccelerationMps2"] ?? 0, 1000),
+            ["predictedTerminalSpeedMps"] = Finite(
+                (double?)f?["predictedTerminalSpeedMps"] ?? 0, 1000),
+        };
 
         /// <summary>
         /// The hull's static geometry, rebuilt field by field like everything else

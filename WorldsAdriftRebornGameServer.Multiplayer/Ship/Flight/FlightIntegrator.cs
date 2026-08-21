@@ -209,7 +209,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             if (propulsion.HasValue)
             {
                 // THE FORCE MODEL. Speed is no longer commanded at all: engines
-                // and sails push, quadratic drag resists, and whatever speed those
+                // and sails push, recovered 2.5-power drag resists, and whatever speed those
                 // balance at IS the ship's top speed. See ShipForceModel for which
                 // constants are recovered and which are ours.
                 ShipPropulsion ship = propulsion.Value;

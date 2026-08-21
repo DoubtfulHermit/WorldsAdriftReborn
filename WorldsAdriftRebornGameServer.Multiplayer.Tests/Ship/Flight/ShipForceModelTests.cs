@@ -24,12 +24,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 
         [Theory]
         [InlineData(0.0, 0.0)]
-        [InlineData(10.0, 1.0)]    // 0.01 * 10^2
-        [InlineData(20.0, 4.0)]    // quadratic: double the speed, four times the drag
-        [InlineData(12.0, 1.44)]
-        public void Drag_is_the_clients_own_quadratic_law(double speed, double expected)
+        [InlineData(10.0, 2.2135943621178655)]
+        [InlineData(20.0, 12.521980673998822)]
+        [InlineData(12.0, 3.491814428058857)]
+        public void Drag_is_the_shipped_clients_own_power_law(double speed, double expected)
         {
             Assert.Equal(expected, ShipForceModel.DragDecelerationMps2(speed), 9);
+        }
+
+        [Fact]
+        public void Serialized_ship_config_overrides_the_decompiled_drag_defaults()
+        {
+            Assert.Equal(0.007, ShipForceModel.AirResistanceCoefficient);
+            Assert.Equal(2.5, ShipForceModel.AirResistanceExponent);
         }
 
         [Fact]
@@ -56,37 +63,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         // ------------------------------------------------------------------
 
         [Fact]
-        public void Top_speed_is_ten_times_the_root_of_thrust_to_weight()
+        public void Top_speed_inverts_the_recovered_two_point_five_power_drag()
         {
-            // v = sqrt(F / (m * 0.01)) = 10 * sqrt(F/m).
-            Assert.Equal(10.0, ShipForceModel.TerminalSpeedMps(800.0, 800.0), 6);
-            Assert.Equal(20.0, ShipForceModel.TerminalSpeedMps(3200.0, 800.0), 6);
+            double tenMpsForce = 800.0 * 0.007 * Math.Pow(10.0, 2.5);
+            double twentyMpsForce = 800.0 * 0.007 * Math.Pow(20.0, 2.5);
+            Assert.Equal(10.0, ShipForceModel.TerminalSpeedMps(tenMpsForce, 800.0), 6);
+            Assert.Equal(20.0, ShipForceModel.TerminalSpeedMps(twentyMpsForce, 800.0), 6);
         }
 
         [Fact]
-        public void Doubling_the_engines_buys_only_the_root_of_two()
+        public void Doubling_the_engines_buys_only_two_to_the_point_four()
         {
             // THE ship-building consequence, and the one most likely to surprise a
             // player: engines have sharply diminishing returns.
             double one = ShipForceModel.TerminalSpeedMps(600.0, 800.0);
             double two = ShipForceModel.TerminalSpeedMps(1200.0, 800.0);
-            Assert.Equal(Math.Sqrt(2.0), two / one, 6);
+            Assert.Equal(Math.Pow(2.0, 0.4), two / one, 6);
         }
 
         [Fact]
-        public void Doubling_the_mass_costs_the_root_of_two()
+        public void Doubling_the_mass_costs_two_to_the_minus_point_four()
         {
             // The maintainer's question, in one assertion: weight decides speed.
             double light = ShipForceModel.TerminalSpeedMps(1200.0, 800.0);
             double heavy = ShipForceModel.TerminalSpeedMps(1200.0, 1600.0);
-            Assert.Equal(1.0 / Math.Sqrt(2.0), heavy / light, 6);
+            Assert.Equal(Math.Pow(2.0, -0.4), heavy / light, 6);
             Assert.True(heavy < light);
         }
 
         [Fact]
         public void The_reference_two_engine_ship_still_flies_at_about_the_speed_it_always_has()
         {
-            // THE CALIBRATION GUARD. Our chosen 600 N per engine exists to make the
+            // THE CALIBRATION GUARD. Our chosen 1400 N per engine exists to make the
             // force model re-derive the 12 m/s this server has flown at since flight
             // shipped, so that switching the model on does not lurch the live game.
             // If someone retunes engine thrust, this is the test that asks them
@@ -126,8 +134,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void Speed_converges_on_the_terminal_speed_and_stays_there()
         {
-            const double thrustAccel = 1.44;   // the reference ship
-            double expected = ShipForceModel.TerminalSpeedMps(1.44 * 800.0, 800.0);
+            const double thrustAccel = 3.5;   // approximately the reference ship
+            double expected = ShipForceModel.TerminalSpeedMps(3.5 * 800.0, 800.0);
 
             double v = 0.0;
             for (int i = 0; i < 2000; i++)
@@ -169,7 +177,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 heavy = ShipForceModel.StepSpeed(heavy, thrustN / 3200.0, 0.24);
             }
             Assert.True(heavy < light);
-            Assert.Equal(0.5, heavy / light, 2);   // 4x the mass = half the speed
+            Assert.Equal(Math.Pow(4.0, -0.4), heavy / light, 2);
         }
 
         // ------------------------------------------------------------------
@@ -308,7 +316,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 }
                 if (Math.Abs(v) > best) best = Math.Abs(v);
             }
-            Assert.InRange(best, 1.0, 8.0);
+            Assert.InRange(best, 1.0, 12.0);
         }
     }
 }

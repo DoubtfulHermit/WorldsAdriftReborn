@@ -2679,7 +2679,8 @@ namespace WorldsAdriftRebornGameServer
                     // Carries the OWNER as well as the shape - ShipDomainStat's
                     // top-level OwnerCharacterUid reads through this, so the
                     // operator surface and the map panel cannot disagree.
-                    HullStatFor(domain.HullEntityId)));
+                    HullStatFor(domain.HullEntityId),
+                    Flight.FlightStatFor(domain.HullEntityId)));
             }
 
             // Operator topology: the ownership-only host is the source of truth for

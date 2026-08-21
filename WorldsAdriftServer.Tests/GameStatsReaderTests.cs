@@ -250,6 +250,7 @@ namespace WorldsAdriftServer.Tests
                 // drawing: the tile may honestly say three where the card says it
                 // has no elevation to draw them on.
                 Assert.Equal(3, (int)ship.Json["mountedPartCount"]!);
+                Assert.False((bool)ship.Json["flight"]!["present"]!);
             }
             finally { File.Delete(path); }
         }

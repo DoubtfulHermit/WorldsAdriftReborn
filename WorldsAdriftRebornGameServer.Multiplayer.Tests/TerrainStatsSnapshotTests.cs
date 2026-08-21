@@ -79,8 +79,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // observation only and carries its own `present`/`enabled` pair so a
             // reader can tell an older server from one with the observer switched
             // off from one that has not warmed up yet.
-            Assert.Equal(14, StatsSnapshot.SchemaVersion);
-            Assert.Equal(14, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            Assert.Equal(15, StatsSnapshot.SchemaVersion);
+            Assert.Equal(15, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

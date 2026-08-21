@@ -1165,6 +1165,76 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
+        /// Evaluates the same force inputs used by <see cref="FlightIntegrator"/>
+        /// for the operator inspector. Read-only: no flight state, tuning or part
+        /// state is changed. Returning an explicit unavailable value when the force
+        /// model is off prevents legacy kinematic flight from being presented as a
+        /// physical measurement.
+        /// </summary>
+        internal Multiplayer.ShipFlightStat FlightStatFor(long hullEntityId)
+        {
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            if (domain == null || !ForceModelEnabled)
+            {
+                return Multiplayer.ShipFlightStat.Unavailable;
+            }
+
+            int sails = WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId);
+            int mountedSails = 0;
+            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry
+                in Crafting.MountedParts.OnHull(hullEntityId))
+            {
+                Crafting.MountedParts.Mount mount = entry.Value;
+                if (Multiplayer.Ship.ShipPartKinds.Classify(
+                        mount.ItemType, mount.PrefabName, mount.AttachmentType)
+                    == Multiplayer.Ship.ShipPartKinds.Sail)
+                {
+                    mountedSails++;
+                }
+            }
+            ShipPropulsion? maybeShip = PropulsionFor(hullEntityId, sails);
+            if (!maybeShip.HasValue)
+            {
+                return Multiplayer.ShipFlightStat.Unavailable;
+            }
+
+            ShipPropulsion ship = maybeShip.Value;
+            FlightState state = domain.Flight.State;
+            FlightControlInput input = domain.Flight.Input;
+            WindSample wind = WindField.SampleAt(
+                state.X, state.Z, _clock.Elapsed.TotalSeconds,
+                _tuning.WindSpeedMps, _tuning.WindVariation);
+
+            double throttle = Math.Clamp(input.Throttle, -1.0, 1.0);
+            double engineForce = ship.EngineThrustNewtons
+                * ShipForceModel.ShipThrustMultiplier
+                * (throttle >= 0.0 ? throttle : throttle * _tuning.ReverseFactor);
+            double sailForce = ShipForceModel.SailForwardNewtons(
+                sails, state.YawRadians, _tuning.SailPowerNewtons,
+                wind.WindX, wind.WindZ);
+            double totalForce = engineForce + sailForce;
+
+            double windAlongHeading = 0.0;
+            bool canvasIsDriving = Math.Abs(sailForce) >= 1e-9;
+            if (throttle > 0.0 || canvasIsDriving)
+            {
+                double alongMps = _tuning.WindVariation.IsEnabled
+                    ? WindField.AlongHeading(in wind, state.YawRadians)
+                        * ShipForceModel.WindMultiplier(ship.MassKg)
+                    : ShipForceModel.BaselineDriveSpeedMps(ship.MassKg, _tuning.WindSpeedMps);
+                windAlongHeading = canvasIsDriving ? alongMps : alongMps * throttle;
+            }
+
+            return new Multiplayer.ShipFlightStat(
+                ship.MassKg, mountedSails, sails,
+                wind.WindX, wind.WindZ,
+                ShipForceModel.WindAngleDegrees(state.YawRadians, wind.WindX, wind.WindZ),
+                sailForce, engineForce, totalForce / ship.MassKg,
+                ShipForceModel.PredictedSettledSpeedMps(
+                    totalForce, ship.MassKg, windAlongHeading));
+        }
+
+        /// <summary>
         /// This hull's mass in kilograms, from its real materials and real cell and
         /// deck counts. Cached on the same reasoning as the agility cache: a built
         /// hull's materials and geometry never change. A hull whose plan will not

@@ -12,7 +12,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
     ///
     /// The mechanism is recovered rather than invented, and these tests pin the
     /// recovered half exactly (the mass attenuation constants, and the fact that the
-    /// quadratic law acts on the RELATIVE wind so one expression is both drag and
+    /// recovered power law acts on the RELATIVE wind so one expression is both drag and
     /// thrust) while asserting only the SHAPE of the half that is ours (the aim
     /// along the heading, and the gate on the pilot asking for drive).
     ///
@@ -95,7 +95,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         public void A_stationary_bare_hull_gets_under_way_on_the_wind_alone()
         {
             // THE CLAIM. Zero thrust - no engines, no canvas - and the ship still
-            // starts moving, because the quadratic law is evaluated on the relative
+            // starts moving, because the power law is evaluated on the relative
             // wind and a stationary ship's relative wind is the whole wind.
             double wind = ShipForceModel.BaselineDriveSpeedMps(595.0);
             double speed = ShipForceModel.StepSpeed(0.0, 0.0, 0.24, wind);
@@ -111,7 +111,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             // the wind itself. A bare hull that crept up to engine speeds would
             // make sails and engines pointless.
             double wind = ShipForceModel.BaselineDriveSpeedMps(595.0);
-            // Long enough to cover both phases: the quadratic law closes most of
+            // Long enough to cover both phases: the primary law closes most of
             // the gap and then hands over to the 0.03 m/s^2 settle term for the
             // last metre per second. Roughly 90 s of flight.
             double speed = 0.0;

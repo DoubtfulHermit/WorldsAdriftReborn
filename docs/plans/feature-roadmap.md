@@ -2115,12 +2115,14 @@ record of it.
 
 ### 12.2 THE WORLD CONSTANTS — the numbers everything else hangs off
 
-All **PROVED**, `acs/ShipConfiguration.cs` unless noted.
+All **PROVED** from `acs/ShipConfiguration.cs` unless noted. The drag pair is
+stronger: **RECOVERED from the serialized shipped ShipConfig**, which overrides
+those two field initializers (see `findings-storm-walls.md` §2.4).
 
 | constant | value | what it decides |
 |---|---|---|
-| `AirResistanceCoefficient` | `0.01` | the whole speed scale of the game |
-| `AirResistanceExponent` | `2` | drag is quadratic, so top speed goes as √(thrust/mass) |
+| `AirResistanceCoefficient` | **`0.007`** | serialized shipped `ShipConfig`; overrides the decompiled 0.01 initializer |
+| `AirResistanceExponent` | **`2.5`** | serialized shipped `ShipConfig`; top speed goes as (thrust/mass)^0.4 |
 | `ShipThrustMultiplier` | `1.0` | global thrust lever, shipped centred |
 | `AirBrakeMultiplier` | `1.0` | global airbrake lever |
 | `MaxWingPowerSpeed` | `10 m/s` | speed at which wings reach full control authority |
@@ -2175,7 +2177,8 @@ For each: what force it makes, how much, when it applies, and how it combines.
   from the engine's head part (Rustbucket −1 … Starcaster 60) and the two boosts
   are per-material, per-quality and additive — **WIKI**, and specifically a
   *fitted* table, not a datamine (see §12.7).
-- **Ours today:** WAREBORN TUNING, 600 N per mounted engine, flat.
+- **Ours today:** WAREBORN TUNING, 1400 N per mounted engine, flat. This
+  preserves the 12 m/s reference speed under the recovered serialized drag.
 
 #### 2. SAIL — `1303 SailState { unfurled: bool, power: float }`
 
@@ -2315,7 +2318,7 @@ at `acs/ShipControlsBehaviour.cs:283`.)
 #### 6. WIND AND DRAG — the world, not a component
 
 - **Self-drag — PROVED** (`WindPhysicsVisualizer.GetDrag`): deceleration is
-  `0.01 × ‖v_rel‖²`, plus a residual term capped at `0.03 m/s²` pulling the ship
+  `0.007 × ‖v_rel‖^2.5`, plus a residual term capped at `0.03 m/s²` pulling the ship
   toward the local wind velocity. Drag is computed as an **acceleration** and
   only then multiplied by mass, **so mass cancels** — this is exactly why top
   speed depends on thrust-to-weight and not on mass alone.
@@ -2364,23 +2367,24 @@ plus throttle, at 20 Hz, all clamped to [−1, 1].
 ### 12.4 THE WHOLE-SHIP ANSWERS
 
 **How mass becomes speed.** At equilibrium thrust balances drag:
-`F/m = 0.01 v²`, so
+`F/m = 0.007 v^2.5`, so
 
-> **v_top = 10 × √(thrust / mass)**
+> **v_top = [thrust / (0.007 × mass)]^0.4**
 
 That is the entire speed model, and it is RECOVERED rather than chosen. Its
 consequences are worth stating because they are counter-intuitive and they are
 what a ship-builder actually experiences:
 
-- **Doubling your engines buys 1.41× top speed**, not 2×.
-- **Doubling your mass costs 0.71× top speed**, not half.
+- **Doubling your engines buys 1.32× top speed**, not 2×.
+- **Doubling your mass costs 0.76× top speed**, not half.
 - Mass and thrust matter **only as a ratio**. This is why every retail guide says
   power-to-weight is the only statistic that counts.
 
 The one published community speed model, WAEngenius's
 `speed = 50 × √(2 × power / weight)`, is **WIKI and weak** — a UI heuristic with
-no validating measurement in the archive — but it is `√(power/weight)`, the same
-shape, arrived at independently.
+no validating measurement in the archive. It independently confirms diminishing
+returns and power-to-weight as the controlling ratio, but its square-root exponent
+is not the shipped asset's 0.4 and must not replace it.
 
 **Is there a speed cap?** **No — retail set none anywhere.** Top speed is purely
 where drag balances thrust. Our 60 m/s `ShipMotionPolicy` clamp is a **wire**
@@ -2713,7 +2717,7 @@ Every phase after F1 depends on F1's force model being on.
   > **2. A bare hull was not immobile either.** *"No, the ship without sails can
   > move too, but really slowly."* This is **PROVED** in the decompile and the
   > audit above already contained the mechanism without joining it up:
-  > `WindPhysicsVisualizer.ApplyWindDrag` evaluates the quadratic law on the
+  > `WindPhysicsVisualizer.ApplyWindDrag` evaluates the 2.5-power law on the
   > **relative** wind, `GetDrag(wind × windMultiplier − velocity)`. That single
   > expression is drag when the ship outruns the air and **thrust** when the air
   > outruns the ship, so a stationary hull is accelerated to the wind speed. And
@@ -2850,7 +2854,7 @@ Every phase after F1 depends on F1's force model being on.
 #### PHASE F5 — Engines become parts rather than a count
 *Per-engine power from what the engine is made of.*
 
-Today every mounted engine is worth an identical 600 N. Retail's `Power` came
+Today every mounted engine is worth an identical 1400 N. Retail's `Power` came
 from the engine's head part, tier, and the material and quality of its combustion
 internals and propeller. The **shape** is well attested by two independent
 community efforts; the **coefficients** are one person's fit.
@@ -2889,13 +2893,13 @@ speed optimum cannot exist.**
 #### The speed curve has no peak, and that is a theorem rather than a measurement
 
 Adding a sail adds thrust *and* mass, so the obvious model of the maintainer's
-memory is that `v = 10·√(F/m)` peaks somewhere. Write it out:
+memory is that `v = [F/(0.007m)]^0.4` peaks somewhere. Write it out:
 
 ```
-  v(n) = 10 · sqrt( (F_e + n·f_s) / (m_h + n·m_s) )
+  v(n) = [ (F_e + n·f_s) / (0.007·(m_h + n·m_s)) ]^0.4
 ```
 
-`v` is monotone in the ratio `R(n) = (F_e + n·f_s)/(m_h + n·m_s)`, which is a
+`v` is a monotone power of the ratio `R(n) = (F_e + n·f_s)/(m_h + n·m_s)`, which is a
 **linear-fractional (Möbius) function of `n`**. Differentiate:
 
 ```
@@ -2911,7 +2915,7 @@ way it runs is decided once, by one comparison:
 
 | condition | consequence |
 |---|---|
-| `f_s/m_s > F_e/m_h` (the sail out-performs the ship) | **every** sail helps, for ever, approaching `10·√(f_s/m_s)` |
+| `f_s/m_s > F_e/m_h` (the sail out-performs the ship) | **every** sail helps, for ever, approaching `[f_s/(0.007m_s)]^0.4` |
 | `f_s/m_s < F_e/m_h` | the **first** sail already hurts |
 
 So *any* model in which both thrust and mass are linear in the sail count cannot
@@ -2921,21 +2925,21 @@ sail power and sail mass.** No pair of values produces one.
 
 #### Two things that ARE real, and together they are what the memory is made of
 
-**1. The gain per sail collapses fast.** Even with no sail mass at all, `v ∝ √n`.
+**1. The gain per sail collapses fast.** Even with no sail mass at all, `v ∝ n^0.4`.
 On the live legacy hull (595 kg) at the current sail power, best heading:
 
 | sails | settled speed | gain from the previous sail |
 |---|---|---|
-| 1 | 10.4 kn | +6.5 kn |
-| 2 | 13.0 kn | +2.7 kn |
-| 3 | 15.1 kn | +2.1 kn |
-| 4 | 16.9 kn | **+1.7 kn** |
-| 5 | 18.4 kn | +1.5 kn |
-| 6 | 19.8 kn | +1.4 kn |
-| 8 | 22.2 kn | +1.2 kn |
+| 1 | 20.8 kn | +16.9 kn |
+| 2 | 26.2 kn | +5.4 kn |
+| 3 | 30.1 kn | +3.9 kn |
+| 4 | 33.3 kn | **+3.2 kn** |
+| 5 | 36.1 kn | +2.7 kn |
+| 6 | 38.5 kn | +2.4 kn |
+| 8 | 42.7 kn | +2.1 kn per added sail |
 
-The fourth sail is the last one worth more than a tenth of what the first was.
-Past four you are adding rigging for a knot at a time, which is exactly what
+By the fourth sail, the next gain is barely a quarter of the first sail's gain.
+Past four the return keeps shrinking under the 0.4-power law, which is exactly what
 *"then it was becoming too heavy"* feels like from the helm even though nothing
 is technically getting worse.
 
@@ -3050,13 +3054,15 @@ it.
 1. **Whether the force model feels right**, which is the only acceptance test
    that matters for a physics change. Fly with `WAREBORN_FLIGHT_FORCES=1` and
    compare a light hull, a heavy hull, and the same hull with canvas up and down.
-2. **Whether 600 N per engine and 30 per sail are the right magnitudes.** They
-   are calibrated to reproduce today's speed for a reference ship; whether that
-   speed is itself right is a taste call, and the client's own 70-knot gauge
-   suggests retail ships were **faster** than ours.
+2. **Whether 1400 N per engine and 420 per sail are the right magnitudes.** Engine
+   power re-derives today's reference speed. Sail power is now independently
+   calibrated so four sails on the 800 kg reference hull settle just under the
+   shipped dial's 30-knot "fast" mark, and is pinned across 128 mass/sail/heading
+   cases. Both remain WAREBORN tuning because retail's per-part data is lost.
 3. **Whether a stationary ship under sail moves at a rate that reads as
-   sailing** rather than as drifting. The model gives 0.4–4.1 m/s depending on
-   heading, against 12.2 m/s under engines.
+   sailing** rather than as drifting. On the 800 kg reference hull, two sails
+   now settle at 2.6–12.1 m/s depending on heading, against 12.0 m/s under two
+   engines.
 4. ~~**What the unpatched client does with a real `1258`.**~~ **ANSWERED, and it
    is a live hazard rather than a live flight question** — see F2. What a live
    flight *should* now check is the inverse: whether a piloted ship ever shows
@@ -3125,9 +3131,9 @@ at all** — `FlightIntegrator`'s legacy branch commands `throttle * MaxSpeedMps
 directly. So a latched lever means a ship cruises **forever, in a straight line,
 through islands** (nothing in `Ship/Flight/` references terrain or altitude
 limits) until someone re-mans it or an admin stops it. Under the force model it
-would coast on retail's own `0.01·v²` plus the 0.03 m/s² settle term: from 9 m/s
-**~119 s and ~234 m**; from 17 m/s **~124 s and ~297 m**; from 20 m/s **~125 s
-and ~314 m**. Retail had both — drag *and* engines that kept burning unmanned —
+would coast on retail's own `0.007·v^2.5` plus the 0.03 m/s² settle term: from 9 m/s
+**~123 s and ~203 m**; from 17 m/s **~125 s and ~227 m**; from 20 m/s **~125 s
+and ~231 m**. Retail had both — drag *and* engines that kept burning unmanned —
 so retail's answer to a runaway was `ShipAbandonedBehaviour` (24 h with no owner
 aboard, and it makes the ship **sink**, not stop), not deceleration.
 
@@ -3208,17 +3214,16 @@ goes up a lot; where they disagree, the decompile wins.
    client, so it is already post-nerf and needs no adjustment — but it means the
    frequently quoted sail speeds of 45–60 knots describe a game that no longer
    existed at shutdown. Do not calibrate canvas against them.
-3. **The community "power" unit is not newtons, and the bridge is ~13.**
+3. **The community "power" unit is not newtons, and there is no constant bridge.**
    The community speed law `speed_knots = 50 × √(2 × power / mass_kg)` is a
    player fit, but it validates exactly against a stated measurement (900 power,
-   3000 kg → 38.73 knots). Setting that equal to our recovered
-   `v = 10 × √(F/m)` gives **≈ 13 newtons per point of community "power"**
-   — **INFERRED**, and it chains through a fitted constant, so treat it as an
-   order-of-magnitude bridge only. Its use is calibration sanity: a good retail
-   engine of 90–140 power maps to roughly 1,200–1,850 N, against our chosen
-   600 N. **So our engines are plausibly a factor of two to three weak**, which
-   is consistent with the 70-knot gauge in §12.2 and is the first thing to try
-   if the maintainer's flight test says ships feel sluggish.
+   3000 kg → 38.73 knots). The recovered shipped
+   `v = [F/(0.007m)]^0.4` has a different exponent, so a fixed newtons-per-point
+   conversion cannot make the curves agree. Around that historically measured
+   example, it still places useful engine magnitudes in the low thousands of
+   newtons. Our 1,400 N default is therefore plausible and independently
+   re-derives the server's established 12 m/s reference speed; it remains
+   WAREBORN tuning.
 
 **One detail that should stop us building the wrong thing.** The wiki states
 that **a sail's material has no effect on the thrust it provides** — players were
