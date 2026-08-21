@@ -128,6 +128,22 @@ changes.
 
 ### Exact deployed revisions
 
+**SAIL/HELM LIVE-FLIGHT FOLLOW-UP 2026-08-21.** Game server `b92ba07` is
+deployed on top of the flight/wall release. A live 3094 kg/two-sail acceptance
+trace proved three lifecycle defects: unfurling canvas did not wake an at-rest
+flight session until the helm was touched; the visually centred lever ended on
+the client's quantized `-0.09` detent and latched reverse thrust after dismount;
+and neutral mouse steering could leave small `(0.08, 0, -0.03)` axis residue.
+The sail interaction now explicitly wakes its owning ship domain, the observed
+centre detent resolves to true zero at the dismount boundary, and transient
+steering axes use a 0.1 deadzone. The wake is an interaction edge rather than
+persistent sail state, so restored/moored ships with canvas already up remain
+parked. Multiplayer verification passed **4523/4523** and the native game build
+passed with zero errors. This is server-only: schema 15 and public manifest
+`2026.08.21-1` are unchanged. Both services are active, production reports zero
+players after restart, and no error/fatal/exception line appeared after boot.
+Rollback is `/opt/wareborn/backups/game-before-b92ba07/`.
+
 **FLIGHT/WALL DEPLOYMENT 2026-08-21.** Commits `8686986`, `6b4d855`,
 `48bf9dd` and integration record `8292238` are deployed. They add lifecycle-gated sail
 activation, neutral-edge helm takeover, corrected serialized ShipConfig drag
