@@ -30,9 +30,20 @@ namespace WorldsAdriftRebornGameServer
         /// <summary>
         /// Per-packet logging. Off by default; set WAREBORN_LOG_VERBOSE=1 to
         /// restore the old firehose when you genuinely need to trace a packet.
+        ///
+        /// PARSED, not merely tested for presence. This read used to be
+        /// <c>!string.IsNullOrEmpty(...)</c>, which turned the firehose ON for
+        /// <c>WAREBORN_LOG_VERBOSE=0</c> - the one value an operator would reach
+        /// for to be sure it was off. That is not a cosmetic bug: the docblock
+        /// above measures this path at 500-1,200 synchronous stdout writes per
+        /// second on the ENet thread, i.e. exactly the main-loop stall that reads
+        /// as "we stopped seeing each other move". Every other opt-in flag in
+        /// this server parses its value; this one now uses the same shared
+        /// tokeniser ("1"/"true"/"yes") as the terrain and fauna switches.
         /// </summary>
         internal static readonly bool Verbose =
-            !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WAREBORN_LOG_VERBOSE"));
+            Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledFrom(
+                Environment.GetEnvironmentVariable("WAREBORN_LOG_VERBOSE"));
 
         /// <summary>
         /// A line that can fire once per packet. Compiled out at runtime unless

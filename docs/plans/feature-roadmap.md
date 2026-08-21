@@ -5014,3 +5014,180 @@ ends.
    `ComponentsSerializer.cs:1659-1674` and `:1675-1690`, and
    `ComponentAbsencePolicy.cs:120,146` / `:265-291`. The real locations today are
    **1764-1779**, **1780-1790**, **:151, :177** and **:367-396**.
+## 15. SECURITY HARDENING — deferred to end of project, by decision
+
+**Status: ACCEPTED AND DEFERRED, 2026-08-20.** The maintainer's call, recorded
+verbatim so a future reader does not re-litigate it: *"document the login and
+token rotation stuff in roadmap, that's something we're gonna do at the end, we
+know that it was only HTTP from the beginning."*
+
+That framing is correct and it is the reason this is a phase and not an
+incident. This server has never had transport security on the account path.
+Everything below is a *second* copy of secrets that were already travelling in
+the clear. Nothing here newly exposes a password that was previously protected.
+
+**What deferral does NOT excuse, stated so the decision stays informed.** A
+plaintext password on the wire exists for one round trip between two endpoints.
+A plaintext password in the journal is **durable, on disk, replicated into every
+backup, and readable by every operator tool** — and the realistic leak is not an
+attacker on the VPS, it is a `journalctl` snippet pasted into a support thread.
+The two risks are the same secret and genuinely different exposures. Deferring
+is defensible; deferring *because the wire is already plaintext* is the one
+argument that does not hold, so it should not be the reason recorded.
+
+**Ordering constraint that makes "at the end" the right call anyway:** the fix
+and the remediation are coupled. Gating the log stops *new* capture; it does
+nothing about what is already banked. The remediation is a session-token
+rotation, which **logs every player out**. Doing that mid-development costs a
+disruption per occurrence; doing it once, at the same moment TLS lands on the
+account path, costs one. **So the correct sequence is: TLS → gate the log →
+rotate once → done.** Rotating before TLS means rotating twice.
+
+### 15.1 The log finding — PROVED, verified directly 2026-08-20
+
+`WorldsAdriftServer/Handlers/RequestRouterHandler.cs:20` calls
+`DataParser.ParseIncomingData(buffer, offset, size)` from the raw TCP receive
+callback, so the buffer is **unparsed HTTP wire text**, unconditionally, for
+every inbound request.
+
+`WorldsAdriftServer/Handlers/DataParser.cs:93` takes its structured branch only
+when the bytes contain the literal `{"Id":`. A `POST /login`, `/register` or
+`/authenticate` body does not. Everything else reaches `:129`:
+
+```csharp
+else //Display raw data if not handled by custom handler
+{
+    for (int ByteIndex = 0; ByteIndex < size; ++ByteIndex)
+        Console.Write((char)buffer[ByteIndex]);
+}
+```
+
+No env gate, no `#if DEBUG`, no redaction. Into stdout — and therefore journald,
+and therefore disk — go plaintext passwords, the `Security:` bearer header
+(`Persistence/Accounts.cs:31`) and `Cookie: wa_player=<token>`
+(`Handlers/Authentication/LoginHandler.cs:168`). Neither unit sets
+`StandardOutput=`.
+
+**This was already written down in this repo and not actioned:**
+`docs/research/accounts/findings-signup-page.md:22-24` — *"every sign-up POST
+writes the player's plaintext password into the system log. Gate it before
+serving any web traffic."* That note predates the finding above. The failure was
+not detection; it was that a written-down finding had no owner.
+
+**MEASURED 2026-08-20, and the journal is NOT clean.** Count-only probe against
+production, values never printed:
+
+| probe (exact pattern) | count |
+|---|---|
+| `"password"`/`"passwd"` **JSON key** occurrences — i.e. credential-bearing bodies | **31** |
+| lines merely *mentioning* `password` (broader, includes prose/headers) | 331 |
+| lines carrying a `wa_player=` session cookie | **10,513** |
+| lines carrying a `Security:` bearer header | 691 |
+| `POST /login`, `/register`, `/authenticate` | 521 |
+| `wareborn-login` journal size | **137 MB**, ~1,369,900 lines |
+| span | **2026-08-08 00:08 → 2026-08-20 09:52** — 12 days |
+| all journals on the box | **3.9 GB** |
+
+Two probes with different patterns are listed rather than one headline number,
+because they disagree for a legitimate reason and the disagreement is
+informative: 521 auth POSTs produced only 31 `"password"`-keyed bodies, since
+`/authenticate` carries a *token* rather than a password. **31 is the number
+that matters for password exposure; ~10.5k is the number that matters for
+session exposure.** Do not quote the 331 as "331 passwords" — it is a
+substring count over prose and headers too.
+
+*(Method note: the first two probe attempts returned empty and the reason was
+mine, not the server's — `J=$(journalctl …)` assigns 137 MB into a shell
+variable. Stream it; do not capture it.)*
+
+**What the numbers mean, separately, because they decay differently:**
+
+- **The 11,058 token lines largely self-heal.** Player sessions expire after
+  7 days and admin sessions after 12 h sliding (`AccountPolicy.cs`,
+  `PlayerSessions.Issue:56-66`). The journal spans 12 days, so most captured
+  tokens are already dead; only the trailing ~7 days are live. Rotation kills
+  that remainder in one action.
+- **The 31 passwords do not decay at all.** They are valid until each player
+  changes one, and the realistic harm is not this server — it is **password
+  reuse against the player's email or other accounts.** No rotation on our side
+  fixes that; only telling the affected players does. That is the part of this
+  finding with a duty attached, and it is why the phase should not slip
+  indefinitely even though it is correctly *ordered* last.
+
+**Consequence for §15.2: step 4 is NOT optional.** The precondition it was gated
+on has been measured and is non-zero. Additionally, `journalctl --vacuum-time`
+must cover **archived** journals and any off-box backups, or the gate plus the
+rotation still leaves the captured copies in place.
+
+### 15.2 The phase, when it runs
+
+1. **TLS on the account path first** — it is the precondition that makes one
+   rotation sufficient.
+2. **Gate `DataParser.cs:129-134`** behind an env flag defaulting to off.
+   Six-line deletion. TRIVIAL.
+3. **Measure the journal**, count-only, before deciding step 4.
+4. **Rotate every session token** if step 3 is non-zero. Logs everyone out —
+   announce it. Then treat existing journals and their backups as compromised
+   and vacuum them.
+5. **Delete the admin verifier print**, `Admin/AdminConfig.cs:112-115`, which
+   logs `username + ":" + storedHash` — that hash *is* the complete server-side
+   verifier. The adjacent comment claims the password is "never in source or
+   logs"; the next line contradicts it.
+6. **Rotate the DB credential** out of the systemd environment into a root-only
+   `EnvironmentFile=`/`LoadCredential=`, and add `User=` so neither service runs
+   as root. Open since HANDOVER §10. Postgres is loopback-only
+   (`docs/hosting.md:14,17-18`), so this needs a foothold to exploit — the
+   realistic escape is again pasted operator output.
+7. **Stop logging account identifiers** on failed sign-ins
+   (`SteamAuthenticationHandler.cs:90` captures typos and third-party addresses).
+
+### 15.3 NOT deferred — cheap, unrelated to the credential story
+
+These are in this section only because they surfaced in the same audit. They do
+not depend on TLS, do not log anyone out, and should be picked up with any
+ordinary change:
+
+- **The four missing `Owns()` gates** (audit §5, corrected). One line each,
+  copied from `TransformState_Handler.cs:71`. The crafting one lets a client
+  craft out of another player's inventory. **Best effort-to-risk ratio in the
+  whole audit.**
+- **Path containment in `PatchEngine.LocalPathFor`**
+  (`tools/patcher/WAPatch/PatchEngine.cs:222-227`) — no `StartsWith(installDir)`,
+  no `..` rejection, no rooted-path rejection, and a rooted `destPath` makes
+  `Path.Combine` discard `installDir` entirely. The sha256 gate is real and
+  correctly checked pre-write on the in-memory buffer (`:164-171`), and TLS is
+  properly enforced, so a network MITM is not viable — this is about blast
+  radius if the manifest host is ever compromised. Add the assertion and tests.
+- **Cap the `ReferenceDataRequestState_Handler.cs:39` loop at 1** — currently an
+  uncapped client-supplied list, four GZip compressions and three full catalogue
+  serialisations per element. One packet stalls the server.
+- **Hoist the `GameStats.Read` call** behind the null check at
+  `Handlers/PublicMap/PublicMapHandler.cs:121` — it is an argument, so it
+  evaluates unconditionally and re-parses the whole stats file for every
+  anonymous request.
+
+### 15.4 The structural one, which is not a quick fix
+
+**Character identity is a client-supplied string.** `CharacterIdentity.UidFrom`
+(`Inventory/CharacterIdentity.cs:54`) validates only `Guid.TryParse` (`:73`), and
+the uid **leaks on the wire** — `ComponentsSerializer.cs:576`, `:2546`, `:2626`
+serve owner uids to any peer that checks out a shipyard or hull. So: walk past a
+ship, read the owner's uid off components you are legitimately served, relog
+publishing that uid, and inherit their inventory, progression, ship and crew
+seat.
+
+The code is defensively written and the author understood the hazard — it
+explicitly rejects the upstream placeholder at `:48-53`, and the handler comment
+at `PlayerPropertiesState_Handler.cs:74` names the root cause: *"no packet on the
+ENet wire carries an account."* The architecture gives it nothing better to check
+against. **Real fix:** `WorldsAdriftServer` issues a signed session token that the
+game server validates on connect and binds to the peer; the 1088 uid is then only
+ever *compared* to that binding, never *sets* it. That is the same work as step 1
+above, which is a further argument for doing the account path properly, once.
+**Cheap interim:** stop serving raw character uids at the three sites, which
+severs the discovery half.
+
+Full ranked detail, including the interest-set escape that makes several of these
+reachable, is in `docs/plans/architecture-audit.md`. **Read its §5 with the
+2026-08-20 correction** — the original text understated the ownership-gate
+finding.
