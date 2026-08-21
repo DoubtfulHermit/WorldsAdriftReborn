@@ -147,8 +147,8 @@ terrain readiness, authority-generation and flight-activity transitions across
 the three-second snapshot cadence. The admin console presents linked World,
 Simulation and Infrastructure modes with one stable domain selection. Remote
 workers, migration and domain sleep remain explicitly unavailable; the observer
-does not manufacture them in advance of Phase 7. This extension is implemented
-and test-covered locally but is not yet deployed or visually accepted.
+does not manufacture them in advance of Phase 7. This extension is deployed and
+test-covered; operator-page visual acceptance remains outstanding.
 Moving actual simulation services behind the host and a live acceptance pass
 remain outstanding. The first live two-player pass also exposed remote-avatar/ship coordinate-frame
 divergence, a five-second client spline wake after manned-idle stream starvation,

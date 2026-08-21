@@ -128,7 +128,7 @@ changes.
 
 ### Exact deployed revisions
 
-**WORLD INSPECTOR LOCAL IMPLEMENTATION 2026-08-21 — NOT DEPLOYED.** Commits
+**WORLD INSPECTOR DEPLOYMENT 2026-08-21.** Commits
 `d258883`, `1a5a427`, `4e4ee7d` and `030da36` formalise authenticated
 game-stats schema v16 as World Inspector contract v1 and reshape the existing
 Simulation Fabric into linked World, Simulation and Infrastructure modes. The
@@ -140,9 +140,17 @@ unavailable states. Reader sizes and domain identities are bounded and
 sanitised, and no inspector endpoint or identity-bearing code was added to the
 public map. Integrated verification passed **4522/4522** Multiplayer tests and
 **1221** login/admin tests with 26 intentional database-dependent skips; both
-Release builds passed with zero errors. The in-app browser was unavailable for
-the final local visual pass, so visual acceptance remains outstanding. Nothing
-has been pushed, deployed or restarted for this work.
+Release builds passed with zero errors. Game and login/admin were published
+self-contained and deployed together as build `8f4f375`; staged/live executable
+SHA-256 hashes matched. Production reports schema 16, contract v1,
+`local:primary`, 47 island domains, 5 ship domains, 3,788 owned entities, one
+global entity and zero unowned/ownership issues. Persistence restored 9/9
+deployables, 5/7 ships (two tombstones), 21/21 mounted parts and 4/4 loose parts;
+both services and all public routes are healthy, and the post-boot error scan is
+clean. Rollbacks are `/opt/wareborn/backups/game-before-inspector-8f4f375/` and
+`/opt/wareborn/backups/login-before-inspector-8f4f375/`. No client patch was
+required. The in-app browser was unavailable for the local visual pass, so the
+operator page still needs a human visual acceptance check.
 
 **HELM TAKEOVER LATENCY FOLLOW-UP 2026-08-21.** Game server `9c7fc08` is
 deployed. Live traces showed the neutral-edge takeover gate rejecting every
