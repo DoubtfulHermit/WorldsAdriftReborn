@@ -128,6 +128,19 @@ changes.
 
 ### Exact deployed revisions
 
+**HELM TAKEOVER LATENCY FOLLOW-UP 2026-08-21.** Game server `9c7fc08` is
+deployed. Live traces showed the neutral-edge takeover gate rejecting every
+initial throttle packet for 5–10 seconds; the generated client suppresses an
+unchanged zero, so moving the mouse merely caused enough control updates for a
+neutral edge to arrive eventually. Once 1109 grants the helm, 1111 is current
+ship intent and is now merged immediately; pilot-seat ownership plus the ship
+domain authority token remain the application boundary. Verification passed
+**4518/4518** Multiplayer tests and the native game build with zero errors.
+This is server-only; the client manifest is unchanged. Both services are active,
+production reports zero players after restart, and boot has no
+error/fatal/exception line. Rollback is
+`/opt/wareborn/backups/game-before-9c7fc08/`.
+
 **SAIL/HELM LIVE-FLIGHT FOLLOW-UP 2026-08-21.** Game server `b92ba07` is
 deployed on top of the flight/wall release. A live 3094 kg/two-sail acceptance
 trace proved three lifecycle defects: unfurling canvas did not wake an at-rest
@@ -146,7 +159,7 @@ Rollback is `/opt/wareborn/backups/game-before-b92ba07/`.
 
 **FLIGHT/WALL DEPLOYMENT 2026-08-21.** Commits `8686986`, `6b4d855`,
 `48bf9dd` and integration record `8292238` are deployed. They add lifecycle-gated sail
-activation, neutral-edge helm takeover, corrected serialized ShipConfig drag
+activation, immediate authority-gated helm input, corrected serialized ShipConfig drag
 (`0.007`, exponent `2.5`), evidence-anchored WAReborn tuning of 1400 N/engine
 and 420 N/(m/s)/sail, schema-15 admin flight diagnostics, and opt-in release-map
 wall resistance across the recovered +/-400 m physical band (+/-200 m full
