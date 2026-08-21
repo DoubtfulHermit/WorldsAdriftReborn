@@ -78,9 +78,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // `simulation` section - the interaction shadow model - which is
             // observation only and carries its own `present`/`enabled` pair so a
             // reader can tell an older server from one with the observer switched
-            // off from one that has not warmed up yet.
-            Assert.Equal(15, StatsSnapshot.SchemaVersion);
-            Assert.Equal(15, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            // off from one that has not warmed up yet. v15 adds per-ship force
+            // telemetry; v16 adds the versioned authenticated World Inspector.
+            Assert.Equal(16, StatsSnapshot.SchemaVersion);
+            Assert.Equal(16, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

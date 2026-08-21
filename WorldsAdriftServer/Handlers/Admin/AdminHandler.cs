@@ -707,6 +707,9 @@ namespace WorldsAdriftServer.Handlers.Admin
             // ownership topology and this is an observational overlay, and the panel
             // has to be able to label the two differently.
             game["simulation"] = s.Simulation.Json;
+            // Versioned observer contract. This handler is behind AdminSessions;
+            // no corresponding projection is added to the public map endpoint.
+            game["worldInspector"] = s.WorldInspector.Json;
             game["runtime"] = new JObject
             {
                 ["hostMode"] = s.RuntimeHostMode,

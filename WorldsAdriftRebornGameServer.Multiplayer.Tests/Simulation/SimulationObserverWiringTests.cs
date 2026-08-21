@@ -66,7 +66,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Simulation
         [Fact]
         public void The_shadow_section_reaches_the_stats_file()
         {
-            Assert.Contains("simulation: new SimulationRuntimeStat(", Server());
+            string source = Server();
+            Assert.Contains("SimulationRuntimeStat simulation = new SimulationRuntimeStat(", source);
+            Assert.Contains("simulation: simulation", source);
         }
 
         [Fact]

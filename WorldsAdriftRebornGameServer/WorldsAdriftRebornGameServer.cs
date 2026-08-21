@@ -11,6 +11,7 @@ using WorldsAdriftRebornGameServer.Game.Components.Update;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 using static WorldsAdriftRebornGameServer.DLLCommunication.EnetLayer;
 
 namespace WorldsAdriftRebornGameServer
@@ -2438,6 +2439,14 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly ServerStats Stats = new ServerStats(DateTimeOffset.UtcNow);
 
         /// <summary>
+        /// Read-only diff observer for the authenticated World Inspector payload.
+        /// It is advanced only when the existing stats writer asks for a snapshot,
+        /// so it adds no scheduler, worker or gameplay-loop cadence of its own.
+        /// </summary>
+        internal static readonly WorldInspectorObserver WorldInspector =
+            new WorldInspectorObserver();
+
+        /// <summary>
         /// Serialises <see cref="Stats"/> plus each live player's entity id and
         /// ENet health to /tmp/wareborn-stats.json every few seconds, atomically,
         /// so the login server can render the dashboard without any new network
@@ -2793,10 +2802,71 @@ namespace WorldsAdriftRebornGameServer
                 spawnPaceMs: (int)SpawnPaceInterval.TotalMilliseconds,
                 peers: interestPeers);
 
+            TerrainRuntimeStat terrain = TerrainInterest?.Snapshot(
+                ResourceInterest.ResourceNodeCountFor,
+                ResourceInterest.CheckedOutResourceCountFor)
+                ?? TerrainRuntimeStat.Off;
+            SimulationRuntimeStat simulation = new SimulationRuntimeStat(
+                Simulation.Enabled,
+                Simulation.RefreshCount,
+                Multiplayer.Simulation.Wareborn.SimulationObserverPolicy
+                    .RefreshInterval.TotalSeconds,
+                Simulation.LastError,
+                Simulation.LatestSnapshot);
+            long uptimeSeconds = (long)Math.Max(0, (now - Stats.BootTime).TotalSeconds);
+
+            List<WorldInspectorTerrainObservation> inspectorTerrain =
+                new List<WorldInspectorTerrainObservation>();
+            foreach (TerrainPlayerStat player in terrain.Players)
+            {
+                string playerSubject = player.PlayerEntityId > 0
+                    ? "player:" + player.PlayerEntityId
+                    : "terrain-slot:" + player.Slot;
+                foreach (TerrainPeerIslandStat cell in player.Islands)
+                {
+                    inspectorTerrain.Add(new WorldInspectorTerrainObservation(
+                        playerSubject + "/island:" + cell.IslandId,
+                        TerrainTelemetryLabels.Of(cell.State)));
+                }
+            }
+
+            WorldInspectorRuntimeStat worldInspectorStat = WorldInspector.Observe(
+                new WorldInspectorObservation(
+                    generatedAtUnixMs: nowMs,
+                    hostMode: "local-single-process",
+                    hostId: "local:primary",
+                    processId: Environment.ProcessId,
+                    processUptimeSeconds: uptimeSeconds,
+                    connectedPlayerCount: Stats.CurrentOnline,
+                    islandDomainCount: ownership.IslandDomainCount,
+                    shipDomainCount: ownership.ShipDomainCount,
+                    ownedEntityCount: ownership.OwnedEntityCount,
+                    globalEntityCount: ownership.GlobalEntityCount,
+                    unownedEntityCount: ownership.UnownedEntityIds.Count,
+                    ownershipIssueCount: ownership.Inconsistencies.Count,
+                    terrainReadyCount: terrain.ReadyCount,
+                    shadowEnabled: simulation.Enabled,
+                    shadowHasSnapshot: simulation.HasSnapshot,
+                    shadowRefreshCount: simulation.RefreshCount,
+                    domains: runtimeDomains.Select(x =>
+                        new WorldInspectorDomainObservation(x.DomainId, x.EntityCount)).ToArray(),
+                    ownership: DomainHost.Domains.SelectMany(domain =>
+                        domain.EntityIds.Select(entityId =>
+                            new WorldInspectorEntityOwnershipObservation(
+                                entityId, domain.Id.ToString()))).ToArray(),
+                    checkouts: interest.Peers.Select(x =>
+                        new WorldInspectorCheckoutObservation(
+                            x.PlayerEntityId, x.ResourceCheckedOut,
+                            x.FaunaCheckedOut, x.ShipDomainIds.Count)).ToArray(),
+                    ships: shipDomains.Select(x =>
+                        new WorldInspectorShipObservation(
+                            x.DomainId, x.AuthorityGeneration, x.Active, x.Piloted)).ToArray(),
+                    terrain: inspectorTerrain));
+
             return new StatsSnapshot(
                 bootTimeUnixMs: Stats.BootTime.ToUnixTimeMilliseconds(),
                 generatedAtUnixMs: nowMs,
-                uptimeSeconds: (long)Math.Max(0, (now - Stats.BootTime).TotalSeconds),
+                uptimeSeconds: uptimeSeconds,
                 relayMode: Relay.ModeDescription,
                 relayHz: Relay.Hz,
                 build: build,
@@ -2820,9 +2890,7 @@ namespace WorldsAdriftRebornGameServer
                 // already decided. Before the post-restore bootstrap builds the
                 // service there is no terrain lifecycle to describe, and the
                 // snapshot says "off" rather than inventing one.
-                terrain: TerrainInterest?.Snapshot(
-                    ResourceInterest.ResourceNodeCountFor,
-                    ResourceInterest.CheckedOutResourceCountFor),
+                terrain: terrain,
                 // Same poll thread, same reasoning as terrain above. The clock it
                 // carries is what lets the operator console draw the wildlife
                 // MOVING without anybody streaming positions.
@@ -2840,13 +2908,8 @@ namespace WorldsAdriftRebornGameServer
                 // on purpose: making the file drive the model would put an
                 // observation-only subsystem on the dashboard's clock and quietly
                 // triple how often it walks the world.
-                simulation: new SimulationRuntimeStat(
-                    Simulation.Enabled,
-                    Simulation.RefreshCount,
-                    Multiplayer.Simulation.Wareborn.SimulationObserverPolicy
-                        .RefreshInterval.TotalSeconds,
-                    Simulation.LastError,
-                    Simulation.LatestSnapshot));
+                simulation: simulation,
+                worldInspector: worldInspectorStat);
         }
 
         /// <summary>

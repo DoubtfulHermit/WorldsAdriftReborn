@@ -477,7 +477,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // v15: every ship domain gains a `flight` block carrying the live force
         // model's mass, canvas, wind sample, forces, acceleration and predicted
         // settled speed. `present:false` is explicit when force flight is off.
-        public const int SchemaVersion = 15;
+        // v16: adds the versioned `worldInspector` observer contract. It groups
+        // current facts into WORLD/SIMULATION/INFRASTRUCTURE and carries a bounded
+        // transition ring. It remains authenticated admin telemetry; this file is
+        // not itself an HTTP endpoint.
+        public const int SchemaVersion = 16;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -557,6 +561,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public SimulationRuntimeStat Simulation { get; }
 
+        /// <summary>The authenticated World Inspector observer contract (schema v16+).</summary>
+        public WorldInspectorRuntimeStat WorldInspector { get; }
+
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
         public IReadOnlyList<RuntimeDomainStat> RuntimeDomains { get; }
@@ -590,11 +597,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             ShipMapRuntimeStat shipModel = default,
             InterestRuntimeStat interest = default,
             SkyWhaleRuntimeStat? skyWhale = null,
-            SimulationRuntimeStat simulation = default)
+            SimulationRuntimeStat simulation = default,
+            WorldInspectorRuntimeStat worldInspector = default)
         {
             ShipModel = shipModel;
             Interest = interest;
             Simulation = simulation;
+            WorldInspector = worldInspector;
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
             UptimeSeconds = uptimeSeconds;
@@ -712,9 +721,69 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             AppendSkyWhale(b, SkyWhale);
             b.Append(',');
             AppendSimulation(b, Simulation);
+            b.Append(',');
+            AppendWorldInspector(b, WorldInspector);
 
             b.Append('}');
             return b.ToString();
+        }
+
+        private static void AppendWorldInspector(StringBuilder b, WorldInspectorRuntimeStat s)
+        {
+            Key(b, "worldInspector");
+            b.Append('{');
+            Bool(b, "present", s.Present); b.Append(',');
+            Num(b, "contractVersion", WorldInspectorRuntimeStat.ContractVersion); b.Append(',');
+            Num(b, "generatedAtUnixMs", s.GeneratedAtUnixMs); b.Append(',');
+            Num(b, "eventCapacity", WorldInspectorRuntimeStat.EventCapacity); b.Append(',');
+
+            Key(b, "WORLD"); b.Append('{');
+            Num(b, "connectedPlayerCount", s.World.ConnectedPlayerCount); b.Append(',');
+            Num(b, "islandDomainCount", s.World.IslandDomainCount); b.Append(',');
+            Num(b, "shipDomainCount", s.World.ShipDomainCount); b.Append(',');
+            Num(b, "ownedEntityCount", s.World.OwnedEntityCount); b.Append(',');
+            Num(b, "globalEntityCount", s.World.GlobalEntityCount); b.Append(',');
+            Num(b, "unownedEntityCount", s.World.UnownedEntityCount); b.Append(',');
+            Num(b, "ownershipIssueCount", s.World.OwnershipIssueCount); b.Append(',');
+            Num(b, "resourceCheckoutCount", s.World.ResourceCheckoutCount); b.Append(',');
+            Num(b, "faunaCheckoutCount", s.World.FaunaCheckoutCount); b.Append(',');
+            Num(b, "shipCheckoutCount", s.World.ShipCheckoutCount); b.Append(',');
+            Num(b, "terrainReadyCount", s.World.TerrainReadyCount);
+            b.Append('}'); b.Append(',');
+
+            Key(b, "SIMULATION"); b.Append('{');
+            Bool(b, "shadowEnabled", s.Simulation.ShadowEnabled); b.Append(',');
+            Bool(b, "shadowHasSnapshot", s.Simulation.ShadowHasSnapshot); b.Append(',');
+            Num(b, "shadowRefreshCount", s.Simulation.ShadowRefreshCount); b.Append(',');
+            Num(b, "activeFlightCount", s.Simulation.ActiveFlightCount); b.Append(',');
+            Num(b, "pilotedFlightCount", s.Simulation.PilotedFlightCount); b.Append(',');
+            Num(b, "highestAuthorityGeneration", s.Simulation.HighestAuthorityGeneration);
+            b.Append('}'); b.Append(',');
+
+            Key(b, "INFRASTRUCTURE"); b.Append('{');
+            Str(b, "hostMode", s.Infrastructure.HostMode); b.Append(',');
+            Str(b, "hostId", s.Infrastructure.HostId); b.Append(',');
+            Num(b, "processId", s.Infrastructure.ProcessId); b.Append(',');
+            Num(b, "processUptimeSeconds", s.Infrastructure.ProcessUptimeSeconds);
+            b.Append('}'); b.Append(',');
+
+            Key(b, "events"); b.Append('[');
+            for (int i = 0; i < s.Events.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                WorldInspectorEventStat e = s.Events[i];
+                b.Append('{');
+                Num(b, "sequence", e.Sequence); b.Append(',');
+                Num(b, "atUnixMs", e.AtUnixMs); b.Append(',');
+                Str(b, "scope", e.Scope); b.Append(',');
+                Str(b, "kind", e.Kind); b.Append(',');
+                Str(b, "subject", e.Subject); b.Append(',');
+                Str(b, "from", e.From); b.Append(',');
+                Str(b, "to", e.To);
+                b.Append('}');
+            }
+            b.Append(']');
+            b.Append('}');
         }
 
         /// <summary>

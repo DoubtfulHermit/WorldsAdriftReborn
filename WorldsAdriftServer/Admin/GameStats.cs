@@ -208,6 +208,10 @@ namespace WorldsAdriftServer.Admin
         /// </summary>
         public GameSimulationStat Simulation { get; private init; } = GameSimulationStat.Absent();
 
+        /// <summary>The versioned authenticated World Inspector contract (schema v16+).</summary>
+        public GameWorldInspectorStat WorldInspector { get; private init; } =
+            GameWorldInspectorStat.Absent();
+
         public static GameStatsSnapshot Parse(JObject o)
         {
             List<GamePlayerStat> players = new List<GamePlayerStat>();
@@ -266,6 +270,7 @@ namespace WorldsAdriftServer.Admin
                 Interest = GameInterestStat.Parse(o["interest"] as JObject),
                 SkyWhale = GameSkyWhaleStat.Parse(o["skyWhale"] as JObject),
                 Simulation = GameSimulationStat.Parse(o["simulation"] as JObject),
+                WorldInspector = GameWorldInspectorStat.Parse(o["worldInspector"] as JObject),
             };
         }
 
@@ -1190,6 +1195,145 @@ namespace WorldsAdriftServer.Admin
             if (token == null || token.Type != JTokenType.String) return JValue.CreateNull();
             string text = Text((string?)token);
             return text.Length == 0 ? JValue.CreateNull() : new JValue(text);
+        }
+    }
+
+    /// <summary>
+    /// Allowlisted login-side projection of the game process's World Inspector
+    /// section. This object is only attached to the authenticated admin payload.
+    /// Unknown contract versions remain visible but unsupported; their fields are
+    /// never interpreted or forwarded.
+    /// </summary>
+    internal sealed class GameWorldInspectorStat
+    {
+        private const int SupportedContractVersion = 1;
+        private const int MaxEvents = 128;
+        private const int MaxCount = 100_000_000;
+        private const int MaxText = 160;
+
+        private static readonly string[] Scopes =
+            { "WORLD", "SIMULATION", "INFRASTRUCTURE" };
+        private static readonly string[] Kinds =
+        {
+            "domain-added", "domain-removed", "domain-membership-changed",
+            "entity-ownership-changed",
+            "checkout-interest-changed", "authority-generation-changed",
+            "terrain-readiness-changed", "snapshot-refreshed",
+            "flight-activity-changed",
+        };
+
+        public bool Present { get; private init; }
+        public JObject Json { get; private init; } = new JObject();
+
+        public static GameWorldInspectorStat Absent() => new GameWorldInspectorStat
+        {
+            Present = false,
+            Json = Build(null),
+        };
+
+        public static GameWorldInspectorStat Parse(JObject? source)
+        {
+            int version = Math.Max(0, (int?)source?["contractVersion"] ?? 0);
+            bool supported = version == SupportedContractVersion;
+            bool present = source != null && ((bool?)source["present"] ?? false);
+            return new GameWorldInspectorStat
+            {
+                Present = present,
+                Json = Build(supported ? source : null, version, present, supported),
+            };
+        }
+
+        private static JObject Build(JObject? source, int version = 0,
+            bool present = false, bool supported = false)
+        {
+            JObject? world = source?["WORLD"] as JObject;
+            JObject? simulation = source?["SIMULATION"] as JObject;
+            JObject? infrastructure = source?["INFRASTRUCTURE"] as JObject;
+            JArray events = new JArray();
+            if (source?["events"] is JArray eventArray)
+            {
+                foreach (JToken token in eventArray)
+                {
+                    if (events.Count >= MaxEvents) break;
+                    if (token is not JObject e) continue;
+                    string scope = OneOf((string?)e["scope"], Scopes);
+                    string kind = OneOf((string?)e["kind"], Kinds);
+                    string subject = Text((string?)e["subject"]);
+                    if (scope == "unknown" || kind == "unknown" || subject.Length == 0)
+                        continue;
+                    events.Add(new JObject
+                    {
+                        ["sequence"] = NonNegative((long?)e["sequence"] ?? 0),
+                        ["atUnixMs"] = NonNegative((long?)e["atUnixMs"] ?? 0),
+                        ["scope"] = scope,
+                        ["kind"] = kind,
+                        ["subject"] = subject,
+                        ["from"] = Text((string?)e["from"]),
+                        ["to"] = Text((string?)e["to"]),
+                    });
+                }
+            }
+
+            return new JObject
+            {
+                ["present"] = present,
+                ["contractVersion"] = version,
+                ["supported"] = supported,
+                ["generatedAtUnixMs"] = NonNegative((long?)source?["generatedAtUnixMs"] ?? 0),
+                ["eventCapacity"] = Math.Min(MaxEvents,
+                    Count((int?)source?["eventCapacity"] ?? 0)),
+                ["WORLD"] = new JObject
+                {
+                    ["connectedPlayerCount"] = Count((int?)world?["connectedPlayerCount"] ?? 0),
+                    ["islandDomainCount"] = Count((int?)world?["islandDomainCount"] ?? 0),
+                    ["shipDomainCount"] = Count((int?)world?["shipDomainCount"] ?? 0),
+                    ["ownedEntityCount"] = Count((int?)world?["ownedEntityCount"] ?? 0),
+                    ["globalEntityCount"] = Count((int?)world?["globalEntityCount"] ?? 0),
+                    ["unownedEntityCount"] = Count((int?)world?["unownedEntityCount"] ?? 0),
+                    ["ownershipIssueCount"] = Count((int?)world?["ownershipIssueCount"] ?? 0),
+                    ["resourceCheckoutCount"] = Count((int?)world?["resourceCheckoutCount"] ?? 0),
+                    ["faunaCheckoutCount"] = Count((int?)world?["faunaCheckoutCount"] ?? 0),
+                    ["shipCheckoutCount"] = Count((int?)world?["shipCheckoutCount"] ?? 0),
+                    ["terrainReadyCount"] = Count((int?)world?["terrainReadyCount"] ?? 0),
+                },
+                ["SIMULATION"] = new JObject
+                {
+                    ["shadowEnabled"] = (bool?)simulation?["shadowEnabled"] ?? false,
+                    ["shadowHasSnapshot"] = (bool?)simulation?["shadowHasSnapshot"] ?? false,
+                    ["shadowRefreshCount"] = Count((int?)simulation?["shadowRefreshCount"] ?? 0),
+                    ["activeFlightCount"] = Count((int?)simulation?["activeFlightCount"] ?? 0),
+                    ["pilotedFlightCount"] = Count((int?)simulation?["pilotedFlightCount"] ?? 0),
+                    ["highestAuthorityGeneration"] = NonNegative(
+                        (long?)simulation?["highestAuthorityGeneration"] ?? 0),
+                },
+                ["INFRASTRUCTURE"] = new JObject
+                {
+                    ["hostMode"] = (string?)infrastructure?["hostMode"] == "local-single-process"
+                        ? "local-single-process" : "unknown",
+                    ["hostId"] = Text((string?)infrastructure?["hostId"]),
+                    ["processId"] = Count((int?)infrastructure?["processId"] ?? 0),
+                    ["processUptimeSeconds"] = NonNegative(
+                        (long?)infrastructure?["processUptimeSeconds"] ?? 0),
+                },
+                ["events"] = events,
+            };
+        }
+
+        private static int Count(int value) => Math.Max(0, Math.Min(MaxCount, value));
+        private static long NonNegative(long value) => value < 0 ? 0 : value;
+
+        private static string Text(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            string text = value!.Trim();
+            return text.Length <= MaxText ? text : text.Substring(0, MaxText);
+        }
+
+        private static string OneOf(string? value, string[] allowed)
+        {
+            foreach (string candidate in allowed)
+                if (string.Equals(candidate, value, StringComparison.Ordinal)) return candidate;
+            return "unknown";
         }
     }
 
