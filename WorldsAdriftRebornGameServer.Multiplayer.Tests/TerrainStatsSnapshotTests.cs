@@ -79,7 +79,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // observation only and carries its own `present`/`enabled` pair so a
             // reader can tell an older server from one with the observer switched
             // off from one that has not warmed up yet. v15 adds per-ship force
-            // telemetry; v16 adds the versioned authenticated World Inspector.
+            // telemetry; v16 adds its exact runtime sample metadata and the
+            // versioned authenticated World Inspector.
             Assert.Equal(16, StatsSnapshot.SchemaVersion);
             Assert.Equal(16, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }

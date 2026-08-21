@@ -1192,9 +1192,11 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             int engines = 0;
+            int mountedParts = 0;
             foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry
                 in Crafting.MountedParts.OnHull(hullEntityId))
             {
+                mountedParts++;
                 Crafting.MountedParts.Mount mount = entry.Value;
                 if (Multiplayer.Ship.ShipPartKinds.Classify(
                         mount.ItemType, mount.PrefabName, mount.AttachmentType)
@@ -1205,7 +1207,9 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             return new ShipPropulsion(
-                HullMassKgFor(hullEntityId),
+                Multiplayer.Materials.ShipTotalMass.TotalFlightMassKg(
+                    DerivedHullMassKgFor(hullEntityId), mountedParts,
+                    Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS")),
                 engines * _tuning.EngineThrustNewtons,
                 unfurledSails);
         }
@@ -1245,39 +1249,24 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             ShipPropulsion ship = maybeShip.Value;
-            FlightState state = domain.Flight.State;
-            FlightControlInput input = domain.Flight.Input;
-            WindSample wind = WindField.SampleAt(
-                state.X, state.Z, _clock.Elapsed.TotalSeconds,
-                _tuning.WindSpeedMps, _tuning.WindVariation);
-
-            double throttle = Math.Clamp(input.Throttle, -1.0, 1.0);
-            double engineForce = ship.EngineThrustNewtons
-                * ShipForceModel.ShipThrustMultiplier
-                * (throttle >= 0.0 ? throttle : throttle * _tuning.ReverseFactor);
-            double sailForce = ShipForceModel.SailForwardNewtons(
-                sails, state.YawRadians, _tuning.SailPowerNewtons,
-                wind.WindX, wind.WindZ);
-            double totalForce = engineForce + sailForce;
-
-            double windAlongHeading = 0.0;
-            bool canvasIsDriving = Math.Abs(sailForce) >= 1e-9;
-            if (throttle > 0.0 || canvasIsDriving)
+            ShipForceEvaluation evaluation = domain.Flight.LastForceEvaluation;
+            if (!evaluation.Present)
             {
-                double alongMps = _tuning.WindVariation.IsEnabled
-                    ? WindField.AlongHeading(in wind, state.YawRadians)
-                        * ShipForceModel.WindMultiplier(ship.MassKg)
-                    : ShipForceModel.BaselineDriveSpeedMps(ship.MassKg, _tuning.WindSpeedMps);
-                windAlongHeading = canvasIsDriving ? alongMps : alongMps * throttle;
+                FlightState state = domain.Flight.State;
+                evaluation = ShipForceEvaluator.Evaluate(
+                    state.X, state.Z, state.YawRadians, domain.Flight.Input,
+                    ship, _tuning, _clock.Elapsed.TotalSeconds, _wallFlightInfluence.Segments);
             }
 
             return new Multiplayer.ShipFlightStat(
-                ship.MassKg, mountedSails, sails,
-                wind.WindX, wind.WindZ,
-                ShipForceModel.WindAngleDegrees(state.YawRadians, wind.WindX, wind.WindZ),
-                sailForce, engineForce, totalForce / ship.MassKg,
-                ShipForceModel.PredictedSettledSpeedMps(
-                    totalForce, ship.MassKg, windAlongHeading));
+                evaluation.MassKg, mountedSails, evaluation.UnfurledSails,
+                evaluation.SampledAtSeconds,
+                evaluation.Wind.WindX, evaluation.Wind.WindZ,
+                evaluation.Wind.WallIntensity, evaluation.WindAngleDegrees,
+                evaluation.SailForceNewtons, evaluation.EngineForceNewtons,
+                evaluation.PropulsionAccelerationMps2,
+                evaluation.WindAlongHeadingMps,
+                evaluation.PredictedSettledSpeedMps);
         }
 
         /// <summary>
@@ -1287,7 +1276,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// decode falls back to the reference mass rather than to zero, because the
         /// force model divides by this.
         /// </summary>
-        private double HullMassKgFor(long hullEntityId)
+        private double DerivedHullMassKgFor(long hullEntityId)
         {
             if (_hullMassByHull.TryGetValue(hullEntityId, out double cached))
             {

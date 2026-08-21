@@ -251,9 +251,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         {
             ShipFlightStat flight = new ShipFlightStat(
                 massKg: 3094, mountedSails: 3, unfurledSails: 2,
-                windX: 1, windZ: -2, windAngleDegrees: -26.565,
+                sampledAtSeconds: 123.456, windX: 1, windZ: -2,
+                wallIntensity: 0.75, windAngleDegrees: -26.565,
                 sailForceNewtons: 715.5, engineForceNewtons: 0,
                 propulsionAccelerationMps2: 0.23125,
+                windAlongHeadingMps: 1.25,
                 predictedTerminalSpeedMps: 5.75);
             ShipDomainStat domain = new ShipDomainStat(
                 "ship:83", 83, 4, 91, 240, 35,
@@ -272,6 +274,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(3094, (double)f["massKg"]!);
             Assert.Equal(3, (int)f["mountedSails"]!);
             Assert.Equal(2, (int)f["unfurledSails"]!);
+            Assert.Equal(123.46, (double)f["sampledAtSeconds"]!);
+            Assert.Equal(0.75, (double)f["wallIntensity"]!);
+            Assert.Equal(1.25, (double)f["windAlongHeadingMps"]!);
             Assert.Equal(715.5, (double)f["sailForceNewtons"]!);
             Assert.Equal(5.75, (double)f["predictedTerminalSpeedMps"]!);
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using WorldsAdriftRebornGameServer.Multiplayer.Placement;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
@@ -165,6 +166,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             ShipPropulsion? propulsion = null, double windTimeSeconds = 0.0,
             IReadOnlyList<WeatherWallSegment>? walls = null)
         {
+            return StepEvaluated(state, input, dtSeconds, tuning, out _, unfurledSails,
+                agilityScale, propulsion, windTimeSeconds, walls);
+        }
+
+        /// <summary>
+        /// Runtime form of <see cref="Step"/> which returns the exact force sample
+        /// consumed by this step. The admin inspector publishes this object instead
+        /// of evaluating a parallel model at a later time.
+        /// </summary>
+        public static FlightState StepEvaluated(FlightState state, FlightControlInput input,
+            double dtSeconds, FlightTuning tuning, out ShipForceEvaluation forceEvaluation,
+            int unfurledSails = 0, double agilityScale = 1.0,
+            ShipPropulsion? propulsion = null, double windTimeSeconds = 0.0,
+            IReadOnlyList<WeatherWallSegment>? walls = null)
+        {
+            forceEvaluation = ShipForceEvaluation.Unavailable;
             if (dtSeconds <= 0.0 || double.IsNaN(dtSeconds) || double.IsInfinity(dtSeconds))
             {
                 return state;
@@ -215,104 +232,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // constants are recovered and which are ours.
                 ShipPropulsion ship = propulsion.Value;
 
-                // Engines. Throttle scales thrust, not speed. Reverse is the same
-                // engines run backwards at the tuned fraction - retail's engines
-                // only pushed forward, so reversing is this server's affordance
-                // and keeps its existing feel knob.
-                double throttle = Math.Clamp(input.Throttle, -1.0, 1.0);
-                double engineNewtons = ship.EngineThrustNewtons
-                    * ShipForceModel.ShipThrustMultiplier
-                    * (throttle >= 0.0 ? throttle : throttle * tuning.ReverseFactor);
-
-                // Sails. Independent of the throttle and of the current speed -
-                // this is the whole point. Retail's sail force came from the WIND
-                // and the sail's trim, so an unfurled sail pushes a ship that is
-                // standing still with its lever centred.
-                // The world's wind AT THIS SHIP'S POSITION AND THIS MOMENT. With
-                // the field disabled (production today) this is retail's own
-                // direction at this world's configured strength, computed the same
-                // way it was before WindField existed, so the two are equal rather
-                // than merely close. Sails and the bare-hull baseline below read
-                // the SAME sample, because in retail they are the same wind.
-                WindSample wind = WindField.SampleAt(
-                    state.X, state.Z, windTimeSeconds,
-                    tuning.WindSpeedMps, tuning.WindVariation, walls);
-                double sailNewtons = ShipForceModel.SailForwardNewtons(
-                    unfurledSails, yaw, tuning.SailPowerNewtons,
-                    wind.WindX, wind.WindZ);
-
-                double thrustAccel = (engineNewtons + sailNewtons) / ship.MassKg;
-
-                // THE BARE-HULL BASELINE. A hull with no engines and no canvas is
-                // not immobile - retail's wind acted on the HULL, not only on the
-                // sails, and its early-return explicitly exempts any ship with a
-                // working sky core, so a bare hull drifted. That is the maintainer's
-                // "the ship without sails can move too, but really slowly", and it
-                // is also why a sky core rather than a sail is what makes a ship
-                // mobile. See ShipForceModel.BaselineDriveSpeedMps for the recovered
-                // magnitude (~2 m/s, under 4 knots, less for a heavy hull) and for
-                // why we aim it along the heading instead of downwind.
-                //
-                // NOT gated on the ship having a sky core, and that is a decision
-                // rather than an oversight. Retail's gate is `IsFloatingShip`, i.e.
-                // a core that is not overloaded - but retail could afford it,
-                // because a coreless ship there FELL, so "no core" already meant
-                // "not flying". We implement no lift and no gravity at all: a
-                // coreless hull hovers here regardless. Gating the wind on a core we
-                // do not otherwise honour would invent a stranded class of ship for
-                // no gameplay in return - and two of the five hulls in the live
-                // world have no core mounted. When F2 makes lift real, the core gate
-                // belongs WITH it, in the same change, so that losing your core
-                // costs you altitude and motion together rather than motion alone.
-                //
-                // Gated on the pilot ASKING for drive. An unmanned hull left with
-                // the lever centred settles to rest as it does today, because a
-                // world where every abandoned hull drifts for ever is a world where
-                // every abandoned hull emits control points for ever - the exact
-                // congestion class the standing multiplayer-safety rule exists to
-                // prevent, and the same reason the settle term is aimed at zero.
-                //
-                // THE AIM depends on whether this world has a wind FIELD. With the
-                // field off, the wind is one constant everywhere and aiming the
-                // baseline downwind would mean a bare hull can travel in exactly
-                // one compass direction for ever - so it is aimed along the hull's
-                // heading, which is what this server has always done. With the
-                // field on, the objection is gone and the aim goes back to
-                // retail's: you are carried by the wind's component along your
-                // bow, so heading finally matters to a bare hull, and the wind
-                // streaks the client draws become something to steer by.
-                double windAlongHeading = 0.0;
-                bool canvasIsDriving = Math.Abs(sailNewtons) >= 1e-9;
-                if (wind.WallIntensity > 0.0)
-                {
-                    // RETAIL-SHAPED WALL RESISTANCE. Unlike the open-sky affordance
-                    // below, wall air acts with the lever centred and preserves the
-                    // sign of a headwind. That is what makes a Wind Rift a soft gate:
-                    // thrust must beat relative-wind drag across its 400 m band. The
-                    // current scalar flight model reproduces a head-on crossing
-                    // exactly and projects oblique crossings onto its one motion
-                    // axis; lateral shove, downward wind and yaw/gust torque require
-                    // the future full vector/lift model.
-                    windAlongHeading = WindField.SignedAlongHeading(in wind, yaw)
-                        * ShipForceModel.WindMultiplier(ship.MassKg);
-                }
-                else if (throttle > 0.0 || canvasIsDriving)
-                {
-                    double alongMps = tuning.WindVariation.IsEnabled
-                        ? WindField.AlongHeading(in wind, yaw) * ShipForceModel.WindMultiplier(ship.MassKg)
-                        : ShipForceModel.BaselineDriveSpeedMps(ship.MassKg, tuning.WindSpeedMps);
-                    // Wind is independent of the helm lever. Keep the deliberate
-                    // throttle-scaled bare-hull affordance, but once canvas is
-                    // driving the ship the full relative-wind velocity must enter
-                    // the drag equation even with the lever centred. Previously
-                    // SailForwardNewtons moved the hull while StepSpeed saw still
-                    // air, contradicting both the recovered equation and the
-                    // comment above that sails and hull read the same sample.
-                    windAlongHeading = canvasIsDriving ? alongMps : alongMps * throttle;
-                }
+                forceEvaluation = ShipForceEvaluator.Evaluate(
+                    state.X, state.Z, yaw, input, ship, tuning, windTimeSeconds, walls);
 
                 speedCmd = ShipForceModel.StepSpeed(
-                    state.SpeedCmdMps, thrustAccel, dtSeconds, windAlongHeading);
+                    state.SpeedCmdMps, forceEvaluation.PropulsionAccelerationMps2,
+                    dtSeconds, forceEvaluation.WindAlongHeadingMps);
 
                 // The wire clamp, NOT a physics cap: above this a hull moves far
                 // enough between two control points to read as teleporting.

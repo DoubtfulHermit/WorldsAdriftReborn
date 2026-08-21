@@ -81,6 +81,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Contains(service, "ShipHullMetrics.Measure",
                 "cell and deck counts must come from the decoded plan, so a six-cell ship is "
                 + "heavier than a one-cell one in the same timber.");
+            Contains(service, "ShipTotalMass.TotalFlightMassKg",
+                "flight mass must add every mounted part through the same policy that "
+                + "serves 1257/1121; otherwise mounting and salvage only change the UI mass.");
+        }
+
+        [Fact]
+        public void RuntimeAndInspectorUseTheSameEvaluatedForceSample()
+        {
+            string service = FlightService();
+            Contains(service, "session.Advance(",
+                "the runtime must advance the authoritative flight session.");
+            Contains(service, "_wallFlightInfluence.Segments)",
+                "the configured wall-force segments must reach that runtime advance call.");
+            Contains(service, "domain.Flight.LastForceEvaluation",
+                "the inspector must publish the sample consumed by runtime rather than "
+                + "resampling varying wind against a newer clock.");
         }
 
         [Fact]

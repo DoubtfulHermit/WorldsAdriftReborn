@@ -116,10 +116,13 @@
         addDetailItem(grid,'Canvas',String(flight.unfurledSails)+' / '+String(flight.mountedSails)+' sails unfurled');
         addDetailItem(grid,'Wind sample',Number(flight.windSpeedMps).toFixed(2)+' m/s · '
           +Number(flight.windAngleDegrees).toFixed(1)+'° from bow · ['
-          +Number(flight.windX).toFixed(2)+', '+Number(flight.windZ).toFixed(2)+']');
+          +Number(flight.windX).toFixed(2)+', '+Number(flight.windZ).toFixed(2)+'] · wall '
+          +(Number(flight.wallIntensity)*100).toFixed(0)+'%');
         addDetailItem(grid,'Sail force',Number(flight.sailForceNewtons).toFixed(1)+' N');
         addDetailItem(grid,'Engine force',Number(flight.engineForceNewtons).toFixed(1)+' N');
         addDetailItem(grid,'Propulsion acceleration',Number(flight.propulsionAccelerationMps2).toFixed(3)+' m/s²');
+        addDetailItem(grid,'Wind carry',Number(flight.windAlongHeadingMps).toFixed(2)+' m/s · sample t='
+          +Number(flight.sampledAtSeconds).toFixed(3)+'s');
         addDetailItem(grid,'Predicted settled speed',Number(flight.predictedTerminalSpeedMps).toFixed(2)+' m/s · '
           +(Number(flight.predictedTerminalSpeedMps)*1.94384449).toFixed(1)+' kn');
       }else{

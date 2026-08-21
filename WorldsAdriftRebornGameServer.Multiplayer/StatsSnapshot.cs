@@ -186,20 +186,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static ShipFlightStat Unavailable => default;
 
         public ShipFlightStat(double massKg, int mountedSails, int unfurledSails,
-            double windX, double windZ, double windAngleDegrees,
+            double sampledAtSeconds, double windX, double windZ,
+            double wallIntensity, double windAngleDegrees,
             double sailForceNewtons, double engineForceNewtons,
-            double propulsionAccelerationMps2, double predictedTerminalSpeedMps)
+            double propulsionAccelerationMps2, double windAlongHeadingMps,
+            double predictedTerminalSpeedMps)
         {
             Present = true;
             MassKg = massKg;
             MountedSails = mountedSails;
             UnfurledSails = unfurledSails;
+            SampledAtSeconds = sampledAtSeconds;
             WindX = windX;
             WindZ = windZ;
+            WallIntensity = wallIntensity;
             WindAngleDegrees = windAngleDegrees;
             SailForceNewtons = sailForceNewtons;
             EngineForceNewtons = engineForceNewtons;
             PropulsionAccelerationMps2 = propulsionAccelerationMps2;
+            WindAlongHeadingMps = windAlongHeadingMps;
             PredictedTerminalSpeedMps = predictedTerminalSpeedMps;
         }
 
@@ -207,13 +212,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public double MassKg { get; }
         public int MountedSails { get; }
         public int UnfurledSails { get; }
+        public double SampledAtSeconds { get; }
         public double WindX { get; }
         public double WindZ { get; }
+        public double WallIntensity { get; }
         public double WindSpeedMps => Math.Sqrt((WindX * WindX) + (WindZ * WindZ));
         public double WindAngleDegrees { get; }
         public double SailForceNewtons { get; }
         public double EngineForceNewtons { get; }
         public double PropulsionAccelerationMps2 { get; }
+        public double WindAlongHeadingMps { get; }
         public double PredictedTerminalSpeedMps { get; }
     }
 
@@ -479,8 +487,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // settled speed. `present:false` is explicit when force flight is off.
         // v16: adds the versioned `worldInspector` observer contract. It groups
         // current facts into WORLD/SIMULATION/INFRASTRUCTURE and carries a bounded
-        // transition ring. It remains authenticated admin telemetry; this file is
-        // not itself an HTTP endpoint.
+        // transition ring. The flight block also identifies the exact simulation
+        // sample time, wall influence and along-heading wind consumed by the runtime
+        // tick. It remains authenticated admin telemetry; this file is not itself
+        // an HTTP endpoint.
         public const int SchemaVersion = 16;
 
         public long BootTimeUnixMs { get; }
@@ -1407,13 +1417,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Num(b, "massKg", Trim(f.MassKg)); b.Append(',');
             Num(b, "mountedSails", f.MountedSails); b.Append(',');
             Num(b, "unfurledSails", f.UnfurledSails); b.Append(',');
+            Num(b, "sampledAtSeconds", Trim(f.SampledAtSeconds)); b.Append(',');
             Num(b, "windX", Trim(f.WindX)); b.Append(',');
             Num(b, "windZ", Trim(f.WindZ)); b.Append(',');
             Num(b, "windSpeedMps", Trim(f.WindSpeedMps)); b.Append(',');
+            Num(b, "wallIntensity", Trim(f.WallIntensity)); b.Append(',');
             Num(b, "windAngleDegrees", Trim(f.WindAngleDegrees)); b.Append(',');
             Num(b, "sailForceNewtons", Trim(f.SailForceNewtons)); b.Append(',');
             Num(b, "engineForceNewtons", Trim(f.EngineForceNewtons)); b.Append(',');
             Num(b, "propulsionAccelerationMps2", Trim(f.PropulsionAccelerationMps2)); b.Append(',');
+            Num(b, "windAlongHeadingMps", Trim(f.WindAlongHeadingMps)); b.Append(',');
             Num(b, "predictedTerminalSpeedMps", Trim(f.PredictedTerminalSpeedMps));
             b.Append('}');
         }

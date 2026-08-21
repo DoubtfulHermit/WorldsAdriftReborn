@@ -22,27 +22,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// </summary>
     public readonly struct FlightControlInput : System.IEquatable<FlightControlInput>
     {
-        // The retail lever occasionally reports a tiny signed residual when it
-        // visually reaches centre (live case logged as throttle=-0). Latching
-        // that noise after dismount commanded an endless ~1 cm/s cruise and kept
-        // the whole domain publishing forever. This is far below a meaningful
-        // propulsion command and applies only at the latch boundary.
+        // The retail lever occasionally reports a small signed residual when it
+        // visually reaches centre. A physical centre detent is a state, not just
+        // dismount cleanup: while MANNED, that residual must already mean zero
+        // engine force and zero helm echo.
         // Live 2026-08-21: the authored helm looked exactly centred but its last
         // quantized wire value was -0.09.  The old 0.01 boundary consequently
-        // latched reverse thrust after dismount.  One tenth is the first wire
-        // step outside that observed centre detent; commands beyond it remain
-        // deliberate forward/reverse lever positions.
-        private const float LatchedThrottleDeadzone = 0.1f;
+        // produced reverse thrust. One tenth is the first wire step outside that
+        // observed centre detent; commands beyond it remain deliberate
+        // forward/reverse lever positions.
+        public const float ThrottleCentreDetent = 0.1f;
 
         // The client normally applies its own control deadzone, but the same live
         // trace delivered (pitch, roll)=(0.08, -0.03) at a visually neutral helm
         // and then diff-suppressed the return to zero.  Normalize only the three
         // transient steering axes here.  Throttle remains a physical latched
-        // lever and uses the separate dismount boundary above.
+        // lever and uses the centre detent above.
         private const float TransientAxisDeadzone = 0.1f;
         public FlightControlInput(float throttle, float vertical, float axisPitch, float axisYaw, float axisRoll)
         {
-            Throttle = Sanitize(throttle);
+            float safeThrottle = Sanitize(throttle);
+            Throttle = System.MathF.Abs(safeThrottle) <= ThrottleCentreDetent
+                ? 0f
+                : safeThrottle;
             Vertical = Sanitize(vertical);
             AxisPitch = SanitizeTransientAxis(axisPitch);
             AxisYaw = SanitizeTransientAxis(axisYaw);
@@ -102,9 +104,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// must be released to zero so an empty helm cannot keep turning or climbing.
         /// </summary>
         public FlightControlInput LatchedThrottleOnly() =>
-            new FlightControlInput(System.MathF.Abs(Throttle) <= LatchedThrottleDeadzone
-                ? 0f
-                : Throttle, 0f, 0f, 0f, 0f);
+            new FlightControlInput(Throttle, 0f, 0f, 0f, 0f);
 
         private static float SanitizeTransientAxis(float value)
         {

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 {
     /// <summary>What one cadence tick decided to put on the wire, if anything.</summary>
@@ -82,6 +84,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>The current simulated pose, for logs and for re-man resume.</summary>
         public FlightState State => _state;
 
+        /// <summary>The exact wind/force sample consumed by the latest physical step.</summary>
+        public ShipForceEvaluation LastForceEvaluation { get; private set; }
+
         public bool IsManned => _manned;
 
         /// <summary>
@@ -164,6 +169,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         {
             _state = FlightState.AtRestAt(x, y, z, yawRadians);
             _input = FlightControlInput.Neutral;
+            LastForceEvaluation = ShipForceEvaluation.Unavailable;
             _restEmitted = 0;
         }
 
@@ -177,6 +183,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         {
             _state = FlightState.AtRestAt(_state.X, _state.Y, _state.Z, _state.YawRadians);
             _input = FlightControlInput.Neutral;
+            LastForceEvaluation = ShipForceEvaluation.Unavailable;
             _manned = false;
             _restEmitted = 0;
         }
@@ -207,9 +214,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // The wind field's clock is the server's own millisecond clock, so
                 // every hull in the world samples the SAME wind at the same moment
                 // - two ships side by side must not disagree about the weather.
-                _state = FlightIntegrator.Step(
-                    _state, _input, stepSeconds, tuning, unfurledSails, agilityScale, propulsion,
+                _state = FlightIntegrator.StepEvaluated(
+                    _state, _input, stepSeconds, tuning, out ShipForceEvaluation evaluation,
+                    unfurledSails, agilityScale, propulsion,
                     nowMs / 1000.0, walls);
+                LastForceEvaluation = evaluation;
 
                 if (_state.IsAtRest && !_manned)
                 {

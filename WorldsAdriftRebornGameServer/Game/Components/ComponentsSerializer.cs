@@ -3370,15 +3370,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // do not change, while a cedar skiff is genuinely light and a
                         // gold barge genuinely is not. WAREBORN_SHIP_MASS still wins
                         // when set, as a live override.
-                        float shipMass = (float)ShipMassKgFor(entityId);
-                        string? massEnv = Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS");
-                        if (!string.IsNullOrEmpty(massEnv) && float.TryParse(massEnv,
-                                System.Globalization.NumberStyles.Float,
-                                System.Globalization.CultureInfo.InvariantCulture, out float parsedMass)
-                            && parsedMass > 0f && parsedMass < 1000000f)
-                        {
-                            shipMass = parsedMass;
-                        }
+                        float shipMass = (float)Multiplayer.Materials.ShipTotalMass.HullMassWithOverride(
+                            ShipMassKgFor(entityId),
+                            Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS"));
                         obj = new Bossa.Travellers.Ship.ParentingMassAdderState.Data(shipMass, false);
                     }
                     else if (componentId == 1121)
@@ -3386,7 +3380,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // 1121 OriginalMassState - {float mass} (VERIFIED ctor gencode
                         // Bossa.Travellers.Ship/OriginalMassState.cs:309). A part's own
                         // authored mass; served modest so parented parts add sane weight.
-                        obj = new Bossa.Travellers.Ship.OriginalMassState.Data(50f);
+                        obj = new Bossa.Travellers.Ship.OriginalMassState.Data(
+                            (float)Multiplayer.Materials.ShipTotalMass.MountedPartMassKg);
                     }
                     else if (componentId == 1294)
                     {

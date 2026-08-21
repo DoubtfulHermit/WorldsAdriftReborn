@@ -1605,14 +1605,17 @@ namespace WorldsAdriftServer.Admin
             ["massKg"] = Math.Max(0, Finite((double?)f?["massKg"] ?? 0, 1_000_000)),
             ["mountedSails"] = Count((int?)f?["mountedSails"] ?? 0),
             ["unfurledSails"] = Count((int?)f?["unfurledSails"] ?? 0),
+            ["sampledAtSeconds"] = Math.Max(0, Finite((double?)f?["sampledAtSeconds"] ?? 0, 10_000_000_000)),
             ["windX"] = Finite((double?)f?["windX"] ?? 0, 100),
             ["windZ"] = Finite((double?)f?["windZ"] ?? 0, 100),
             ["windSpeedMps"] = Math.Max(0, Finite((double?)f?["windSpeedMps"] ?? 0, 100)),
+            ["wallIntensity"] = Math.Clamp(Finite((double?)f?["wallIntensity"] ?? 0, 1), 0, 1),
             ["windAngleDegrees"] = Finite((double?)f?["windAngleDegrees"] ?? 0, 180),
             ["sailForceNewtons"] = Finite((double?)f?["sailForceNewtons"] ?? 0, 10_000_000),
             ["engineForceNewtons"] = Finite((double?)f?["engineForceNewtons"] ?? 0, 10_000_000),
             ["propulsionAccelerationMps2"] = Finite(
                 (double?)f?["propulsionAccelerationMps2"] ?? 0, 1000),
+            ["windAlongHeadingMps"] = Finite((double?)f?["windAlongHeadingMps"] ?? 0, 1000),
             ["predictedTerminalSpeedMps"] = Finite(
                 (double?)f?["predictedTerminalSpeedMps"] ?? 0, 1000),
         };
