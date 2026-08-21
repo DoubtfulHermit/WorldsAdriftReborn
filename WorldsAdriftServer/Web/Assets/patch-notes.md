@@ -1,9 +1,67 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 635 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 655 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-20 | 31 commits
+## 2026-08-21 | 17 commits
 
+* 1f57ce0 Record World Inspector implementation
+* 030da36 Align inspector truth test with linked selection
+* 4e4ee7d Harden World Inspector truth boundary
+* 1a5a427 Add linked admin observability modes
+* d258883 Add authenticated World Inspector telemetry
+* 645b415 Record helm latency deployment
+* 9c7fc08 Accept helm input without takeover delay
+* 815bcdc Record sail wake deployment
+* b92ba07 Wake flight from sail controls
+* ae12fac Record flight and wind-wall deployment
+* 8292238 Record integrated flight and wall work
+* 48bf9dd Restore authentic wind-wall influence bands
+* 6b4d855 Calibrate and expose recovered ship forces
+* 8686986 Gate sail and helm input lifecycles
+* 3599834 Record wind carry and wall rollout
+* b46f242 Carry ambient wind through centred sail propulsion
+* ffc858c Record integrated wind and storm deployment
+
+## 2026-08-20 | 69 commits
+
+* 95bdabe Note why the wall flag is checked before the catalogue is touched
+* fb6873b Simulation: guard the inspector wiring, and write the shadow model down
+* d090921 Write down how to actually LOOK at the weather walls
+* b8ab76d Simulation: add the interaction shadow model above domain ownership
+* e53e0e8 docs(storm-s3): record the §4 verdict and what S3 actually shipped
+* 0cb400d Record the walls phase in the roadmap, and two findings from building it
+* cc0fc6e Close two mutation escapes in the wall guards
+* c2f9291 Serve 1204 WallSegmentState so the client renders the 44 weather walls
+* 4a81e20 fix(storm-s3): close an escaped mutation - move the seat arithmetic out of the untestable assembly
+* d0604e4 Material mass: the table was already right; guard the epoch, fix the provenance
+* 5a01de1 feat(storm-s3): re-roll deposit placement at each island's own storm end
+* 6ccdf5d Kill a stale comment that said we have no mass model
+* 8b811f2 Tungsten is 0.74: the cannon sheet back-solves the whole WPU table
+* 108ee0d S2: record what the per-island reset measured, and correct the plan's one wrong seam
+* b7d0aa8 Recover the resilience table off a published chart's embedded JSON
+* 5e8109a Retract my atlas conclusion: I read the decompile and forgot we patch it
+* cb703d0 Mass is already real and flying; the cliff was never mass, it is lift
+* ecfdf75 Bossa says it themselves: the wall gate is soft by design, not a threshold
+* 272d024 Recover the deleted cannon sheet, find a sixth workbook, and settle tungsten
+* 0e4c737 Consolidate every per-material mass and durability source into one dataset
+* 8c124ea The weight memory is real: recover the ship-wall force model
+* 0a01688 S2: close the mutation that escaped - move the scope decision into the tested assembly
+* 83d461f The dark sky rides the WALL texture, not the weather lattice: Lead D answered
+* bc22a4a S2: reset each island's resources when THAT island's storm ends
+* 1c6b552 The dark sky is real, but it is not 1254: kill my own lead, find the storm channel
+* 247dbeb Field report: the first live understorm, and the two defects watching it found
+* a8b4939 Measure the journal: it is not clean, so the rotation step is not optional
+* 024e321 Record what S1 found the plan got wrong, now that the code exists
+* 0477c27 S1: seed 1254 from the live schedule, and record what the bundle sweep settled
+* 30ce494 S1: the understorm - island lightning timer, telegraph, and the resource reset it drives
+* b59ae15 Record the security phase as deferred, and correct the audit's ownership-gate count
+* bebfe50 wind: one wind field, and the finding that retail was becalmed too
+* de4037a Audit the server architecture; fix the inverted WAREBORN_LOG_VERBOSE parse
+* 911a728 The Blight's last unknown closes: "blight" is line 17 of the prefab census
+* 5667436 CORRECTION: the Blight's "needs a client mod" blocker was a FALSE ZERO
+* 2e8c53a storms 14.4.1: only the two COSMETIC storm classes need the weather lattice
+* e27eaa5 Recover the storm cycle: understorms are reachable now, and they ARE the node respawn
+* febf8f1 Bring the roadmap and handover up to date for a session handover
 * 9dbb6a6 Record the SC5 soak, including what it cannot prove
 * 823a9aa Name the commit that broke the string, as its own entry says to
 * edc670c Restore the overload string I got wrong, and record why
@@ -634,7 +692,7 @@ Every commit, newest first. 635 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 42 commits
+## 2026-08-07 | 7 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -643,42 +701,7 @@ Every commit, newest first. 635 of them since 2026-08-07. Merges are left out - 
 * 4f95743 Hide the remote grapple tube unconditionally, not just while the rope is up
 * 754cade Hide the remote grapple tube continuously while grappling, not once at bind
 * 4ea6f7e Hide the game's GrapplingHookTube on remote rigs; add local-player fall telemetry
-* 3a49c50 Style the remote grapple line: thin dark rope, not a magenta wedge
-* 0044868 Make the anti-yeet neutralize deterministic: run it in FixedUpdate
-* fc765fa Phase 4a: replicate the grapple rope line
-* 0c6e860 Roadmap: mark Phases 1a/2/3 + yeet fix done; flag Phase 4 as the hard frontier
-* 4d06732 Fix 'yeet into the sky on second join': neutralize remote rig physics on frame one
-* deeb606 Phase 3: replicate the glider via UtilitySlotActivatedState (6910)
-* 69e5148 Fix asymmetric visibility: fallback flush for parked mirror ops
-* 4d37822 Phase 2: relay worn gear to other players
-* 5399f04 Phase 1a: adopt PlayerVisualizer's interpolator for smooth remote movement
-* b7f7329 Roadmap: add phased remote-player fidelity plan (smoothing, gear, glider, grapple/VFX)
-* e4325bc RemoteRigMover: always position globally, never yield to unresolved parenting
-* 7bf0b49 Fix remote rigs falling: keep RemoteRigMover authoritative, suppress PlayerVisualizer
-* e7b9754 Sync remote player animation via 1073, and adopt the native positioner
-* 70c9df6 Appearance hardening: forget on disconnect, re-arm publish on re-entry
-* b4d15da Relay real player appearance
-* b745a8e Document the working multiplayer: architecture, operations, roadmap
-* c44ac3b Move plain remote rigs from TransformState; sample-decode relayed transforms
-* 9f47d2b Give every client the same island entity id so Parent references resolve
-* 92d1cd0 Diagnose the plain remote rig and un-cull its render layer
-* 5c56086 Two-phase mirror: request the plain Traveller asset before AddEntityOp
-* 55bbd19 Mirror remote players with prefab context Default, not Player
-* 0e69621 Only run first-time setup and authority grant against the sender's own entity
-* 3ffe069 Fix rig tamer freezing the LOCAL player
-* a984cfa Client: stop remote rigs from simulating - display only
-* aeef3a7 Shrink remote avatar seed to the minimum the body-builder requires
-* edc1348 Seed remote avatars with the game's own second-stage player component set
-* d7ea4b4 Client: keep the camera on the first Traveller rig that claims it
-* be36bed Client: disable cameras and audio listeners on remote player rigs
-* ae8971b Client: never let a second Traveller steal the local-player singletons
-* de6124f Client: let only the first CameraBinder drive the camera
-* 892cfee Seed remote avatars with TransformState only, and document component ids
-* f6b0cff Support multiple simultaneous players
-* 0a40ecf Add mingw-w64 cross-compile build for CoreSdkDll
-* 6a110bd Add pure multiplayer policy modules with unit tests
-* 7b93a5c Fix fatal CLR abort when registering component update handlers
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 135 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 170 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
