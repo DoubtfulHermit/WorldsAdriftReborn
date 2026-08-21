@@ -575,8 +575,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Theory]
-        [InlineData(0.009f)]
-        [InlineData(-0.009f)]
+        [InlineData(0.09f)]
+        [InlineData(-0.09f)]
+        [InlineData(0.1f)]
+        [InlineData(-0.1f)]
         [InlineData(-0.0f)]
         public void Latched_helm_treats_signed_centre_noise_as_an_explicit_stop(float throttle)
         {
@@ -585,6 +587,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 
             Assert.True(latched.IsNeutral);
             Assert.Equal(0f, latched.Throttle);
+        }
+
+        [Theory]
+        [InlineData(0.11f)]
+        [InlineData(-0.11f)]
+        public void Latched_helm_preserves_commands_outside_the_observed_centre_detent(float throttle)
+        {
+            Assert.Equal(throttle, new FlightControlInput(
+                throttle, 0f, 0f, 0f, 0f).LatchedThrottleOnly().Throttle);
+        }
+
+        [Fact]
+        public void Visually_neutral_transient_axis_residue_is_normalized_before_it_can_latch()
+        {
+            FlightControlInput input = new FlightControlInput(0f, 0f, 0.08f, 0f, -0.03f);
+
+            Assert.Equal(0f, input.AxisPitch);
+            Assert.Equal(0f, input.AxisRoll);
+            Assert.Equal(0.11f, new FlightControlInput(0f, 0f, 0.11f, 0f, 0f).AxisPitch);
         }
 
         [Fact]

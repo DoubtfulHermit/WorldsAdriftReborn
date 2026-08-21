@@ -61,6 +61,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         private int _restEmitted;
         private long _lastStampMs;
         private bool _everEmitted;
+        private bool _canvasWakeRequested;
 
         public FlightSession(FlightState initial)
         {
@@ -129,6 +130,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             }
         }
 
+        /// <summary>
+        /// Wakes a quiet at-rest session because a player has just unfurled one of
+        /// its sails. This is an interaction edge, not persistent state: restored
+        /// moored ships whose canvas was already up remain parked until somebody
+        /// deliberately changes the rigging.
+        /// </summary>
+        public void WakeForCanvas()
+        {
+            _canvasWakeRequested = true;
+            _restEmitted = 0;
+        }
+
         /// <summary>The current held input, for the periodic stats line.</summary>
         public FlightControlInput Input => _input;
 
@@ -182,10 +195,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // helm before the first integration tick, while the hull is technically
             // still at rest. Without this term that perfectly valid command would
             // be parked forever merely because release won a scheduling race.
-            bool live = _manned || !_state.IsAtRest || _input.Throttle != 0f;
+            // Canvas is an independent force under the force model. A fresh
+            // unfurl interaction explicitly wakes a quiet session; merely
+            // restoring a moored ship that was persisted with canvas up does not.
+            bool live = _manned || !_state.IsAtRest || _input.Throttle != 0f
+                || _canvasWakeRequested;
 
             if (live)
             {
+                _canvasWakeRequested = false;
                 // The wind field's clock is the server's own millisecond clock, so
                 // every hull in the world samples the SAME wind at the same moment
                 // - two ships side by side must not disagree about the weather.

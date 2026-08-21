@@ -53,6 +53,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Unfurling_canvas_wakes_a_resting_unmanned_force_session_without_touching_the_helm()
+        {
+            FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            ShipPropulsion propulsion = new ShipPropulsion(
+                massKg: 3094, engineThrustNewtons: 0, unfurledSails: 2);
+            session.WakeForCanvas();
+
+            FlightEmit first = session.Advance(
+                1_000_000, Step, Tuning, unfurledSails: 2, propulsion: propulsion);
+
+            Assert.True(first.Emit);
+            Assert.False(session.State.IsAtRest);
+            Assert.True(session.State.SpeedCmdMps > 0.0,
+                "canvas must wake the quiet flight session without a helm interaction");
+        }
+
+        [Fact]
         public void Input_is_ignored_while_unmanned()
         {
             // A 1111 packet that raced past the dismount must not fly an empty ship.

@@ -81,6 +81,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             return _byEntityId.ContainsKey(sailEntityId);
         }
 
+        /// <summary>The hull this mounted sail belongs to, or null if unknown.</summary>
+        public long? HullFor(long sailEntityId)
+        {
+            return _byEntityId.TryGetValue(sailEntityId, out Sail? sail)
+                ? sail.HullEntityId
+                : null;
+        }
+
         /// <summary>
         /// The furl state served on the sail's 1303: true = canvas out. False for an
         /// unknown id - an unregistered (loose) sail is always furled.

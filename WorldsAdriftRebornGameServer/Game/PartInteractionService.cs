@@ -83,6 +83,20 @@ namespace WorldsAdriftRebornGameServer.Game
             bool? unfurled = WorldsAdriftRebornGameServer.Sails.Toggle(targetEntityId);
             if (unfurled.HasValue)
             {
+                // A resting flight session normally goes quiet. Canvas is an
+                // independent wind force, so a deliberate unfurl must wake that
+                // session immediately instead of waiting for an unrelated helm
+                // interaction (live reproduction, 2026-08-21).
+                if (unfurled.Value)
+                {
+                    long? hullEntityId = WorldsAdriftRebornGameServer.Sails.HullFor(targetEntityId);
+                    if (hullEntityId.HasValue)
+                    {
+                        WorldsAdriftRebornGameServer.ShipDomains.ByHull(hullEntityId.Value)
+                            ?.Flight.WakeForCanvas();
+                    }
+                }
+
                 Persistence.WorldStatePersistence.UpdateMountedSailState(
                     Crafting.LooseParts.PartUidFor(targetEntityId), unfurled.Value);
 

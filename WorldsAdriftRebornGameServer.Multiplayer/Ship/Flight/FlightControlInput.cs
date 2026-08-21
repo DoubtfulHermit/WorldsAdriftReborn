@@ -27,14 +27,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         // that noise after dismount commanded an endless ~1 cm/s cruise and kept
         // the whole domain publishing forever. This is far below a meaningful
         // propulsion command and applies only at the latch boundary.
-        private const float LatchedThrottleDeadzone = 0.01f;
+        // Live 2026-08-21: the authored helm looked exactly centred but its last
+        // quantized wire value was -0.09.  The old 0.01 boundary consequently
+        // latched reverse thrust after dismount.  One tenth is the first wire
+        // step outside that observed centre detent; commands beyond it remain
+        // deliberate forward/reverse lever positions.
+        private const float LatchedThrottleDeadzone = 0.1f;
+
+        // The client normally applies its own control deadzone, but the same live
+        // trace delivered (pitch, roll)=(0.08, -0.03) at a visually neutral helm
+        // and then diff-suppressed the return to zero.  Normalize only the three
+        // transient steering axes here.  Throttle remains a physical latched
+        // lever and uses the separate dismount boundary above.
+        private const float TransientAxisDeadzone = 0.1f;
         public FlightControlInput(float throttle, float vertical, float axisPitch, float axisYaw, float axisRoll)
         {
             Throttle = Sanitize(throttle);
             Vertical = Sanitize(vertical);
-            AxisPitch = Sanitize(axisPitch);
-            AxisYaw = Sanitize(axisYaw);
-            AxisRoll = Sanitize(axisRoll);
+            AxisPitch = SanitizeTransientAxis(axisPitch);
+            AxisYaw = SanitizeTransientAxis(axisYaw);
+            AxisRoll = SanitizeTransientAxis(axisRoll);
         }
 
         /// <summary>Forward drive, -1..1. Negative is reverse.</summary>
@@ -90,9 +102,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// must be released to zero so an empty helm cannot keep turning or climbing.
         /// </summary>
         public FlightControlInput LatchedThrottleOnly() =>
-            new FlightControlInput(System.MathF.Abs(Throttle) < LatchedThrottleDeadzone
+            new FlightControlInput(System.MathF.Abs(Throttle) <= LatchedThrottleDeadzone
                 ? 0f
                 : Throttle, 0f, 0f, 0f, 0f);
+
+        private static float SanitizeTransientAxis(float value)
+        {
+            float sanitized = Sanitize(value);
+            return System.MathF.Abs(sanitized) <= TransientAxisDeadzone ? 0f : sanitized;
+        }
 
         /// <summary>
         /// A client-supplied axis, made safe: NaN/Infinity become 0 (a broken
