@@ -128,11 +128,25 @@ changes.
 
 ### Exact deployed revisions
 
+**LOCAL FLIGHT/WALL CONSOLIDATION 2026-08-21 — NOT DEPLOYED.** Commits
+`8686986`, `6b4d855` and `48bf9dd` are integrated on
+`integ/wind-storm-architecture-deploy`. They add lifecycle-gated sail
+activation, neutral-edge helm takeover, corrected serialized ShipConfig drag
+(`0.007`, exponent `2.5`), evidence-anchored WAReborn tuning of 1400 N/engine
+and 420 N/(m/s)/sail, schema-15 admin flight diagnostics, and opt-in release-map
+wall resistance across the recovered +/-400 m physical band (+/-200 m full
+strength). Wall magnitudes remain OFF by default because retail's 1229 values
+are lost. Combined verification passed **4517/0** Multiplayer and **1209**
+login/admin tests with 26 expected skips; integrated game-server and client
+builds both passed with zero errors. Production and the installed client remain
+on the revisions described below.
+
 **FLIGHT/WALL FOLLOW-UP 2026-08-21.** Game server `b46f242` is deployed.
 Canvas-driven motion now carries the full ambient relative-wind velocity even
 with the helm lever centred; the former gate incorrectly let sail thrust move
 the hull while making the drag equation see still air. Sail power remains at
-its original default 30, wind remains `2.236`, and varying wind remains off.
+the previous WAReborn tuning value 30 (retail's server-authored value is lost),
+wind remains `2.236`, and varying wind remains off.
 The new closed-form 3094 kg/two-sail regression test was mutation-checked and
 the full Multiplayer suite passed **4484/0**. `WAREBORN_WALLS=1` is now live:
 all 44 release walls are served, including 11 storm rifts, as visuals only with

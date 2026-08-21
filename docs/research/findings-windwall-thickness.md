@@ -102,9 +102,7 @@ and walls-off operation remains unchanged. Deploying a nonzero value should wait
 for calibration and a deliberate decision about supplying a complete 1229 so the
 wind the server applies and the wind the client depicts do not disagree.
 
-One integration dependency is outside this branch's scope: `ShipForceModel` at the
-branch point still uses 2.0 / 0.01 while the serialized shipped `ShipConfig` audit
-recovered exponent 2.5 / coefficient 0.007. That global correction changes every
-ship's terminal speed and belongs with the concurrent flight-calibration work. Wall
-resistance uses the shared force model and therefore inherits whichever pair is
-merged there; it does not fork a second drag law.
+The integration dependency is now resolved: the concurrent flight-calibration
+work corrected `ShipForceModel` to the serialized shipped `ShipConfig` values,
+exponent 2.5 and coefficient 0.007. Wall resistance uses that shared model and
+does not fork a second drag law.
