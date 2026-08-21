@@ -19,5 +19,9 @@
   wireOperator();
   wireTopology();
   boot();
+  // AFTER boot(): the wind layer inserts itself into the SVG the static render
+  // builds and reads worldMap for the world edge and the wall segments, so it
+  // cannot run before there is a map to attach to.
+  wireWindLayer();
   refresh();
   setInterval(refresh,REFRESH_MS);

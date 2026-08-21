@@ -152,9 +152,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <c>HullMassCalculator.AgilityScale</c>; see its remarks for what is
         /// recovered (the inverse-square-root shape) and what is not.
         /// </summary>
+        /// <param name="windTimeSeconds">
+        /// The world clock the wind FIELD is sampled at, seconds. Only read when
+        /// <c>tuning.WindVariation</c> is enabled; the default 0 leaves the wind
+        /// exactly the constant it has always been. It is a parameter rather than
+        /// state on <see cref="FlightState"/> because the wind is a property of the
+        /// world and the moment, not of one hull, and a hull that carried its own
+        /// clock could drift out of step with the hull beside it.
+        /// </param>
         public static FlightState Step(FlightState state, FlightControlInput input, double dtSeconds,
             FlightTuning tuning, int unfurledSails = 0, double agilityScale = 1.0,
-            ShipPropulsion? propulsion = null)
+            ShipPropulsion? propulsion = null, double windTimeSeconds = 0.0)
         {
             if (dtSeconds <= 0.0 || double.IsNaN(dtSeconds) || double.IsInfinity(dtSeconds))
             {
@@ -219,16 +227,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // this is the whole point. Retail's sail force came from the WIND
                 // and the sail's trim, so an unfurled sail pushes a ship that is
                 // standing still with its lever centred.
-                // The world's wind, in retail's own direction but at this world's
-                // configured strength. Sails and the bare-hull baseline below read
-                // the SAME wind, because in retail they are the same wind.
-                double windScale = ShipForceModel.DefaultWindSpeedMps > 0.0
-                    ? tuning.WindSpeedMps / ShipForceModel.DefaultWindSpeedMps
-                    : 0.0;
+                // The world's wind AT THIS SHIP'S POSITION AND THIS MOMENT. With
+                // the field disabled (production today) this is retail's own
+                // direction at this world's configured strength, computed the same
+                // way it was before WindField existed, so the two are equal rather
+                // than merely close. Sails and the bare-hull baseline below read
+                // the SAME sample, because in retail they are the same wind.
+                WindSample wind = WindField.SampleAt(
+                    state.X, state.Z, windTimeSeconds,
+                    tuning.WindSpeedMps, tuning.WindVariation);
                 double sailNewtons = ShipForceModel.SailForwardNewtons(
                     unfurledSails, yaw, tuning.SailPowerNewtons,
-                    ShipForceModel.DefaultWindX * windScale,
-                    ShipForceModel.DefaultWindZ * windScale);
+                    wind.WindX, wind.WindZ);
 
                 double thrustAccel = (engineNewtons + sailNewtons) / ship.MassKg;
 
@@ -260,11 +270,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // every abandoned hull emits control points for ever - the exact
                 // congestion class the standing multiplayer-safety rule exists to
                 // prevent, and the same reason the settle term is aimed at zero.
+                //
+                // THE AIM depends on whether this world has a wind FIELD. With the
+                // field off, the wind is one constant everywhere and aiming the
+                // baseline downwind would mean a bare hull can travel in exactly
+                // one compass direction for ever - so it is aimed along the hull's
+                // heading, which is what this server has always done. With the
+                // field on, the objection is gone and the aim goes back to
+                // retail's: you are carried by the wind's component along your
+                // bow, so heading finally matters to a bare hull, and the wind
+                // streaks the client draws become something to steer by.
                 double windAlongHeading = 0.0;
                 if (throttle > 0.0)
                 {
-                    windAlongHeading = ShipForceModel.BaselineDriveSpeedMps(
-                        ship.MassKg, tuning.WindSpeedMps) * throttle;
+                    double alongMps = tuning.WindVariation.IsEnabled
+                        ? WindField.AlongHeading(in wind, yaw) * ShipForceModel.WindMultiplier(ship.MassKg)
+                        : ShipForceModel.BaselineDriveSpeedMps(ship.MassKg, tuning.WindSpeedMps);
+                    windAlongHeading = alongMps * throttle;
                 }
 
                 speedCmd = ShipForceModel.StepSpeed(

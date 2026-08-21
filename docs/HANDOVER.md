@@ -156,6 +156,49 @@ forces on.
 
 
 
+- **`feat/wind` (NOT DEPLOYED, server + admin page only, no client mod, nothing
+  on the wire, so no soak was required or run).** Multiplayer **4182/0**
+  (baseline 4132), `WorldsAdriftServer.Tests` **1194/26 skipped** (baseline 1192).
+  **18 mutations applied one at a time; the first pass caught 15 and THREE
+  ESCAPED, all three now closed** — see §12.6a of the roadmap on that branch.
+  * **THE HEADLINE, and it inverts a standing assumption: retail's own players
+    never saw a weather cell either.** The shipped `WeatherCell` blueprint (a
+    TextAsset inside `resources.assets`, not a file on disk) grants
+    `EntityReadAccess: [ "social", "physics" ]` — **`"visual"` is absent**, while
+    the `Blight` blueprint beside it asks for it explicitly. So `GetWeatherAt`
+    returned the `(1,0,-2)` fallback in retail too. **`2.236 m/s` is not a
+    placeholder for an absent system; it is the only ambient wind a player ever
+    had.** What varied in retail was WALL wind.
+  * **The client is already drawing wind and we have never fed it.** `WindTrail`
+    (the wiki's "windtrails in the sky"), `WindControl` (foliage sway, all cloth,
+    the global shader wind rotation), `FlagWind` (a flag IS a working
+    weathervane), `SailVisualizer`/`SailControlVisuals` (fill, luff, belly side,
+    ripple — direction only, magnitude is discarded). No client mod needed for
+    any of it. There is **no windsock ship part**: searched the decompile and
+    `resources.assets` with `grep -a`; the only hit is a scrap-item icon.
+  * **Wind walls are NOT blocked on weather** — the roadmap said they were.
+    `WallSegmentVisualizer` has one `[Require]` (`1204`) and `GetWeatherAt` lerps
+    wall wind over cell wind. **But 1204 without a complete `1229` makes every
+    wind wall DEAD CALM** (the multipliers default to `0f`) and log-spams ~40
+    missing keys. They land together or not at all, and that pairing needs a soak.
+  * **`5129` and `1202`/`1203` do not work**, and the roadmap recommends the first.
+    5129 is a worker-side *report* channel with no client reader; 1202/1203
+    register into a `_modifiers` set nothing ever enumerates.
+  * Shipped: `WindField` as the one answer to "what is the wind here", plus
+    **`WAREBORN_FLIGHT_WIND_FIELD` (0..1, DEFAULT 0 = today, bit-identical)**,
+    which makes wind vary by place/time and aims the bare-hull drift downwind;
+    and an **operator-only admin map wind layer** that re-evaluates the server's
+    own closed form in the browser rather than drawing an illustration.
+  * **RECOMMENDED: set `WAREBORN_FLIGHT_WIND_SPEED` back to `2.236`** (it is 4.0).
+    At 4.0 the wind streaks a player steers by say 2.24 while their hull drifts at
+    4.0, and no server-side change can fix that. If a bare hull is then too slow,
+    raise `WAREBORN_FLIGHT_SAIL_POWER` — that moves canvas only.
+  * ⚠ **METHOD:** `WAReborn-decompiled/` contains **no `WASystems.dll` and no
+    `SpatialTranslator.dll`**, so any "no consumer found" drawn from grepping that
+    tree alone is a possible false zero.
+  * **Wants a live look, and both are free:** are wind streaks visible in the sky
+    at all, and does a mounted flag point SSE? Neither needs a code change.
+
 Entries below are a LOG, newest first. Each records what was true on its own
 date, so only the newest entry describes production now - a reader who takes an
 older entry's "production still runs X" as current state will be wrong. The

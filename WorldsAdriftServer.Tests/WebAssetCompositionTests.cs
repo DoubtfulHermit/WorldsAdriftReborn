@@ -208,6 +208,45 @@ namespace WorldsAdriftServer.Tests
             }
         }
 
+        /// <summary>
+        /// The wind layer is SHIPPED to the operator. Without this, removing it
+        /// from AdminScriptFragments leaves every wind unit test green while the
+        /// map draws nothing - the exact "green suite over an unplugged feature"
+        /// this repo has shipped twice.
+        /// </summary>
+        [Fact]
+        public void TheAdminPageShipsTheWindLayerAndBootsIt()
+        {
+            Assert.Contains("admin-map-wind.js", AdminPage.AdminScriptFragments);
+
+            string html = Dashboard();
+            Assert.Contains("wireWindLayer", html, StringComparison.Ordinal);
+            Assert.Contains("mapWindLayer", html, StringComparison.Ordinal);
+
+            // Booted AFTER the static map exists, or it attaches to nothing.
+            string wiring = WebAssets.Read("admin-wiring.js");
+            Assert.Contains("wireWindLayer();", wiring, StringComparison.Ordinal);
+            Assert.True(
+                wiring.IndexOf("boot();", StringComparison.Ordinal)
+                    < wiring.IndexOf("wireWindLayer();", StringComparison.Ordinal),
+                "the wind layer must be wired after boot() builds the map");
+        }
+
+        /// <summary>
+        /// And it stays OPERATOR-ONLY. The maintainer's standing rule; asserted
+        /// on the rendered page rather than on the fragment list, so a rename
+        /// that dodges the admin-* filename check still fails here.
+        /// </summary>
+        [Fact]
+        public void ThePublicMapDoesNotShipTheWindLayer()
+        {
+            string html = PublicMapPage.Html("{}", ReleaseWorldMap.Json);
+
+            Assert.DoesNotContain("wireWindLayer", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("mapWindLayer", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("windSampleAt", html, StringComparison.Ordinal);
+        }
+
         [Fact]
         public void NoAssetReachesForAnExternalHost()
         {
@@ -229,6 +268,7 @@ namespace WorldsAdriftServer.Tests
                 "patchnotes.css", "patchnotes-body.html",
                 "admin-patchnotes.js", "admin-patchnotes.html",
                 "admin-welcome.js", "admin-welcome.html",
+                "admin-map-wind.js", "admin-map-loot.js", "map-viewers.js",
             };
             foreach (string name in assets)
             {

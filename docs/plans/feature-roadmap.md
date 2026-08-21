@@ -815,11 +815,14 @@ weather cells."** Everything below is PROVED.
    `StormDebris.cs:82`, `WeatherTextureGenerator.cs:200` all route through
    `GetWeatherAt`. This is what upgrades the documented scalar-propulsion
    approximation into actual wind.
-7. **Wind walls do not need cells at all — CORRECTED 2026-08-20, see §14.4.**
-   `WallSegmentVisualizer` has exactly ONE `[Require]` (1204) and registers into
-   `WeatherWalls`, a pure segment registry that never calls
-   `GlobalWeather.GetWeatherAt`. Walls are an independent, cheaper phase and
-   should be lifted out of this one. `1204 WallSegmentState` =
+7. **Wind walls do not need cells at all — CORRECTED 2026-08-20, see §12.6a
+   and §14.4.** `WallSegmentVisualizer` has exactly one `[Require]` (`1204`) and
+   registers into `WeatherWalls`, a pure segment registry that never calls
+   `GlobalWeather.GetWeatherAt`. That is enough for the independent visual-only
+   wall phase built in §14.4. Mechanical wall wind must additionally ship with
+   a complete `1229 GlobalWallDataState`, or the wall contribution lerps to dead
+   calm. `5129` is not a client delivery mechanism; it is a worker-side report
+   channel with no client reader. `1204 WallSegmentState` =
    `{ int wallType, int wallId, Vector3d orientation, float length }`, and **44
    typed segments with real geometry are already imported** and already drawn
    on the admin map. Also available: `1202`/`1203 WindMultiplierSphere/AABox`
@@ -2443,6 +2446,13 @@ server is everywhere. A faithful sail model was always reachable; only a
 
 ### 12.6 WHAT IS GENUINELY IMPOSSIBLE WITHOUT WEATHER
 
+> **⚠ CORRECTED 2026-08-20 by the WIND pass (branch `feat/wind`). Read §12.6a
+> below BEFORE this subsection: it is still too pessimistic in two places and
+> the framing of the whole question turned out to be wrong.** Item 3 is simply
+> false — wind walls need no weather cell at all — and item 1's premise, that a
+> varying wind field is the retail behaviour we are missing, does not survive
+> the shipped `WeatherCell` blueprint.
+
 Distinguished carefully, because the previous answer was too pessimistic.
 
 **Reachable with no weather at all** (the client already assumes a uniform wind):
@@ -2470,6 +2480,167 @@ And the standing prohibition is unchanged: `1139`/`1269` stay in
 measured **31,144 client errors in 158 s**. Retail used dedicated weather-cell
 entities; anything here must too, and that is a research task before it is an
 implementation task.
+
+### 12.6a WIND — the corrections, and what is actually reachable
+
+**Added 2026-08-20, branch `feat/wind`.** Server-only, nothing on the wire, so
+no soak was required or run. Multiplayer **4182 passed / 0** (baseline 4132; 50
+added), `WorldsAdriftServer.Tests` **1194 / 26 skipped** (baseline 1192).
+
+#### The finding that reframes the whole subject
+
+**Retail's own players never saw a weather cell either.** The shipped client
+carries three entity blueprints with an explicit `EntityReadAccess` grant, as
+TextAssets inside `resources.assets` — not as files on disk, which is why a
+filesystem search for them returns nothing and means nothing. Verbatim:
+
+| blueprint | `EntityReadAccess` |
+|---|---|
+| `Blight` | `["physics","visual"]` |
+| **`WeatherCell`** | **`[ "social", "physics" ]`** |
+| (a third, weather-cell-adjacent) | `[ "social" ]` |
+
+`"visual"` is the Unity client, it is plainly in the vocabulary because `Blight`
+beside it asks for it, and **`WeatherCell` does not grant it.** Its
+`WeatherCellStateC` write access is `"social"` too. If the default granted every
+worker, `Blight` would not have needed to name `visual`, so the list is
+exhaustive and the omission is a denial. **PROVED** for the grant lists — read
+off the shipped bytes. **INFERRED**, but hard to escape, for the consequence:
+`GlobalWeather._weatherCellCoordMap` was empty on a real player's machine,
+`GetCellSampleAt` always missed, and `GetWeatherAt` returned `(1,0,-2)` and
+pressure 0.5 **in retail too**. Contrary evidence, stated rather than buried: a
+`WeatherCell_unityclient` prefab exists and the client ships two ECS systems
+that maintain a weather-cell coordinate map — both consistent with machinery
+built and never fed, which this codebase has met many times.
+
+So `2.236 m/s` toward +X/−Z is **not** "the becalmed case standing in for an
+absent system". As far as a player was ever concerned it was retail's **only**
+ambient wind, and the wind that *varied* — the thing the wiki's own sailing
+guide tells players to steer by — was **wall wind**.
+
+#### The client is ALREADY DRAWING wind, and we have never once fed it
+
+All **PROVED** by reading the classes. None of these needs a client mod; every
+one of them is rendering `(1,0,-2)` on production right now:
+
+- `WindTrail.cs:79` — twenty wind-streak trails around the camera, oriented
+  `SetLookRotation(wind, up)`, moving at `base + |wind| * k`. **These are the
+  "windtrails in the sky" the wiki names.** Plain MonoBehaviour, no `[Require]`,
+  live in `level0`.
+- `WindControl.cs:162-164` — `transform.forward = LocalPlayer.Weather.Wind
+  .normalized`, which drives the Unity `WindZone` (foliage/SpeedTree sway),
+  every registered `Cloth`, and the global shader uniforms
+  `_SinWindRotation`/`_CosWindRotation`.
+- `FlagWind.cs:58-62` — a mounted flag points downwind. **This is the nearest
+  thing the client has to the wiki's "windsock on your helm".** A windsock ship
+  part does not exist: searched the decompile for
+  windsock/windvane/weathervane/anemometer, and `resources.assets` with
+  `grep -a` — the only hit is `3x2_Windsock`, a scrap-item icon
+  (`valid-icons.txt:796`).
+- `SailVisualizer.cs:75-80` → `SailControlVisuals.cs:218-236` — sail fill, luff,
+  which side the canvas bellies to, blend-shape ripple, flapping SFX.
+  **DIRECTION ONLY**: lines 76-79 normalise the wind below magnitude 1, so
+  canvas can never show strength.
+- `StormDebris`, `WeatherTextureGenerator`, `AmbienceSoundController`,
+  `GliderControl`, and the dev-console `WeatherInfoProvider` readout.
+
+**Consequence, and it is the constraint everything else hangs off:** we cannot
+change what the client DRAWS without the forbidden lattice, but we entirely own
+what a player FEELS — `WindPhysicsVisualizer` and `SailBehaviour` are on
+`*_unityworker` prefabs only, so ship motion is whatever our 1130 says. Every
+degree of divergence is a degree by which the streaks a player steers by lie.
+
+#### Correction: WIND WALLS ARE NOT BLOCKED ON WEATHER
+
+§12.6 item 3 and PHASE 6 item 7 ("nearly free *once weather exists*") are both
+wrong. `GlobalWeather.GetWeatherAt:83` is
+`Vector3.Lerp(cellWind, wallWind, wallQuery.Intensity)`, and
+`WallSegmentVisualizer` has exactly **one** `[Require]` —
+`WallSegmentStateReader`, i.e. `1204`. It registers into a static `WeatherWalls`
+list that `GetWallWindAt` walks. No lattice, no Cantor pair, no 1139. The 44
+authored segments are already imported and already drawn on the admin map.
+
+**⚠ But 1204 alone makes it WORSE, and this is the phase's whole content.**
+Every wall wind is scaled by a `GlobalWeatherDataVisualizer.*WindMultiplier`
+static, and those are `0f` until **`1229 GlobalWallDataState`** is served with a
+complete `FloatValues` map. `Lerp(ambient, zero, 1)` is zero: **a world given
+1204 alone goes DEAD CALM inside its own wind walls** — streaks stop, grass
+stops, sails empty — in the places meant to be the windiest in the world. And
+`GlobalWeatherDataVisualizer.UpdateValues` `Debug.LogError`s once per missing
+key across roughly forty keys, so a partial 1229 is its own error storm.
+**1204 and a COMPLETE 1229 land together or neither lands.** That needs a soak;
+it adds a new streamed entity class.
+
+Honest limit, and the screenshots show it better than prose: a wall's reach is
+**200 m at full strength, ramping to nothing at 400 m** (`WallData
+.GetIntensityAt`, PROVED). Median distance from an island to its nearest wall is
+**1,298 m**; only 1 of 266 islands sits inside 400 m and 53 inside 1 km. Wall
+wind is 44 local features, not a world wind field.
+
+#### Two levers the roadmap recommends that do not work
+
+- **`5129 WindReceiverState`** is a REPORT channel, not a delivery one. Its only
+  toucher in `acs` is `WindReceiverBehaviour`, which holds a `...StateWriter` and
+  *publishes* `WeatherWalls.GetWallWindAt(...)` once a second, added on the
+  `_unityworker` branch only (`SailPreprocessor.cs:24-29`). The one thing it
+  reports is wall wind, so it is downstream of walls rather than an input.
+  *INFERRED* that nothing reads it — an ECS reader could live in the missing
+  `WASystems.dll` — but even then it is a worker-side reader of a worker-side
+  writer. PHASE 6 item 7 names it as the per-entity delivery mechanism; it is not.
+- **`1202`/`1203`** wind multipliers: readers ship and do run, but both only call
+  `GlobalWeather.RegisterWeatherModifier(this)`, `_modifiers` is never
+  enumerated, and `GetWindModifierAt` is a hard-coded `return 0f`
+  (`GlobalWeather.cs:144-147`). Inert. **PROVED** — `_modifiers` is private to a
+  class that is present and complete in `acs`.
+
+**Also genuinely unblocked on 1139:** the altitude and map-edge wind ramps
+(§12.6 item 4) are gated on `WorldBoundsDataVisualizer.CheckedOut`, i.e.
+`1250`, not on weather. Not implemented here — our flight model has no vertical
+wind term, and adding one is a flight change, not a wind change.
+
+#### ⚠ METHOD WARNING that invalidated an earlier pass
+
+`/home/ttanurhan/Games/WAReborn-decompiled/` does **not** contain
+`WASystems.dll` or `SpatialTranslator.dll`. Any "no consumer exists" conclusion
+drawn only from grepping that tree is a possible **false zero** — the same error
+class as the ugrep binary-file trap. Everything above is read off `acs` (present
+and complete for the classes named) or off the shipped assets directly.
+
+#### What shipped on this branch
+
+`WindField` (`.../Ship/Flight/WindField.cs`) is now the single answer to "what
+is the wind at a place and a moment", composed of retail's published constant,
+retail's recovered wall-wind geometry, and an **opt-in** variation model.
+
+- **`WAREBORN_FLIGHT_WIND_FIELD`**, 0..1, **default 0 = production behaviour,
+  bit-identical.** Above 0 it makes the wind vary by place (4 km cells) and time
+  (10 min period) within a bounded excursion — **±40° of veer and ±35% of
+  strength, WAREBORN TUNING** — and turns the bare-hull baseline back around to
+  blow **downwind** the way retail's did, so a bare hull's heading finally
+  matters and the streaks become something to steer by. Those two share one knob
+  deliberately: the heading aim exists *only* because the wind is a constant, so
+  they cannot be enabled separately.
+- Anything the variation model does is an **invention, not a restoration** — per
+  the blueprint finding, retail's ambient wind did not vary either. That is why
+  it is off by default.
+- **Admin map wind layer** (`admin-map-wind.js`, operator-only, a `wind` toggle
+  plus three dials). It re-evaluates the server's own closed form in the browser
+  rather than drawing an illustration — the same honesty the fauna layer buys —
+  and a test pins the two copies against drift.
+
+#### Recommended `WAREBORN_FLIGHT_WIND_SPEED`: **2.236** (down from 4.0)
+
+Not because it is retail's becalmed default, but because **it is the magnitude
+the client is drawing on every player's screen and the only wind it will ever
+draw.** At 4.0 the streaks say 2.24 m/s while a bare hull drifts at 4.0 — seen
+and felt disagree by 79%, and there is no way to fix that from the server side.
+
+If a bare hull then reads as too slow, **raise `WAREBORN_FLIGHT_SAIL_POWER`
+instead.** Sail power is LOST per-part data we are free to tune and label; wind
+speed moves the bare-hull baseline and the sail force *together* and desyncs the
+visuals as it goes. `2.236` is also below the client's own 5-knot helm-VFX
+threshold, so a bare hull reads as drifting rather than sailing — which is the
+intended feel already pinned by `BareHullBaselineDriveTests`.
 
 ### 12.7 PROVENANCE — WHAT NOT TO TRUST
 

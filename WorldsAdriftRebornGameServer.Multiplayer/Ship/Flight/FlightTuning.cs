@@ -199,6 +199,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// </summary>
         public double WindSpeedMps { get; }
 
+        /// <summary>
+        /// WAREBORN_FLIGHT_WIND_FIELD - 0 (the default, and production today) to 1.
+        /// Turns the single global constant into a wind FIELD that varies by place
+        /// and by time, and turns the bare-hull baseline back around to blow
+        /// DOWNWIND the way retail's did.
+        ///
+        /// WHY THOSE TWO THINGS SHARE ONE KNOB. They are one design, not two
+        /// features. <see cref="ShipForceModel.BaselineDriveSpeedMps(double)"/>
+        /// explains that we aim the hull wind along the HEADING purely because our
+        /// wind is a single constant, so a faithful downwind aim would condemn a
+        /// bare hull to one compass direction for ever. Remove the constant and
+        /// that objection goes with it - but only then. Splitting these would let
+        /// an operator enable exactly the combination that comment warns against.
+        ///
+        /// At 0 this is off in the strongest sense available: <see cref="WindField"/>
+        /// returns the same vector the code returned before it existed, computed
+        /// the same way, and the baseline keeps its heading aim. There is a test
+        /// that asserts equality rather than approximate equality for that.
+        ///
+        /// THE PRICE, stated because it is why the default is 0 and the veer
+        /// ceiling is 40 degrees rather than free rotation: the client is already
+        /// drawing wind streaks, bending grass and flying flags along
+        /// <c>(1,0,-2)</c>, and it will keep doing that whatever this server
+        /// believes, because that field is fed by 1139 weather cells and those are
+        /// forbidden. Every degree here is a degree by which the wind a player can
+        /// SEE disagrees with the wind they FEEL. See <see cref="WindField"/>.
+        /// </summary>
+        public WindFieldVariation WindVariation { get; }
+
         public double MaxSpeedMps { get; }
         public double AccelMps2 { get; }
         public double YawRateRadPerSec { get; }
@@ -253,7 +282,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double sailBonusPerUnfurled = DefaultSailBonusPerUnfurled,
             double engineThrustNewtons = ShipForceModel.DefaultEngineThrustNewtons,
             double sailPowerNewtons = ShipForceModel.DefaultSailPowerNewtonsPerWind,
-            double windSpeedMps = -1.0)
+            double windSpeedMps = -1.0,
+            double windFieldVariation = 0.0)
         {
             MaxSpeedMps = Clamp(maxSpeedMps, 1.0, ShipMotionPolicy.MaxSpeedMetresPerSecond, DefaultMaxSpeedMps);
             AccelMps2 = Clamp(accelMps2, 0.5, 30.0, DefaultAccelMps2);
@@ -289,6 +319,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             WindSpeedMps = windSpeedMps < 0.0
                 ? ShipForceModel.DefaultWindSpeedMps
                 : Clamp(windSpeedMps, 0.0, 100.0, ShipForceModel.DefaultWindSpeedMps);
+            // Clamps to [0,1] inside the struct rather than here, because the same
+            // clamp has to hold for a caller that constructs one directly.
+            WindVariation = new WindFieldVariation(windFieldVariation);
         }
 
         /// <summary>
@@ -337,7 +370,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // The 100 m/s ceiling is retail's own: GlobalWeather returns a zero
                 // field above it rather than a stronger one.
                 Parse(getenv("WAREBORN_FLIGHT_WIND_SPEED"),
-                    ShipForceModel.DefaultWindSpeedMps));
+                    ShipForceModel.DefaultWindSpeedMps),
+                // Default 0 = OFF. The wind is a constant until an operator says
+                // otherwise, because turning it into a field makes what a player
+                // FEELS diverge from what the client DRAWS - see WindVariation.
+                Parse(getenv("WAREBORN_FLIGHT_WIND_FIELD"), 0.0));
         }
 
         private static double Parse(string? env, double fallback)
