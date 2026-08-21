@@ -175,7 +175,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// </summary>
         public FlightEmit Advance(long nowMs, double stepSeconds, FlightTuning tuning,
             int unfurledSails = 0, double agilityScale = 1.0,
-            ShipPropulsion? propulsion = null)
+            ShipPropulsion? propulsion = null,
+            IReadOnlyList<WeatherWallSegment>? walls = null)
         {
             // A latched non-zero throttle is live even if the pilot released the
             // helm before the first integration tick, while the hull is technically
@@ -190,7 +191,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // - two ships side by side must not disagree about the weather.
                 _state = FlightIntegrator.Step(
                     _state, _input, stepSeconds, tuning, unfurledSails, agilityScale, propulsion,
-                    nowMs / 1000.0);
+                    nowMs / 1000.0, walls);
 
                 if (_state.IsAtRest && !_manned)
                 {

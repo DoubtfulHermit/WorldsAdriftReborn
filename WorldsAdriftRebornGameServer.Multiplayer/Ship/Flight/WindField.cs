@@ -302,6 +302,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double along = (wind.WindX * forwardX) + (wind.WindZ * forwardZ);
             return along > 0.0 ? along : 0.0;
         }
+
+        /// <summary>
+        /// The signed component of a wind along a hull's bow. Unlike
+        /// <see cref="AlongHeading"/>, this deliberately preserves a headwind as a
+        /// negative value. Retail's wall drag used the complete relative-wind vector,
+        /// so a Wind Rift on the approach side of its centreline pushed a ship back;
+        /// flooring that projection at zero would make an authored weather barrier
+        /// mechanically indistinguishable from still air.
+        /// </summary>
+        public static double SignedAlongHeading(in WindSample wind, double headingRadians)
+        {
+            if (wind.SpeedMps <= 0.0 || !double.IsFinite(headingRadians))
+            {
+                return 0.0;
+            }
+            return (wind.WindX * Math.Sin(headingRadians))
+                + (wind.WindZ * Math.Cos(headingRadians));
+        }
     }
 
     /// <summary>

@@ -162,7 +162,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// </param>
         public static FlightState Step(FlightState state, FlightControlInput input, double dtSeconds,
             FlightTuning tuning, int unfurledSails = 0, double agilityScale = 1.0,
-            ShipPropulsion? propulsion = null, double windTimeSeconds = 0.0)
+            ShipPropulsion? propulsion = null, double windTimeSeconds = 0.0,
+            IReadOnlyList<WeatherWallSegment>? walls = null)
         {
             if (dtSeconds <= 0.0 || double.IsNaN(dtSeconds) || double.IsInfinity(dtSeconds))
             {
@@ -235,7 +236,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // the SAME sample, because in retail they are the same wind.
                 WindSample wind = WindField.SampleAt(
                     state.X, state.Z, windTimeSeconds,
-                    tuning.WindSpeedMps, tuning.WindVariation);
+                    tuning.WindSpeedMps, tuning.WindVariation, walls);
                 double sailNewtons = ShipForceModel.SailForwardNewtons(
                     unfurledSails, yaw, tuning.SailPowerNewtons,
                     wind.WindX, wind.WindZ);
@@ -282,7 +283,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // streaks the client draws become something to steer by.
                 double windAlongHeading = 0.0;
                 bool canvasIsDriving = Math.Abs(sailNewtons) >= 1e-9;
-                if (throttle > 0.0 || canvasIsDriving)
+                if (wind.WallIntensity > 0.0)
+                {
+                    // RETAIL-SHAPED WALL RESISTANCE. Unlike the open-sky affordance
+                    // below, wall air acts with the lever centred and preserves the
+                    // sign of a headwind. That is what makes a Wind Rift a soft gate:
+                    // thrust must beat relative-wind drag across its 400 m band. The
+                    // current scalar flight model reproduces a head-on crossing
+                    // exactly and projects oblique crossings onto its one motion
+                    // axis; lateral shove, downward wind and yaw/gust torque require
+                    // the future full vector/lift model.
+                    windAlongHeading = WindField.SignedAlongHeading(in wind, yaw)
+                        * ShipForceModel.WindMultiplier(ship.MassKg);
+                }
+                else if (throttle > 0.0 || canvasIsDriving)
                 {
                     double alongMps = tuning.WindVariation.IsEnabled
                         ? WindField.AlongHeading(in wind, yaw) * ShipForceModel.WindMultiplier(ship.MassKg)

@@ -8,6 +8,7 @@ using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains;
 using WorldsAdriftRebornGameServer.Multiplayer.Domains;
+using WorldsAdriftRebornGameServer.Multiplayer.Walls;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Game.Persistence;
@@ -84,6 +85,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly IClock _clock;
         private readonly CadenceTimer _cadence;
         private readonly FlightTuning _tuning;
+        private readonly WallFlightInfluence _wallFlightInfluence;
         private readonly PilotSeats _seats = new PilotSeats();
         private readonly ShipDomainRegistry _domains;
         private readonly LocalDomainHost? _domainHost;
@@ -167,12 +169,15 @@ namespace WorldsAdriftRebornGameServer.Game
             _domainHost = domainHost;
             _cadence = new CadenceTimer(TimeSpan.FromSeconds(ShipMotionPolicy.SendIntervalSeconds));
             _tuning = FlightTuning.FromEnvironment(Environment.GetEnvironmentVariable);
+            _wallFlightInfluence = WallFlightInfluence.FromEnvironment(
+                WallPolicy.EnabledFromEnvironment(), Environment.GetEnvironmentVariable);
 
             if (Enabled)
             {
                 Console.WriteLine("[info] helm flight is ARMED (WAREBORN_HELM_FLIGHT=1): Man a mounted helm to fly"
                     + " its built ship. " + _tuning + "; drive target = "
                     + (DriveTargetIsHelm ? "HELM" : "HULL") + " (WAREBORN_FLIGHT_DRIVE_TARGET).");
+                Console.WriteLine("[info] " + _wallFlightInfluence.Describe());
             }
         }
 
@@ -672,7 +677,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 double agility = AgilityScaleFor(hullEntityId);
                 FlightEmit emit = session.Advance(
                     nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility,
-                    PropulsionFor(hullEntityId, unfurledSails));
+                    PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments);
                 CompleteDepartureIfOutside(hullEntityId, session.State);
                 PersistPoseWhenDue(hullEntityId, session.State);
                 if (!emit.Emit)

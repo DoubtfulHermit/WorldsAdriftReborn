@@ -284,6 +284,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(0.0, WindField.AlongHeading(in WindSample.Calm, 1.23));
         }
 
+        [Fact]
+        public void Signed_projection_preserves_the_headwind_a_wall_needs_to_resist_crossing()
+        {
+            WindSample west = WindSample.FromComponents(-10.0, 0.0, 1.0);
+
+            Assert.Equal(-10.0, WindField.SignedAlongHeading(in west, Math.PI / 2.0), 9);
+            Assert.Equal(0.0, WindField.AlongHeading(in west, Math.PI / 2.0), 9);
+        }
+
         // ------------------------------------------------------------------
         // Weather walls: the ONE source of wind variation the client would also
         // draw, and it needs no weather cell. Recovered geometry, pinned.
