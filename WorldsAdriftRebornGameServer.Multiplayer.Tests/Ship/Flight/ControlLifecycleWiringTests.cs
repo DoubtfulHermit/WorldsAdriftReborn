@@ -45,14 +45,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Helm_input_is_filtered_before_delta_merge_and_cleaned_on_release()
+        public void First_authorized_helm_input_enters_delta_merge_without_a_takeover_delay()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
-            int filter = service.IndexOf("takeover.Filter(throttle, vertical)", StringComparison.Ordinal);
-            int merge = service.IndexOf("held.Merge(throttle, vertical", StringComparison.Ordinal);
-            Assert.True(filter >= 0 && merge > filter,
-                "takeover filtering must happen before client deltas enter flight state");
-            Assert.Contains("_takeoverInputs.Remove(playerEntityId)", service, StringComparison.Ordinal);
+            Assert.Contains("held.Merge(throttle, vertical", service, StringComparison.Ordinal);
+            Assert.DoesNotContain("takeover.Filter(throttle, vertical)", service,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain("release to neutral before commanding the helm", service,
+                StringComparison.Ordinal);
         }
     }
 }
