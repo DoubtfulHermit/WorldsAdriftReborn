@@ -128,18 +128,22 @@ changes.
 
 ### Exact deployed revisions
 
-**LOCAL FLIGHT/WALL CONSOLIDATION 2026-08-21 — NOT DEPLOYED.** Commits
-`8686986`, `6b4d855` and `48bf9dd` are integrated on
-`integ/wind-storm-architecture-deploy`. They add lifecycle-gated sail
+**FLIGHT/WALL DEPLOYMENT 2026-08-21.** Commits `8686986`, `6b4d855`,
+`48bf9dd` and integration record `8292238` are deployed. They add lifecycle-gated sail
 activation, neutral-edge helm takeover, corrected serialized ShipConfig drag
 (`0.007`, exponent `2.5`), evidence-anchored WAReborn tuning of 1400 N/engine
 and 420 N/(m/s)/sail, schema-15 admin flight diagnostics, and opt-in release-map
 wall resistance across the recovered +/-400 m physical band (+/-200 m full
-strength). Wall magnitudes remain OFF by default because retail's 1229 values
-are lost. Combined verification passed **4517/0** Multiplayer and **1209**
+strength). Production enables the 20 Wind Rift segments at the explicit WAReborn
+tuning `WAREBORN_WALL_WIND_RIFT_MPS=15`; other wall types retain visuals only
+because retail's 1229 magnitudes are lost. Combined verification passed **4517/0** Multiplayer and **1209**
 login/admin tests with 26 expected skips; integrated game-server and client
-builds both passed with zero errors. Production and the installed client remain
-on the revisions described below.
+builds both passed with zero errors. Public manifest `2026.08.21-1` contains 54
+payloads; every public size/SHA-256 was verified and the local client DLL matches
+the manifest. Live stats report schema 15/build `8292238`; 9/9 deployables, 5/7
+ships (two tombstones), 21/21 mounted parts and 4/4 loose parts restored, all
+persistence surfaces are ON, and both service journals were clean after boot.
+Rollback is `/opt/wareborn/backups/pre-8292238-20260821-175730/`.
 
 **FLIGHT/WALL FOLLOW-UP 2026-08-21.** Game server `b46f242` is deployed.
 Canvas-driven motion now carries the full ambient relative-wind velocity even
