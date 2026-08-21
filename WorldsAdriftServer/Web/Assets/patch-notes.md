@@ -1,9 +1,10 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 657 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 655 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-21 | 19 commits
+## 2026-08-21 | 20 commits
 
+* eb356f7 Rebuild admin console as routed workspaces
 * a25e302 Record World Inspector deployment
 * c2c65ca Regenerate patch notes for World Inspector
 * 1f57ce0 Record World Inspector implementation
@@ -694,16 +695,13 @@ Every commit, newest first. 657 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 7 commits
+## 2026-08-07 | 4 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
 * baf2f67 Stop drawing our own rope: the game renders it natively once 1098 is seeded
 * 753657a Re-assert rope line width every update + diagnose the wedge
-* 4f95743 Hide the remote grapple tube unconditionally, not just while the rope is up
-* 754cade Hide the remote grapple tube continuously while grappling, not once at bind
-* 4ea6f7e Hide the game's GrapplingHookTube on remote rigs; add local-player fall telemetry
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 170 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 173 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
