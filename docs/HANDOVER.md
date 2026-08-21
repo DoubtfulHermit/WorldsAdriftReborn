@@ -128,6 +128,24 @@ changes.
 
 ### Exact deployed revisions
 
+**DEPLOYMENT 2026-08-21.** Game and login/admin were deployed together from
+`3528d5c` after consolidating `feat/understorm-s1` (including S2/S3, wall
+visuals and the simulation shadow model), `feat/wind`, and
+`docs/architecture-audit`. Multiplayer tests passed **4483/0**; login/admin
+tests passed **1209/0 with 26 expected skips**; both self-contained Linux-x64
+publishes succeeded. Staged and live executable SHA-256 hashes matched. The
+pre-deploy backup is
+`/opt/wareborn/backups/pre-3528d5c-20260821-153408/`. Production restored 9/9
+deployables, 5/7 ships (two tombstones), 21/21 mounted parts and 4/4 loose
+parts; all four Postgres persistence surfaces are ON. Understorms remain ON
+for the 47 Tier-1 islands at the existing 15-minute production cadence. S2
+now scopes the reset to each island and S3 re-rolls its deposit placement.
+`WAREBORN_WALLS` and `WAREBORN_FLIGHT_WIND_FIELD` remain unset/off pending
+visual acceptance. The post-deploy checker is INCONCLUSIVE, not failed: zero
+players connected after restart, so no component-interest batch was exercised.
+Run it again after a real client session. No client patch or schema migration
+was involved.
+
 **SESSION HANDOVER 2026-08-20.** `main` = `ee86213`, in sync, clean, 172
 commits over two days. Both services active. Live flags:
 `WAREBORN_FLIGHT_FORCES=1`, `WAREBORN_FLIGHT_WIND_SPEED=4.0`,
