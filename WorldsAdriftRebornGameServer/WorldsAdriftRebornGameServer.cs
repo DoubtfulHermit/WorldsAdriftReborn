@@ -204,6 +204,7 @@ namespace WorldsAdriftRebornGameServer
                 // exact "invisible per-life state" class of leak this contract
                 // exists to prevent.
                 Flight.OnPlayerGone(ownEntity.Value);
+                PartInteractions.OnPlayerGone(ownEntity.Value);
 
                 // Fuel MIRRORS that same 1111 throttle stream, so it must forget the
                 // player wherever flight does or the two hold different opinions of a

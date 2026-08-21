@@ -42,6 +42,7 @@ namespace WorldsAdriftRebornGameServer.Game
     internal sealed class PartInteractionService
     {
         private readonly IClock _clock;
+        private readonly InteractionActivationGate _activationEdges = new();
 
         internal PartInteractionService(IClock clock)
         {
@@ -68,6 +69,17 @@ namespace WorldsAdriftRebornGameServer.Game
             // bit (1 rigged / 0 furled): the shipped client's SailBehaviour multiplies
             // wind force by it on the physics worker, so any future physics reader
             // sees a sane multiplier; the pure client only animates off `unfurled`.
+            // A zero-time visualiser can publish several completed Activate events
+            // while E remains held. Consume one rising edge and re-arm only when
+            // InteractAgentState reports its release/default lifecycle.
+            if (WorldsAdriftRebornGameServer.Sails.IsSail(targetEntityId)
+                && !_activationEdges.TryBegin(playerEntityId, targetEntityId))
+            {
+                Console.WriteLine("[info] part-interact: duplicate held Activate on sail "
+                    + targetEntityId + " by entity " + playerEntityId + " ignored.");
+                return true;
+            }
+
             bool? unfurled = WorldsAdriftRebornGameServer.Sails.Toggle(targetEntityId);
             if (unfurled.HasValue)
             {
@@ -161,5 +173,12 @@ namespace WorldsAdriftRebornGameServer.Game
 
             return false;
         }
+
+        /// <summary>Actual 1211 release/default edge; never synthesized by a timer.</summary>
+        internal void OnInteractionReleased(long playerEntityId, long targetEntityId) =>
+            _activationEdges.Release(playerEntityId, targetEntityId);
+
+        internal void OnPlayerGone(long playerEntityId) =>
+            _activationEdges.ReleasePlayer(playerEntityId);
     }
 }

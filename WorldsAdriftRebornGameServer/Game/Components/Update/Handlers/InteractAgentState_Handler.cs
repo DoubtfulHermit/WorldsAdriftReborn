@@ -181,6 +181,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         + " verb " + man.verb + "(" + (int)man.verb + ")"
                         + " owns=" + ownsPlayer + ".");
 
+                    // Default is the client's empty-target interaction boundary.
+                    // Re-arm stateful Activate parts before verb-specific routing;
+                    // the dedicated Activate key-up bridge below reaches the same
+                    // method through ReleaseInteraction. An invalid/default target
+                    // releases every held target for this player.
+                    if (man.verb == InteractVerb.Default && ownsPlayer)
+                    {
+                        WorldsAdriftRebornGameServer.PartInteractions.OnInteractionReleased(
+                            entityId, man.target.Id);
+                    }
+
                     Multiplayer.Wilderness.ShrineInteractOutcome shrine =
                         Multiplayer.Wilderness.ShrineInteractRouting.Decide(
                             ownsPlayer, (int)man.verb, targetKey);
@@ -289,6 +300,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (ReleaseInteraction release in releases!)
                 {
+                    WorldsAdriftRebornGameServer.PartInteractions.OnInteractionReleased(
+                        entityId, release.interactEntityId.Id);
                     WorldsAdriftRebornGameServer.Flight.OnReleaseInteraction(
                         player, entityId, release.interactEntityId.Id);
                 }

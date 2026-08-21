@@ -107,6 +107,9 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Latest merged 1111 input per PILOT entity (the update is a delta).</summary>
         private readonly Dictionary<long, FlightControlInput> _inputs = new Dictionary<long, FlightControlInput>();
 
+        /// <summary>Neutral-edge guards created at each helm authority handoff.</summary>
+        private readonly Dictionary<long, HelmTakeoverInputGate> _takeoverInputs = new();
+
         /// <summary>
         /// The helm each hull was last manned through, kept after dismount: the
         /// helm-feedback echo (wheel/levers) targets the helm entity too, and a
@@ -285,6 +288,7 @@ namespace WorldsAdriftRebornGameServer.Game
         public void OnPlayerGone(long playerEntityId)
         {
             _inputs.Remove(playerEntityId);
+            _takeoverInputs.Remove(playerEntityId);
             PilotSeats.Seat? seat = _seats.Release(playerEntityId);
             if (seat != null && _domains.ByHull(seat.Value.HullEntityId) is ShipDomain domain)
             {
@@ -317,6 +321,20 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             _inputs.TryGetValue(playerEntityId, out FlightControlInput held);
+            if (_takeoverInputs.TryGetValue(playerEntityId, out HelmTakeoverInputGate? takeover))
+            {
+                HelmTakeoverInputDelta guarded = takeover.Filter(throttle, vertical);
+                if (guarded.SuppressedThrottle || guarded.SuppressedVertical)
+                {
+                    Console.WriteLine("[flight] takeover held character input ignored for entity "
+                        + playerEntityId + ": throttle="
+                        + (guarded.SuppressedThrottle ? "held" : "accepted") + ", vertical="
+                        + (guarded.SuppressedVertical ? "held" : "accepted")
+                        + "; release to neutral before commanding the helm.");
+                }
+                throttle = guarded.Throttle;
+                vertical = guarded.Vertical;
+            }
             FlightControlInput merged = held.Merge(throttle, vertical, axisPitch, axisYaw, axisRoll);
             _inputs[playerEntityId] = merged;
             _inputPacketsSinceStats++;
@@ -792,6 +810,7 @@ namespace WorldsAdriftRebornGameServer.Game
             // throttle field at all. Starting this ledger at neutral would turn an
             // unrelated steering delta into an accidental throttle reset.
             _inputs[playerEntityId] = session.Input;
+            _takeoverInputs[playerEntityId] = new HelmTakeoverInputGate(session.Input);
             _helmByHull[hullEntityId] = helmEntityId;
 
             // Wake the hull's halted PathFollower at the unchanged authoritative
@@ -890,6 +909,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 EchoHelmFeedback(hullEntityId, session);
             }
             _inputs.Remove(playerEntityId);
+            _takeoverInputs.Remove(playerEntityId);
 
             PilotState.Update update = new PilotState.Update()
                 .SetDrivingEntityId(new EntityId(0))
