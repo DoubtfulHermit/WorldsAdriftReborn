@@ -26,6 +26,7 @@
   var mapMarkers=[];       // {node,x,y} - scale-compensated
   var mapIslandNodes=[];   // one per MapFile placement: {island,inv,marker,shell,hay}
   var mapZoneNodes=[];     // one per drawn tier cell: {biome,index,path,label}
+  var runtimeDomainNodes=[]; // live island-domain circles, rebuilt each poll
   var mapSelection={kind:'world'};
   var mapAnim=null,mapHintFaded=false;
 
@@ -269,6 +270,7 @@
     else if(mapSelection.kind==='zone')detailZone(panel,scroll,mapSelection.zone);
     else if(mapSelection.kind==='marker')detailLiveMarker(panel,scroll,mapSelection.marker);
     else if(mapSelection.kind==='ship')detailShip(panel,scroll,mapSelection.hullEntityId);
+    else if(mapSelection.kind==='runtime-domain')detailRuntimeDomain(panel,scroll,mapSelection.domain);
     else detailWorld(panel,scroll);
     panel.appendChild(scroll);
   }
@@ -340,6 +342,23 @@
     });
     zones.appendChild(list);
     scroll.appendChild(zones);
+  }
+  function detailRuntimeDomain(panel,scroll,d){
+    var head=el('div','md-head');
+    head.appendChild(backButton('Whole world',function(){selectWorld();}));
+    head.appendChild(el('div','md-kicker','Live island domain'));
+    head.appendChild(el('h3','md-title',d.label||d.domainId));
+    head.appendChild(subLine([d.domainId,d.hostId||'host not reported']));
+    panel.appendChild(head);
+    var stats=el('div','md-stats');
+    stats.appendChild(statTile(d.entityCount||0,'Owned entities'));
+    stats.appendChild(statTile(d.warningCount||0,'Warnings'));
+    scroll.appendChild(stats);
+    var block=mdBlock('Authoritative runtime state');
+    block.appendChild(el('p','md-p','Resident on '+(d.hostId||'an unreported host')+' at X '
+      +Number(d.x).toFixed(1)+' · Y '+Number(d.y).toFixed(1)+' · Z '+Number(d.z).toFixed(1)+'.'));
+    block.appendChild(el('p','md-p','This is a live ownership-domain position. The island shape and catalogue entries elsewhere on the map remain preserved release-map evidence.'));
+    scroll.appendChild(block);
   }
   function detailIsland(panel,scroll,node){
     var i=node.island,inv=node.inv;
@@ -601,6 +620,7 @@
       n.mark.classList.remove('selected');
       if(n.path)n.path.classList.remove('selected');
     });
+    runtimeDomainNodes.forEach(function(n){n.node.classList.remove('selected');});
   }
   function selectWorld(){mapSelection={kind:'world'};clearMapHighlights();renderMapDetail();}
   function selectIsland(node){
@@ -621,6 +641,12 @@
     renderMapDetail();
   }
   function selectLiveMarker(m){mapSelection={kind:'marker',marker:m};clearMapHighlights();renderMapDetail();}
+  function selectRuntimeIsland(d,syncDomain){
+    mapSelection={kind:'runtime-domain',domain:d};clearMapHighlights();
+    runtimeDomainNodes.forEach(function(n){if(n.domain.domainId===d.domainId)n.node.classList.add('selected');});
+    renderMapDetail();
+    if(syncDomain!==false)selectRuntimeDomain(d.domainId,false);
+  }
 
   // ---- hover -------------------------------------------------------------
   function hoverCard(title,meta,facts,cta){
@@ -941,11 +967,16 @@
     // first or the list grows without bound.
     mapMarkers=mapMarkers.filter(function(m){
       return m.node.parentNode!==shipLayer&&m.node.parentNode!==playerLayer;});
-    clear(runtimeLayer);clear(shipLayer);clear(playerLayer);
+    clear(runtimeLayer);clear(shipLayer);clear(playerLayer);runtimeDomainNodes=[];
     var runtimeIslands=latestRuntimeDomains.filter(function(d){return d.kind==='island';});
     runtimeIslands.forEach(function(i){
-      runtimeLayer.appendChild(svgEl('circle',{cx:Number(i.x),cy:-Number(i.z),r:155,'class':'map-runtime-island'},
-        (i.label||i.domainId)+' · currently simulated island domain, resident on this host · live position '+Number(i.x).toFixed(1)+', '+Number(i.z).toFixed(1)));
+      var circle=svgEl('circle',{cx:Number(i.x),cy:-Number(i.z),r:155,'class':'map-runtime-island',
+        tabindex:'0',role:'button','aria-label':'Inspect live domain '+(i.label||i.domainId)},
+        (i.label||i.domainId)+' · currently simulated island domain, resident on this host · live position '+Number(i.x).toFixed(1)+', '+Number(i.z).toFixed(1));
+      circle.addEventListener('click',function(e){e.stopPropagation();if(!mapDragged)selectRuntimeIsland(i,true);});
+      circle.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();selectRuntimeIsland(i,true);}});
+      runtimeLayer.appendChild(circle);runtimeDomainNodes.push({node:circle,domain:i});
+      if(selectedRuntimeDomainId===i.domainId)circle.classList.add('selected');
     });
     buildShips(latestDomains,ageSeconds);
     var positioned=latestPlayers.filter(function(p){return p.hasPosition;});
@@ -996,4 +1027,3 @@
     if(unknown){note.style.display='block';note.textContent=unknown+' connected player'+(unknown===1?' has':'s have')+' no authoritative world position yet.';}
     else note.textContent='No live positions reported.';
   }
-

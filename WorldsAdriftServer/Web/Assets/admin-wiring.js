@@ -4,6 +4,17 @@
   $('copyShipDiagnostics').addEventListener('click',copyIncident);
   $('refreshNow').addEventListener('click',refresh);
   $('domainSearch').addEventListener('input',renderDomainInventory);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-observatory-mode-button]'),function(button){
+    button.addEventListener('click',function(){setObservatoryMode(button.dataset.observatoryModeButton,false);});
+    button.addEventListener('keydown',function(e){
+      var modes=['world','simulation','infrastructure'];
+      var at=modes.indexOf(button.dataset.observatoryModeButton);
+      if(e.key==='ArrowRight')at=(at+1)%modes.length;
+      else if(e.key==='ArrowLeft')at=(at+modes.length-1)%modes.length;
+      else return;
+      e.preventDefault();setObservatoryMode(modes[at],true);
+    });
+  });
   $('terrainSearch').addEventListener('input',function(){
     if(latestTerrain){renderTerrainMatrix(latestTerrain);renderTerrainIslands(latestTerrain);}
   });
@@ -18,6 +29,7 @@
   wireMapInteraction();
   wireOperator();
   wireTopology();
+  setObservatoryMode('world',false);
   boot();
   // AFTER boot(): the wind layer inserts itself into the SVG the static render
   // builds and reads worldMap for the world edge and the wall segments, so it

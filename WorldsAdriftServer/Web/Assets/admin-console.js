@@ -435,14 +435,12 @@
     var domainWarning=$('domainWarning');
     if(warnings.length){domainWarning.classList.add('show','spiral');text('domainWarningText',warnings.join('; ')+'.');}
     else{domainWarning.classList.remove('show','spiral');}
-    // The observation overlay. Set BEFORE the domain detail is re-selected below,
-    // so the shadow rows in the detail grid are for this poll and not the last one.
     latestSimulation=g.simulation||null;
     renderSimulationShadow();
     renderTopology();
     renderLiveWorldMap(reporting,g.ageSeconds);
-    if(selectedRuntimeDomainId&&latestRuntimeDomains.some(function(d){return d.domainId===selectedRuntimeDomainId;}))selectRuntimeDomain(selectedRuntimeDomainId);
-    else{if(selectedRuntimeDomainId)selectedRuntimeDomainId='';renderDomainInventory();}
+    if(selectedRuntimeDomainId&&latestRuntimeDomains.some(function(d){return d.domainId===selectedRuntimeDomainId;}))selectRuntimeDomain(selectedRuntimeDomainId,false);
+    else{if(selectedRuntimeDomainId)selectedRuntimeDomainId='';updateSharedSelection(null);renderDomainInventory();}
 
     var shipSelect=$('targetShip');
     var selectedShip=shipSelect.value;clear(shipSelect);
@@ -479,6 +477,7 @@
     // in admin-topology.js, which is later in the load order but hoists into
     // this one shared closure.
     renderTopologyView();
+    renderInfrastructure(g,reporting);
     // Both provenance labels state the SAME reconciled pair of counts, so the
     // map and the terrain inventory can never appear to disagree.
     renderIslandReconciliation();

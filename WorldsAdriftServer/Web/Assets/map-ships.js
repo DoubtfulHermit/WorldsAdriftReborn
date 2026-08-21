@@ -593,10 +593,14 @@
   }
 
   function selectShip(hullEntityId){
+    var syncDomain=arguments.length<2?true:arguments[1];
     mapSelection={kind:'ship',hullEntityId:hullEntityId};
     clearMapHighlights();
     renderShipFrame();
     renderMapDetail();
+    if(syncDomain!==false){
+      var d=shipByHull(hullEntityId);if(d&&d.domainId)selectRuntimeDomain(d.domainId,false);
+    }
   }
   function shipByHull(hullEntityId){
     for(var i=0;i<latestDomains.length;i++)
@@ -744,4 +748,3 @@
     built.appendChild(el('p','md-p',MARKS.shipBuiltNote));
     scroll.appendChild(built);
   }
-

@@ -30,12 +30,60 @@
     var b=document.createElement('b');b.textContent=label;item.appendChild(b);
     var span=document.createElement('span');span.textContent=value;item.appendChild(span);grid.appendChild(item);
   }
-  function selectRuntimeDomain(domainId){
+  function runtimeDomainById(domainId){
+    for(var i=0;i<latestRuntimeDomains.length;i++)if(latestRuntimeDomains[i].domainId===domainId)return latestRuntimeDomains[i];
+    return null;
+  }
+  function updateSharedSelection(d){
+    text('observatorySelection',d?(d.label||d.domainId):'Nothing selected');
+    text('observatorySelectionId',d?d.domainId:'Choose a live domain on the map or in Simulation.');
+    var pill=$('observatorySelectionState');
+    var state=d?domainState(d):'none';
+    pill.className='pill '+(state==='warning'?'bad':(state==='active'||state==='resident'?'ok':'warn'));
+    pill.textContent=state;
+    renderInfrastructureSelection(d);
+  }
+  function setObservatoryMode(mode,focusTab){
+    if(['world','simulation','infrastructure'].indexOf(mode)<0)mode='world';
+    $('simulation').dataset.observatoryMode=mode;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-observatory-panel]'),function(panel){
+      panel.hidden=panel.dataset.observatoryPanel!==mode;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-observatory-mode-button]'),function(button){
+      var active=button.dataset.observatoryModeButton===mode;
+      button.setAttribute('aria-selected',active?'true':'false');
+      button.tabIndex=active?0:-1;
+      if(active&&focusTab===true)button.focus();
+    });
+    if(mode==='world')requestAnimationFrame(function(){updateMapFurniture();renderShipFrame();});
+  }
+  function renderInfrastructureSelection(d){
+    var box=$('infraSelectionDetail');if(!box)return;clear(box);
+    if(!d){box.className='detail-empty compact';box.textContent='Select a domain in World or Simulation. Infrastructure will keep the same selection.';return;}
+    box.className='infra-selection-grid';
+    [['Domain',d.domainId],['Kind',d.kind||'unknown'],['Host',d.hostId||'unknown'],
+     ['Owned entities',String(d.entityCount||0)],['Affinity',d.affinityDomainId||'none'],
+     ['Warnings',String(d.warningCount||0)]].forEach(function(pair){addDetailItem(box,pair[0],pair[1]);});
+    var ship=shipTelemetryFor(d.domainId);
+    if(ship){
+      addDetailItem(box,'Authority generation',String(ship.authorityGeneration||0));
+      addDetailItem(box,'Replication sequence',String(ship.replicationSequence||0));
+      addDetailItem(box,'Delivery age',ship.deliveryAgeMs<0?'never':ship.deliveryAgeMs+'ms');
+      addDetailItem(box,'Checkout subscribers',String(ship.subscriberCount||0));
+    }
+  }
+  function selectRuntimeDomain(domainId,syncMap){
     selectedRuntimeDomainId=domainId||'';
-    var d=null;for(var i=0;i<latestRuntimeDomains.length;i++)if(latestRuntimeDomains[i].domainId===selectedRuntimeDomainId)d=latestRuntimeDomains[i];
+    var d=runtimeDomainById(selectedRuntimeDomainId);
     $('domainDetailEmpty').style.display=d?'none':'grid';
     $('domainDetail').className='detail-content'+(d?' show':'');
+    updateSharedSelection(d);
     if(!d){renderDomainInventory();return;}
+    if(syncMap!==false){
+      if(d.kind==='ship'||d.kind==='static-ship'){
+        var shipForMap=shipTelemetryFor(d.domainId);if(shipForMap)selectShip(shipForMap.hullEntityId,false);
+      }else if(d.kind==='island'&&typeof selectRuntimeIsland==='function')selectRuntimeIsland(d,false);
+    }
     text('detailTitle',d.label||d.domainId);text('detailId',d.domainId);
     var status=$('detailStatus');var state=domainState(d);status.className='pill '+(state==='warning'?'bad':(state==='active'||state==='resident'?'ok':'warn'));status.textContent=state;
     var grid=$('detailGrid');clear(grid);
@@ -43,17 +91,12 @@
     addDetailItem(grid,'Owned entities',String(d.entityCount||0));addDetailItem(grid,'Island affinity',d.affinityDomainId||'none');
     addDetailItem(grid,'World position',Number(d.x).toFixed(1)+', '+Number(d.y).toFixed(1)+', '+Number(d.z).toFixed(1));
     addDetailItem(grid,'Warnings',String(d.warningCount||0));
-    // Shadow-model rows, joined on the SAME domain id the ownership host uses.
-    // Labelled "shadow" in every label so an observation is never mistaken for the
-    // authoritative ownership state it sits next to.
     var shadow=shadowDomainFor(d.domainId);
     if(shadow){
       addDetailItem(grid,'Shadow members',String(shadow.memberCount||0));
       addDetailItem(grid,'Shadow interactions',String(shadow.activeInteractionCount||0)+' active');
       addDetailItem(grid,'Shadow pressure',shadowNumber(shadow.pressure)+' (uncalibrated)');
       addDetailItem(grid,'Shadow note',shadow.descriptor||'none');
-      // Reserved inspector slots. Shown as "not modelled" rather than hidden: the
-      // point of naming them is that an operator can see what is NOT yet known.
       addDetailItem(grid,'Fidelity',shadow.fidelity||'not modelled');
       addDetailItem(grid,'Authority owner',shadow.authorityOwner||'not modelled');
       addDetailItem(grid,'Migration generation',shadow.migrationGeneration==null?'not modelled':String(shadow.migrationGeneration));
@@ -88,18 +131,12 @@
       : (d.kind==='island'?'Island ownership is resident on this host. Scheduling and remote migration are not enabled yet.':'Ownership-only static structure; excluded from live ship flight and checkout scheduling.'));
     renderDomainInventory();
   }
-  // --- Interaction shadow model -------------------------------------------------
-  // Read-only rendering of an observation overlay. Deliberately holds NO rules of
-  // its own: every threshold, weight and label is decided server-side, so there is
-  // no browser mirror of a server rule here that could drift out of parity.
   function shadowDomainFor(domainId){
     var d=latestSimulation&&latestSimulation.domains;if(!d)return null;
     for(var i=0;i<d.length;i++)if(d[i].domainId===domainId)return d[i];
     return null;
   }
   function shadowState(){
-    // Four distinguishable answers, because the server reports four. Collapsing
-    // them would let "nobody looked" read as "no coupling in your world".
     if(!latestSimulation||latestSimulation.present!==true)return {key:'absent',label:'not reported',cls:'warn'};
     if(latestSimulation.enabled!==true)return {key:'off',label:'observer off',cls:'warn'};
     if(latestSimulation.hasSnapshot!==true)return {key:'warming',label:'warming up',cls:'warn'};
@@ -115,29 +152,54 @@
     text('simInteractionTotal',live?String(latestSimulation.interactionCount||0):'—');
     text('simActiveTotal',live?String(latestSimulation.activeInteractionCount||0):'—');
     text('simPressureTotal',live?shadowNumber(latestSimulation.totalCrossDomainPressure):'—');
-    text('simulationIdentity',
-      state.key==='absent'?'Not reported':
-      state.key==='off'?'WAREBORN_SIMULATION_MODEL off':
-      state.key==='warming'?'Enabled, no snapshot yet':'Enabled, observing');
-    text('simulationSummary',
-      state.key==='absent'?'This game server predates the shadow model, so nothing is claimed about coupling.':
-      state.key==='off'?'The shadow model is compiled in but switched off. Gameplay and network behaviour are identical either way.':
-      state.key==='warming'?'The observer is armed and has not completed its first pass.':
-      (latestSimulation.error?('Observer parked after a fault: '+latestSimulation.error):
-        ('Rebuilt '+(latestSimulation.refreshCount||0)+' times. Observation only — no authority, no migration.')));
+    text('simulationIdentity',state.key==='absent'?'Not reported':state.key==='off'?'WAREBORN_SIMULATION_MODEL off':state.key==='warming'?'Enabled, no snapshot yet':'Enabled, observing');
+    text('simulationSummary',state.key==='absent'?'This game server predates the shadow model, so nothing is claimed about coupling.':state.key==='off'?'The shadow model is compiled in but switched off. Gameplay and network behaviour are identical either way.':state.key==='warming'?'The observer is armed and has not completed its first pass.':(latestSimulation.error?('Observer parked after a fault: '+latestSimulation.error):('Rebuilt '+(latestSimulation.refreshCount||0)+' times. Observation only — no authority changes.')));
     text('simulationCadence',live?('refresh every '+shadowNumber(latestSimulation.refreshIntervalSeconds)+'s · uncalibrated pressure'):'observation only');
     var body=$('simulationInteractions');clear(body);
-    var edges=(live&&latestSimulation.interactions)||[];
-    edges.forEach(function(e){
+    var observations=(live&&latestSimulation.interactions)||[];
+    observations.forEach(function(e){
       var tr=document.createElement('tr');
-      cell(tr,e.a+' ↔ '+e.b);
-      cell(tr,e.kind+' · '+e.strength);
-      cell(tr,e.activity,'muted');
+      cell(tr,e.a+' ↔ '+e.b);cell(tr,e.kind+' · '+e.strength);cell(tr,e.activity,'muted');
       cell(tr,shadowNumber(e.pressure),'num');
-      cell(tr,e.crossDomain?((e.domainA||'unassigned')+' → '+(e.domainB||'unassigned')):'same domain','muted');
-      body.appendChild(tr);
+      cell(tr,e.crossDomain?((e.domainA||'unassigned')+' → '+(e.domainB||'unassigned')):'same domain','muted');body.appendChild(tr);
     });
-    text('simulationResultCount',edges.length+' interaction'+(edges.length===1?'':'s')+(live?'':' · not reported'));
+    text('simulationResultCount',observations.length+' interaction'+(observations.length===1?'':'s')+(live?'':' · not reported'));
+  }
+  function renderWorldInspectorTimeline(g){
+    var list=$('worldInspectorTimeline');if(!list)return;clear(list);
+    var inspector=g&&g.worldInspector;
+    var events=inspector&&Array.isArray(inspector.events)?inspector.events:[];
+    if(!events.length){var empty=document.createElement('li');empty.className='muted';empty.textContent=inspector&&inspector.present===true?'No runtime event has been reported.':'Not reported by this game server schema.';list.appendChild(empty);return;}
+    events.slice(0,40).forEach(function(event){
+      var li=document.createElement('li');
+      var age=document.createElement('time');age.textContent=event.ageMs==null?'time not reported':fmtMs(event.ageMs)+' ago';li.appendChild(age);
+      var body=document.createElement('span');body.textContent=(event.kind||'runtime event')+(event.domainId?' · '+event.domainId:'')+(event.message?' · '+event.message:'');li.appendChild(body);list.appendChild(li);
+    });
+  }
+  function renderInfrastructure(g,reporting){
+    var runtime=(g&&g.runtime)||{},terrain=(g&&g.terrain)||{},interest=(g&&g.interest)||{};
+    var domains=runtime.shipDomains||[];
+    text('infraHostId',runtime.hostId&&runtime.hostId!=='unknown'?runtime.hostId:'local:primary');
+    text('infraHostMode',runtime.hostMode==='local-single-process'?'local single-process':(runtime.hostMode||'not reported'));
+    text('infraProcess',runtime.hostMode==='local-single-process'?'one authoritative poll loop':'process topology not reported');
+    text('infraUptime',reporting?fmtDur(g.uptimeSeconds):'not reported');
+    text('infraSnapshotAge',reporting?(Math.round(Number(g.ageSeconds)||0)+'s'):'not reported');
+    text('infraCpu','not reported');text('infraMemory','not reported');text('infraThreads','not reported');
+    text('infraRemoteWorkers',runtime.hostMode==='local-single-process'?'none configured or reported':'not reported');
+    text('infraOwned',reporting?String(runtime.ownedEntityCount||0):'—');
+    text('infraGlobal',reporting?String(runtime.globalEntityCount||0):'—');
+    text('infraUnowned',reporting?String(runtime.unownedEntityCount||0):'—');
+    text('infraOwnershipIssues',reporting?String(runtime.ownershipIssueCount||0):'—');
+    text('infraInterest',reporting?(interest.present===true?'reported':'not reported by schema '+(g.schemaVersion||'unknown')):'not reported');
+    text('infraTerrain',reporting?(terrain.present===true?(terrain.mode||'reported'):'not reported by schema '+(g.schemaVersion||'unknown')):'not reported');
+    text('infraTerrainPeers',reporting&&terrain.present===true?String(terrain.trackedPeerCount||0):'—');
+    text('infraTerrainWarnings',reporting&&terrain.present===true?String(terrain.warningCount||0):'—');
+    text('infraShipDomains',reporting?String(domains.length):'—');
+    text('infraLiveCadence',reporting?String(domains.filter(function(d){return d.liveCadenceExpected===true;}).length):'—');
+    text('infraStaleDeliveries',reporting?String(domains.filter(function(d){return d.staleDelivery===true;}).length):'—');
+    text('infraCheckoutGaps',reporting?String(domains.filter(function(d){return d.aboardCheckoutWarning===true;}).length):'—');
+    renderInfrastructureSelection(runtimeDomainById(selectedRuntimeDomainId));
+    renderWorldInspectorTimeline(g);
   }
   function renderTopology(){
     var canvas=$('topologyCanvas');clear(canvas);

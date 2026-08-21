@@ -6,7 +6,7 @@
   </div>
   <form method="post" action="/admin/logout"><input type="hidden" name="csrf" value="{{csrfTokenAttr}}"><button class="btn ghost" type="submit">Sign out</button></form>
 </div>
-<nav class="nav" aria-label="Control panel sections"><a href="#world">World</a><a href="#simulation">Simulation</a><a href="#streaming">Streaming</a><a href="#terrain">Terrain checkout</a><a href="#operator">Operator</a><a href="#operations">Operations</a><a href="#system">System</a></nav>
+<nav class="nav" aria-label="Control panel sections"><a href="#world">Live game</a><a href="#observatory">Observatory</a><a href="#streaming">Streaming</a><a href="#terrain">Terrain checkout</a><a href="#operator">Operator</a><a href="#operations">Operations</a><a href="#system">System</a></nav>
 
 <div class="banner" id="spiralBanner"><strong>Wire-health warning</strong><span id="spiralText"></span></div>
 <div class="banner" id="downBanner"><strong>Game server not reporting</strong><span id="downText"></span></div>
@@ -37,10 +37,21 @@
 
 {{viewersCard}}
 
-<div class="section-head" id="simulation">Simulation</div>
-<div class="card">
-  <div class="row"><div class="grow"><h2>Simulation fabric</h2></div><div class="fit"><span class="pill ok" id="hostMode">local single-process</span></div></div>
-  <p class="lede" style="margin-top:0">Live ownership topology from the authoritative game loop. Start with the shape of the world, filter the inventory, then inspect one domain. Future workers fit this model without turning the page into one card per process.</p>
+<div class="section-head" id="observatory">World observatory</div>
+<div class="card observatory" id="simulation" data-observatory-mode="world">
+  <div class="row"><div class="grow"><h2>World, simulation &amp; infrastructure</h2></div><div class="fit"><span class="pill ok" id="hostMode">local single-process</span></div></div>
+  <p class="lede" style="margin-top:0">The existing Simulation fabric and release-world map now share three views of the same live state. World answers where; Simulation answers who owns and replicates; Infrastructure answers what this one local process reports. A domain selected in any view remains selected in the other two.</p>
+  <div class="mode-switch" role="tablist" aria-label="Observatory view">
+    <button type="button" role="tab" aria-selected="true" aria-controls="observatoryWorld" id="modeWorld" data-observatory-mode-button="world"><span>World</span><small>Geography &amp; live positions</small></button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="observatorySimulationSummary observatorySimulation" id="modeSimulation" data-observatory-mode-button="simulation"><span>Simulation</span><small>Authority &amp; replication</small></button>
+    <button type="button" role="tab" aria-selected="false" aria-controls="observatoryInfrastructure" id="modeInfrastructure" data-observatory-mode-button="infrastructure"><span>Infrastructure</span><small>One process, honestly</small></button>
+  </div>
+  <div class="selection-rail" aria-live="polite">
+    <div><span class="selection-kicker">Shared selection</span><strong id="observatorySelection">Nothing selected</strong><code id="observatorySelectionId">Choose a live domain on the map or in Simulation.</code></div>
+    <span class="pill warn" id="observatorySelectionState">none</span>
+  </div>
+
+  <section class="mode-panel" id="observatorySimulationSummary" data-observatory-panel="simulation" role="tabpanel" aria-labelledby="modeSimulation" hidden>
   <div class="runtime-overview">
     <div class="host-summary"><div class="host-kicker">Authority host</div><div class="host-name" id="hostIdentity">Local primary</div><div class="host-meta" id="hostSummary">Waiting for runtime topology&hellip;</div></div>
     <div class="runtime-metric"><div class="n" id="runtimeDomainTotal">&mdash;</div><div class="l">Domains</div></div>
@@ -51,7 +62,13 @@
     <div class="runtime-metric"><div class="n" id="runtimeWarningTotal">&mdash;</div><div class="l">Warnings</div></div>
   </div>
   <div class="banner" id="domainWarning"><strong>Domain delivery warning</strong><span id="domainWarningText"></span></div>
+  </section>
+
+  <section class="mode-panel" id="observatoryWorld" data-observatory-panel="world" role="tabpanel" aria-labelledby="modeWorld">
 {{mapBody}}
+  </section>
+
+  <section class="mode-panel" id="observatorySimulation" data-observatory-panel="simulation" role="tabpanel" aria-labelledby="modeSimulation" hidden>
   <div class="topology">
     <div class="topology-bar"><strong>Authority topology</strong><div class="topology-legend"><span><i class="legend-dot"></i>Island</span><span><i class="legend-dot ship"></i>Ship affinity</span><span><i class="legend-dot warn"></i>Warning</span></div></div>
     <div class="topology-canvas" id="topologyCanvas"></div>
@@ -67,18 +84,40 @@
   <p class="muted" id="noDomains" style="display:none;font-size:.78rem">No runtime topology is available. An older game server may still be writing schema-v2 ship telemetry.</p>
   <div class="topology" id="shadowModel">
     <div class="topology-bar"><strong>Interaction shadow model</strong><div class="fit"><span class="pill warn" id="simulationState">not reported</span></div></div>
-    <p class="lede" style="margin-top:.4rem;margin-bottom:.6rem">An <strong>observation overlay</strong>, not authority. Everything above this line is what the game loop actually owns; everything below is what a future scheduler <em>would</em> reason about. It moves nothing, and switching it off changes no gameplay. Pressure is an <strong>uncalibrated</strong> ordinal score &mdash; sort by it, never read it as a measurement.</p>
+    <p class="lede" style="margin-top:.4rem;margin-bottom:.6rem">An <strong>observation overlay</strong>, not authority. Everything above this line is what the game loop actually owns; everything below is what a future scheduler <em>would</em> reason about. It moves nothing, and switching it off changes no gameplay. Pressure is an <strong>uncalibrated</strong> ordinal score &mdash; sort by it, never read it as a measurement. Interaction lines are observed associations, never causal claims.</p>
     <div class="runtime-overview">
       <div class="host-summary"><div class="host-kicker">Shadow observer</div><div class="host-name" id="simulationIdentity">Not reported</div><div class="host-meta" id="simulationSummary">Waiting for the shadow model&hellip;</div></div>
       <div class="runtime-metric"><div class="n" id="simDomainTotal">&mdash;</div><div class="l">Shadow domains</div></div>
       <div class="runtime-metric"><div class="n" id="simEntityTotal">&mdash;</div><div class="l">Tracked entities</div></div>
       <div class="runtime-metric"><div class="n" id="simInteractionTotal">&mdash;</div><div class="l">Interactions</div></div>
-      <div class="runtime-metric"><div class="n" id="simActiveTotal">&mdash;</div><div class="l">Active edges</div></div>
-      <div class="runtime-metric"><div class="n" id="simPressureTotal">&mdash;</div><div class="l">Cross-domain pressure</div></div>
+      <div class="runtime-metric"><div class="n" id="simActiveTotal">&mdash;</div><div class="l">Active observations</div></div>
+      <div class="runtime-metric"><div class="n" id="simPressureTotal">&mdash;</div><div class="l">Uncalibrated pressure</div></div>
     </div>
-    <div class="domain-table-wrap"><table class="domain-table"><thead><tr><th>Interaction</th><th>Kind</th><th>Activity</th><th class="num">Pressure</th><th>Crosses</th></tr></thead><tbody id="simulationInteractions"></tbody></table></div>
+    <div class="domain-table-wrap"><table class="domain-table"><thead><tr><th>Observed pair</th><th>Kind</th><th>Activity</th><th class="num">Uncalibrated pressure</th><th>Domain boundary</th></tr></thead><tbody id="simulationInteractions"></tbody></table></div>
     <div class="domain-footer"><span id="simulationResultCount">0 interactions</span><span id="simulationCadence">&mdash;</span></div>
   </div>
+  </section>
+
+  <section class="mode-panel" id="observatoryInfrastructure" data-observatory-panel="infrastructure" role="tabpanel" aria-labelledby="modeInfrastructure" hidden>
+    <div class="infra-host">
+      <div class="infra-host-identity"><span class="host-kicker">Authority host</span><strong id="infraHostId">local:primary</strong><span id="infraHostMode">local single-process</span></div>
+      <div class="infra-fact"><b>Game process</b><span id="infraProcess">one authoritative poll loop</span></div>
+      <div class="infra-fact"><b>Process uptime</b><span id="infraUptime">&mdash;</span></div>
+      <div class="infra-fact"><b>Snapshot age</b><span id="infraSnapshotAge">&mdash;</span></div>
+      <div class="infra-fact unavailable"><b>CPU</b><span id="infraCpu">not reported</span></div>
+      <div class="infra-fact unavailable"><b>Memory</b><span id="infraMemory">not reported</span></div>
+      <div class="infra-fact unavailable"><b>Threads</b><span id="infraThreads">not reported</span></div>
+      <div class="infra-fact"><b>Remote workers</b><span id="infraRemoteWorkers">none configured or reported</span></div>
+    </div>
+    <p class="truth-note">CPU, memory and thread counters are explicit placeholders because the current stats schema does not publish them. This view does not infer process health from domain counts or invent capacity scores.</p>
+    <div class="infra-grid">
+      <article><h3>Authority &amp; ownership</h3><dl><div><dt>Owned entities</dt><dd id="infraOwned">&mdash;</dd></div><div><dt>Global entities</dt><dd id="infraGlobal">&mdash;</dd></div><div><dt>Unowned</dt><dd id="infraUnowned">&mdash;</dd></div><div><dt>Ownership issues</dt><dd id="infraOwnershipIssues">&mdash;</dd></div></dl></article>
+      <article><h3>Interest &amp; terrain</h3><dl><div><dt>Interest schema</dt><dd id="infraInterest">not reported</dd></div><div><dt>Terrain checkout</dt><dd id="infraTerrain">not reported</dd></div><div><dt>Tracked terrain peers</dt><dd id="infraTerrainPeers">&mdash;</dd></div><div><dt>Terrain warnings</dt><dd id="infraTerrainWarnings">&mdash;</dd></div></dl></article>
+      <article><h3>Replication</h3><dl><div><dt>Ship domains</dt><dd id="infraShipDomains">&mdash;</dd></div><div><dt>Live cadence</dt><dd id="infraLiveCadence">&mdash;</dd></div><div><dt>Stale deliveries</dt><dd id="infraStaleDeliveries">&mdash;</dd></div><div><dt>Checkout gaps</dt><dd id="infraCheckoutGaps">&mdash;</dd></div></dl></article>
+    </div>
+    <div class="infra-selection"><h3>Selected domain on this host</h3><div id="infraSelectionDetail" class="detail-empty compact">Select a domain in World or Simulation. Infrastructure will keep the same selection.</div></div>
+    <div class="infra-selection"><h3>Runtime timeline</h3><ol class="infra-timeline" id="worldInspectorTimeline" aria-label="Recent world inspector events"><li class="muted">Not reported by this game server schema.</li></ol></div>
+  </section>
 </div>
 
 <div class="section-head" id="streaming">Interest &amp; streaming</div>

@@ -22,9 +22,8 @@
   var firstRegionTerrainCount = 0;
   var latestDomains = [];
   var latestRuntimeDomains = [];
-  // The interaction shadow model's latest section, or null when the game server
-  // never reported one. Only the admin fragments read it: an internal observation
-  // overlay has no business on the public map.
+  // Existing bounded observation overlay. It remains visibly labelled as a
+  // shadow model and is never treated as authority or infrastructure capacity.
   var latestSimulation = null;
   var latestTerrain = null;
   var terrainExpandedSlot = -1;

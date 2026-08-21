@@ -80,6 +80,52 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
+        public void Observatory_links_world_simulation_and_infrastructure_without_inventing_workers()
+        {
+            string html = AdminPage.Dashboard("{}", new string('o', 64), ReleaseWorldMap.Json);
+
+            Assert.Contains("role=\"tablist\" aria-label=\"Observatory view\"", html);
+            Assert.Contains("id=\"modeWorld\" data-observatory-mode-button=\"world\"", html);
+            Assert.Contains("id=\"modeSimulation\" data-observatory-mode-button=\"simulation\"", html);
+            Assert.Contains("id=\"modeInfrastructure\" data-observatory-mode-button=\"infrastructure\"", html);
+            Assert.Contains("id=\"observatoryWorld\" data-observatory-panel=\"world\"", html);
+            Assert.Equal(2, Occurrences(html, "data-observatory-panel=\"simulation\""));
+            Assert.Contains("id=\"observatoryInfrastructure\" data-observatory-panel=\"infrastructure\"", html);
+            Assert.Contains(".mode-panel[hidden]{display:none!important}", html);
+
+            Assert.Contains("id=\"observatorySelection\"", html);
+            Assert.Contains("function updateSharedSelection", html);
+            Assert.Contains("selectRuntimeDomain(d.domainId,false)", html);
+            Assert.Contains("selectRuntimeDomain(d.domainId,false)", html);
+
+            Assert.Contains("id=\"infraHostId\">local:primary", html);
+            Assert.Contains("id=\"infraCpu\">not reported", html);
+            Assert.Contains("id=\"infraMemory\">not reported", html);
+            Assert.Contains("id=\"infraThreads\">not reported", html);
+            Assert.Contains("none configured or reported", html);
+            Assert.DoesNotContain("compute score", html, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Worker A", html);
+        }
+
+        [Fact]
+        public void Observatory_keeps_the_shadow_observer_and_accepts_a_bounded_event_ring()
+        {
+            string html = AdminPage.Dashboard("{}", new string('t', 64));
+
+            Assert.Contains("Interaction shadow model", html);
+            Assert.Contains("observer off", html);
+            Assert.Contains("warming", html);
+            Assert.Contains("uncalibrated", html);
+            Assert.Contains("id=\"worldInspectorTimeline\"", html);
+            Assert.Contains("var inspector=g&&g.worldInspector", html);
+            Assert.Contains("events.slice(0,40)", html);
+            Assert.Contains("Not reported by this game server schema.", html);
+            Assert.Contains("ArrowRight", html);
+            Assert.Contains("ArrowLeft", html);
+            Assert.Contains("@media(max-width:760px)", html);
+        }
+
+        [Fact]
         public void Dashboard_has_a_scalable_terrain_checkout_view_with_the_semantic_states()
         {
             string html = AdminPage.Dashboard("{}", new string('c', 64));
