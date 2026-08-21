@@ -218,6 +218,21 @@ namespace WorldsAdriftRebornGameServer.Game
                 return true;
             }
 
+            if (!ShipInteractionEligibility.Allows(
+                    player, targetEntityId, mount.Value, ownsPlayer,
+                    Multiplayer.Helm.ManRadius, out double distanceMetres))
+            {
+                Console.WriteLine("[warning] flight: Man on helm " + targetEntityId
+                    + " rejected for entity " + playerEntityId
+                    + ": target was not checked out, player position was unavailable, or distance "
+                    + (double.IsFinite(distanceMetres)
+                        ? distanceMetres.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " m"
+                        : "was unavailable")
+                    + " exceeded the " + Multiplayer.Helm.ManRadius.ToString("0.##",
+                        System.Globalization.CultureInfo.InvariantCulture) + " m Man radius.");
+                return true;
+            }
+
             long hullEntityId = mount.Value.HullEntityId;
             ManOutcome outcome = _seats.TryMan(playerEntityId, targetEntityId, hullEntityId);
             switch (outcome)
@@ -590,6 +605,46 @@ namespace WorldsAdriftRebornGameServer.Game
                 _domainHost.Register(domain);
             else if (_domainHost != null)
                 _domainHost.Synchronize(domain);
+        }
+
+        /// <summary>
+        /// A player deliberately unfurled canvas on this hull. Unlike a direct
+        /// <see cref="FlightSession.WakeForCanvas"/> call, this service boundary also
+        /// activates a boot-restored/never-manned domain so the heartbeat can consume
+        /// the wake edge. If the hull is still dock-linked, sail motion is a real
+        /// departure and must use the same release-volume lifecycle as helm input.
+        /// </summary>
+        internal bool WakeFromCanvasInteraction(long hullEntityId)
+        {
+            if (!Enabled || !Crafting.BuiltShips.IsBuiltHull(hullEntityId))
+            {
+                return false;
+            }
+
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            if (domain == null)
+            {
+                FixedPointPosition seed = WorldsAdriftRebornGameServer.WorldEntities
+                    .TransformSeedFor(hullEntityId);
+                double seedYaw = Multiplayer.Ship.ShipyardDockingPolicy.YawFromPacked(
+                    WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(hullEntityId));
+                domain = _domains.GetOrAdd(hullEntityId, () =>
+                    new ShipDomain(hullEntityId,
+                        Crafting.BuiltShips.PersistentIndexFor(hullEntityId),
+                        new FlightSession(FlightState.AtRestAt(
+                            seed.MetresX, seed.MetresY, seed.MetresZ, seedYaw))));
+            }
+
+            RefreshDomainMembership(domain);
+            _activeHullIds.Add(hullEntityId);
+            domain.Flight.WakeForCanvas();
+
+            long yardEntityId = Crafting.BuiltShips.ShipyardForHull(hullEntityId);
+            if (yardEntityId != 0)
+            {
+                _departingYardByHull[hullEntityId] = yardEntityId;
+            }
+            return true;
         }
 
         /// <summary>Refreshes host ownership after a mount or detach outside the flight tick.</summary>

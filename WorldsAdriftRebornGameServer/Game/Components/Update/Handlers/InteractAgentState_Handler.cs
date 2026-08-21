@@ -269,7 +269,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         // advertises a matching entry, so an unhandled Activate here
                         // is a client poking at something not interactable yet.
                         bool handled = WorldsAdriftRebornGameServer.PartInteractions
-                            .OnActivateInteraction(entityId, man.target.Id, ownsPlayer);
+                            .OnActivateInteraction(player, entityId, man.target.Id, ownsPlayer);
                         if (!handled)
                         {
                             Console.WriteLine("[info] 1211 Activate on target " + man.target.Id

@@ -54,5 +54,44 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.DoesNotContain("release to neutral before commanding the helm", service,
                 StringComparison.Ordinal);
         }
+
+        [Fact]
+        public void Canvas_wake_activates_restored_hull_and_arms_docked_departure()
+        {
+            string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
+            int wake = service.IndexOf("internal bool WakeFromCanvasInteraction", StringComparison.Ordinal);
+            Assert.True(wake >= 0);
+            string body = service.Substring(wake, service.IndexOf("internal void RefreshDomainOwnership",
+                wake, StringComparison.Ordinal) - wake);
+
+            Assert.Contains("_activeHullIds.Add(hullEntityId)", body, StringComparison.Ordinal);
+            Assert.Contains("domain.Flight.WakeForCanvas()", body, StringComparison.Ordinal);
+            Assert.Contains("Crafting.BuiltShips.ShipyardForHull(hullEntityId)", body,
+                StringComparison.Ordinal);
+            Assert.Contains("_departingYardByHull[hullEntityId] = yardEntityId", body,
+                StringComparison.Ordinal);
+
+            string interaction = Source("WorldsAdriftRebornGameServer", "Game",
+                "PartInteractionService.cs");
+            Assert.Contains("Flight\n                            .WakeFromCanvasInteraction(hullEntityId.Value)",
+                interaction, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Helm_and_sail_interactions_use_server_side_physical_eligibility()
+        {
+            string flight = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
+            string parts = Source("WorldsAdriftRebornGameServer", "Game", "PartInteractionService.cs");
+            string eligibility = Source("WorldsAdriftRebornGameServer", "Game",
+                "ShipInteractionEligibility.cs");
+
+            Assert.Contains("ShipInteractionEligibility.Allows(", flight, StringComparison.Ordinal);
+            Assert.Contains("Multiplayer.Helm.ManRadius", flight, StringComparison.Ordinal);
+            Assert.Contains("ShipInteractionEligibility.Allows(", parts, StringComparison.Ordinal);
+            Assert.Contains("PartInteractionPolicy.ActivateRadius", parts, StringComparison.Ordinal);
+            Assert.Contains("SentEntities\n                .WasSent(peer, targetEntityId)", eligibility,
+                StringComparison.Ordinal);
+            Assert.Contains("TryCenterFor(peerId", eligibility, StringComparison.Ordinal);
+        }
     }
 }

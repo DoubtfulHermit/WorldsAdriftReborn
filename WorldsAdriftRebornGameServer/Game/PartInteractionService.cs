@@ -1,4 +1,5 @@
 using Bossa.Travellers.Ship;
+using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
 
 namespace WorldsAdriftRebornGameServer.Game
@@ -55,7 +56,8 @@ namespace WorldsAdriftRebornGameServer.Game
         /// consumed it. <paramref name="ownsPlayer"/> is the 1211 ownership fact -
         /// handed in, not re-derived, exactly like the flight service's Man path.
         /// </summary>
-        internal bool OnActivateInteraction(long playerEntityId, long targetEntityId, bool ownsPlayer)
+        internal bool OnActivateInteraction(ENetPeerHandle player, long playerEntityId,
+            long targetEntityId, bool ownsPlayer)
         {
             if (!ownsPlayer)
             {
@@ -65,15 +67,36 @@ namespace WorldsAdriftRebornGameServer.Game
                 return false;
             }
 
+            bool isSail = WorldsAdriftRebornGameServer.Sails.IsSail(targetEntityId);
+            Crafting.MountedParts.Mount? mounted = Crafting.MountedParts.MountFor(targetEntityId);
+            double distanceMetres = double.PositiveInfinity;
+            if (isSail
+                && (!mounted.HasValue || !ShipInteractionEligibility.Allows(
+                    player, targetEntityId, mounted.Value, ownsPlayer,
+                    Multiplayer.Ship.PartInteractionPolicy.ActivateRadius,
+                    out distanceMetres)))
+            {
+                Console.WriteLine("[warning] part-interact: Activate on sail " + targetEntityId
+                    + " rejected for entity " + playerEntityId
+                    + ": target was not checked out, player position was unavailable, or distance "
+                    + (double.IsFinite(distanceMetres)
+                        ? distanceMetres.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " m"
+                        : "was unavailable")
+                    + " exceeded the "
+                    + Multiplayer.Ship.PartInteractionPolicy.ActivateRadius.ToString("0.##",
+                        System.Globalization.CultureInfo.InvariantCulture) + " m Activate radius.");
+                return true;
+            }
+
             // SAIL: toggle the furl ledger, persist, push 1303. Power rides the same
             // bit (1 rigged / 0 furled): the shipped client's SailBehaviour multiplies
             // wind force by it on the physics worker, so any future physics reader
             // sees a sane multiplier; the pure client only animates off `unfurled`.
             // A zero-time visualiser can publish several completed Activate events
             // while E remains held. Consume one rising edge and re-arm only when
-            // InteractAgentState reports its release/default lifecycle.
-            if (WorldsAdriftRebornGameServer.Sails.IsSail(targetEntityId)
-                && !_activationEdges.TryBegin(playerEntityId, targetEntityId))
+            // InteractAgentState reports its release/default lifecycle. Eligibility
+            // is checked first so a rejected packet cannot mutate that edge state.
+            if (isSail && !_activationEdges.TryBegin(playerEntityId, targetEntityId))
             {
                 Console.WriteLine("[info] part-interact: duplicate held Activate on sail "
                     + targetEntityId + " by entity " + playerEntityId + " ignored.");
@@ -92,8 +115,8 @@ namespace WorldsAdriftRebornGameServer.Game
                     long? hullEntityId = WorldsAdriftRebornGameServer.Sails.HullFor(targetEntityId);
                     if (hullEntityId.HasValue)
                     {
-                        WorldsAdriftRebornGameServer.ShipDomains.ByHull(hullEntityId.Value)
-                            ?.Flight.WakeForCanvas();
+                        WorldsAdriftRebornGameServer.Flight
+                            .WakeFromCanvasInteraction(hullEntityId.Value);
                     }
                 }
 
