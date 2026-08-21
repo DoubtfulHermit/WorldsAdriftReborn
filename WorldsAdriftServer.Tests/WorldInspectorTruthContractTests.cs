@@ -98,7 +98,8 @@ namespace WorldsAdriftServer.Tests
 
             string html = AdminPage.Dashboard("{}", new string('a', 64));
             Assert.Contains("d.domainId===selectedRuntimeDomainId", html, StringComparison.Ordinal);
-            Assert.Contains("selectedRuntimeDomainId='';renderDomainInventory()", html,
+            Assert.Contains("if(selectedRuntimeDomainId)selectedRuntimeDomainId='';"
+                + "updateSharedSelection(null);renderDomainInventory()", html,
                 StringComparison.Ordinal);
             Assert.DoesNotContain("d.label===selectedRuntimeDomainId", html,
                 StringComparison.Ordinal);
