@@ -380,6 +380,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Centred_lever_canvas_receives_the_same_relative_wind_velocity_as_full_throttle()
+        {
+            const double massKg = 3094.0;
+            const double heading = 2.82;
+            var ship = new ShipPropulsion(massKg, 0.0, 2);
+
+            FlightState centred = FlyFrom(
+                HeadingOf(heading), LeverCentred, 1200, ship, unfurledSails: 2);
+
+            double sailN = ShipForceModel.SailForwardNewtons(
+                2, heading, Tuning.SailPowerNewtons);
+            double expected = ShipForceModel.BaselineDriveSpeedMps(massKg)
+                + ShipForceModel.TerminalSpeedMps(sailN, massKg);
+
+            Assert.Equal(expected, centred.SpeedCmdMps, 2);
+        }
+
+        [Fact]
         public void The_old_model_did_not_move_a_stationary_ship_under_sail()
         {
             // The counterpart to the test above, kept deliberately: it documents the

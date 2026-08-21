@@ -281,12 +281,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // bow, so heading finally matters to a bare hull, and the wind
                 // streaks the client draws become something to steer by.
                 double windAlongHeading = 0.0;
-                if (throttle > 0.0)
+                bool canvasIsDriving = Math.Abs(sailNewtons) >= 1e-9;
+                if (throttle > 0.0 || canvasIsDriving)
                 {
                     double alongMps = tuning.WindVariation.IsEnabled
                         ? WindField.AlongHeading(in wind, yaw) * ShipForceModel.WindMultiplier(ship.MassKg)
                         : ShipForceModel.BaselineDriveSpeedMps(ship.MassKg, tuning.WindSpeedMps);
-                    windAlongHeading = alongMps * throttle;
+                    // Wind is independent of the helm lever. Keep the deliberate
+                    // throttle-scaled bare-hull affordance, but once canvas is
+                    // driving the ship the full relative-wind velocity must enter
+                    // the drag equation even with the lever centred. Previously
+                    // SailForwardNewtons moved the hull while StepSpeed saw still
+                    // air, contradicting both the recovered equation and the
+                    // comment above that sails and hull read the same sample.
+                    windAlongHeading = canvasIsDriving ? alongMps : alongMps * throttle;
                 }
 
                 speedCmd = ShipForceModel.StepSpeed(
