@@ -54,8 +54,6 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 foreach (PickedUpEvent pickup in clientComponentUpdate.pickedUpEntityEvent)
                 {
                     long liftedPartId = pickup.entityId.Id;
-                    MountedParts.SetCarried(entityId, liftedPartId);
-
                     // Lifting a part that is currently MOUNTED detaches it: drop its mount
                     // record so it reads as loose-and-mountable again and a subsequent
                     // PlacePart can re-position it. Without this the re-lifted part stays
@@ -64,6 +62,29 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     // Capture the mount BEFORE removing it, so its owner survives into the
                     // loose re-persist below.
                     MountedParts.Mount? priorMount = MountedParts.MountFor(liftedPartId);
+                    long? existingCarrier = MountedParts.CarrierOf(liftedPartId);
+                    string requesterUid = CharacterOwnership.UidForEntity(entityId);
+                    string mountedShipOwner = priorMount.HasValue
+                        ? BuiltShips.OwnerFor(priorMount.Value.HullEntityId)
+                        : "";
+                    bool requesterOwnsMountedShip = string.IsNullOrEmpty(mountedShipOwner)
+                        || string.Equals(requesterUid, mountedShipOwner, StringComparison.Ordinal);
+                    Multiplayer.Ship.PartPickupReject pickupVerdict =
+                        Multiplayer.Ship.PartPickupPolicy.Evaluate(
+                            LooseParts.Is(liftedPartId),
+                            existingCarrier.HasValue && existingCarrier.Value != entityId,
+                            priorMount.HasValue,
+                            requesterOwnsMountedShip);
+                    if (pickupVerdict != Multiplayer.Ship.PartPickupReject.Accept)
+                    {
+                        Console.WriteLine("[warning] 1239: REJECTED pickup by player entity "
+                            + entityId + " of part " + liftedPartId + ": " + pickupVerdict + ".");
+                        continue;
+                    }
+
+                    // Only record carry after every authority check. Before this gate a
+                    // forged 1239 could detach an arbitrary entity or another owner's part.
+                    MountedParts.SetCarried(entityId, liftedPartId);
                     bool wasMounted = MountedParts.Unmount(liftedPartId);
 
                     // A lifted part stops being operable: clear its interactable-part

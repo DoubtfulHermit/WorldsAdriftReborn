@@ -20,10 +20,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
         /// <summary>
         /// The carried entity is not a crafted LOOSE ship part this server spawned - e.g.
-        /// the player lifted a world prop, or (the common live cause) the loose-part ledger
-        /// no longer knows the id because it was crafted in a PRIOR server run (the ledger is
-        /// in-memory only this milestone). Split out from the old single PartNotMountable so a
-        /// live rejection says WHICH of the two mountability facts failed at a glance.
+        /// the player lifted a world prop or forged a 1239 pickup. Split out from the old
+        /// single PartNotMountable so a live rejection says WHICH of the two mountability
+        /// facts failed at a glance.
         /// </summary>
         CarriedNotALoosePart,
 
@@ -38,8 +37,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <summary>The named ship root is not a built (docked) ship this server spawned.</summary>
         ShipNotBuilt,
 
+        /// <summary>The target ship has a durable owner and it is not the requesting character.</summary>
+        ShipNotOwned,
+
         /// <summary>The target surface is not a Unity child of the named ship root.</summary>
         TargetNotChildOfShip,
+
+        /// <summary>The client supplied a non-finite or fixed-point-unrepresentable local offset.</summary>
+        InvalidPlacementTransform,
     }
 
     /// <summary>
@@ -68,7 +73,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         ///   <item><paramref name="carriedIsLoosePart"/> - the carried entity is a crafted loose part this server spawned (in the loose-part ledger).</item>
         ///   <item><paramref name="carriedNotAlreadyMounted"/> - the carried part is not already recorded as mounted on a ship.</item>
         ///   <item><paramref name="shipIsBuilt"/> - the named <c>shipId</c> is a built ship hull this server spawned.</item>
+        ///   <item><paramref name="requesterOwnsShip"/> - the target hull is legacy/unowned or its durable owner uid matches the requester.</item>
         ///   <item><paramref name="targetIsChildOfShip"/> - the named <c>parentId</c> surface resolves (the hull itself, a built-deck of it, or a part already mounted on it) to <c>shipId</c>. This is the server mirror of the client's per-attachmentType surface rule: the client only sends a PlacePart for a surface whose Unity layer+tag match the part's attachmentType (helm/lamp/sail -&gt; the "ShipDeck"-tagged deck, engine/wing -&gt; the ship side), and every such surface is a Unity CHILD of the ship root. The server cannot see Unity layers, so it re-checks the child-of-ship invariant those surfaces all share.</item>
+        ///   <item><paramref name="placementTransformIsRepresentable"/> - the hull-local coordinates are finite and fit the Q52.12 wire representation.</item>
         /// </list>
         /// </summary>
         public static PartMountReject EvaluatePlace(
@@ -77,16 +84,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             bool carriedIsLoosePart,
             bool carriedNotAlreadyMounted,
             bool shipIsBuilt,
-            bool targetIsChildOfShip)
+            bool requesterOwnsShip,
+            bool targetIsChildOfShip,
+            bool placementTransformIsRepresentable)
         {
             if (!ownsPlayerEntity) return PartMountReject.NotOwner;
             if (!hasCarriedPart) return PartMountReject.NoCarriedPart;
             if (!carriedIsLoosePart) return PartMountReject.CarriedNotALoosePart;
             if (!carriedNotAlreadyMounted) return PartMountReject.PartAlreadyMounted;
             if (!shipIsBuilt) return PartMountReject.ShipNotBuilt;
+            if (!requesterOwnsShip) return PartMountReject.ShipNotOwned;
             if (!targetIsChildOfShip) return PartMountReject.TargetNotChildOfShip;
+            if (!placementTransformIsRepresentable) return PartMountReject.InvalidPlacementTransform;
             return PartMountReject.Accept;
         }
+
+        /// <summary>
+        /// The only transform validation possible without inventing a hull collision
+        /// proxy: all coordinates must be finite and representable by Q52.12. Exact
+        /// surface/exclusion checks remain unavailable to this headless server.
+        /// </summary>
+        public static bool IsRepresentableLocalOffset(float x, float y, float z)
+        {
+            double maxMetres = long.MaxValue / (double)FixedPointPosition.UnitsPerMetre;
+            return IsRepresentable(x, maxMetres)
+                && IsRepresentable(y, maxMetres)
+                && IsRepresentable(z, maxMetres);
+        }
+
+        private static bool IsRepresentable(float value, double maxMetres) =>
+            !float.IsNaN(value) && !float.IsInfinity(value)
+            && System.Math.Abs((double)value) <= maxMetres;
 
         /// <summary>
         /// The mounted part's LOCAL offset from the hull, in fixed-point units, from

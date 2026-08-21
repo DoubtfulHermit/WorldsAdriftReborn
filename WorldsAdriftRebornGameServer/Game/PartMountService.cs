@@ -87,10 +87,17 @@ namespace WorldsAdriftRebornGameServer.Game
             bool carriedIsLoosePart = hasCarried && Crafting.LooseParts.Is(carried.Value);
             bool carriedNotAlreadyMounted = hasCarried && !MountedParts.Is(carried.Value);
             bool shipIsBuilt = Crafting.BuiltShips.IsBuiltHull(shipId);
+            string requesterUid = CharacterOwnership.UidForEntity(playerEntityId);
+            string shipOwnerUid = Crafting.BuiltShips.OwnerFor(shipId);
+            bool requesterOwnsShip = string.IsNullOrEmpty(shipOwnerUid)
+                || string.Equals(requesterUid, shipOwnerUid, StringComparison.Ordinal);
             bool targetChild = TargetIsChildOfShip(parentId, shipId);
+            bool representableTransform = PartMount.IsRepresentableLocalOffset(
+                pp.shipLocalPosition.X, pp.shipLocalPosition.Y, pp.shipLocalPosition.Z);
 
             PartMountReject verdict = PartMount.EvaluatePlace(
-                ownsPlayerEntity, hasCarried, carriedIsLoosePart, carriedNotAlreadyMounted, shipIsBuilt, targetChild);
+                ownsPlayerEntity, hasCarried, carriedIsLoosePart, carriedNotAlreadyMounted,
+                shipIsBuilt, requesterOwnsShip, targetChild, representableTransform);
 
             if (verdict != PartMountReject.Accept)
             {
@@ -102,8 +109,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             // OWNER = the mounting player's durable character uid, the same identity the
             // crafted part was owned by. Persisted on the mount record.
-            string mounterUid = CharacterOwnership.UidForEntity(playerEntityId);
-            Commit(carried.Value, shipId, pp, mounterUid);
+            Commit(carried.Value, shipId, pp, requesterUid);
             MountedParts.ClearCarried(playerEntityId);
         }
 

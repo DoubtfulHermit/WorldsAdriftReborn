@@ -18,10 +18,9 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
     ///   * 1108/1236/1013: the lamp is on and functional and done spawning;
     ///   * 1099: the part's own itemType with no salvage flow.
     ///
-    /// In-memory only, exactly like the built-ship / node / shipyard ledgers:
-    /// "persistent" for this milestone means "visible to every connected client until
-    /// the server restarts". A restart-durable loose-part ledger is the documented
-    /// follow-on (the built-ship ledger's persistence work is the template).
+    /// The live index is in-memory, while <see cref="Multiplayer.Persistence.LoosePartRecord"/>
+    /// is its restart-durable form. Restore allocates fresh entity ids and repopulates this
+    /// index before any peer connects.
     ///
     /// NOT thread-safe, deliberately: the server is a single poll loop and the craft
     /// completion is drained on it, like every other writer here.

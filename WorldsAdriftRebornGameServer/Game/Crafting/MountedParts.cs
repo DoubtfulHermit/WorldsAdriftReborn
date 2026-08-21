@@ -161,5 +161,15 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         {
             return CarriedByPlayer.TryGetValue(playerEntityId, out long partId) ? partId : (long?)null;
         }
+
+        /// <summary>The current carrier of a part, or null. Linear over connected players only.</summary>
+        internal static long? CarrierOf(long partEntityId)
+        {
+            foreach (KeyValuePair<long, long> entry in CarriedByPlayer)
+            {
+                if (entry.Value == partEntityId) return entry.Key;
+            }
+            return null;
+        }
     }
 }

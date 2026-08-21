@@ -30,7 +30,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                     carriedIsLoosePart: true,
                     carriedNotAlreadyMounted: true,
                     shipIsBuilt: true,
-                    targetIsChildOfShip: true));
+                    requesterOwnsShip: true,
+                    targetIsChildOfShip: true,
+                    placementTransformIsRepresentable: true));
         }
 
         [Fact]
@@ -40,7 +42,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // every other fact wrong, NotOwner is the reason reported.
             Assert.Equal(
                 PartMountReject.NotOwner,
-                PartMount.EvaluatePlace(false, false, false, false, false, false));
+                PartMount.EvaluatePlace(false, false, false, false, false, false, false, false));
         }
 
         [Fact]
@@ -56,7 +58,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                     carriedIsLoosePart: false,
                     carriedNotAlreadyMounted: false,
                     shipIsBuilt: true,
-                    targetIsChildOfShip: true));
+                    requesterOwnsShip: true,
+                    targetIsChildOfShip: true,
+                    placementTransformIsRepresentable: true));
         }
 
         [Fact]
@@ -67,7 +71,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // Named distinctly from PartAlreadyMounted so a live log says which failed.
             Assert.Equal(
                 PartMountReject.CarriedNotALoosePart,
-                PartMount.EvaluatePlace(true, true, carriedIsLoosePart: false, carriedNotAlreadyMounted: true, shipIsBuilt: true, targetIsChildOfShip: true));
+                PartMount.EvaluatePlace(true, true, carriedIsLoosePart: false, carriedNotAlreadyMounted: true, shipIsBuilt: true, requesterOwnsShip: true, targetIsChildOfShip: true, placementTransformIsRepresentable: true));
         }
 
         [Fact]
@@ -78,7 +82,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // reason from CarriedNotALoosePart.
             Assert.Equal(
                 PartMountReject.PartAlreadyMounted,
-                PartMount.EvaluatePlace(true, true, carriedIsLoosePart: true, carriedNotAlreadyMounted: false, shipIsBuilt: true, targetIsChildOfShip: true));
+                PartMount.EvaluatePlace(true, true, carriedIsLoosePart: true, carriedNotAlreadyMounted: false, shipIsBuilt: true, requesterOwnsShip: true, targetIsChildOfShip: true, placementTransformIsRepresentable: true));
         }
 
         [Fact]
@@ -86,7 +90,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         {
             Assert.Equal(
                 PartMountReject.ShipNotBuilt,
-                PartMount.EvaluatePlace(true, true, true, true, shipIsBuilt: false, targetIsChildOfShip: true));
+                PartMount.EvaluatePlace(true, true, true, true, shipIsBuilt: false, requesterOwnsShip: true, targetIsChildOfShip: true, placementTransformIsRepresentable: true));
+        }
+
+        [Fact]
+        public void A_mount_onto_another_characters_owned_ship_is_rejected()
+        {
+            Assert.Equal(
+                PartMountReject.ShipNotOwned,
+                PartMount.EvaluatePlace(true, true, true, true, shipIsBuilt: true,
+                    requesterOwnsShip: false, targetIsChildOfShip: true,
+                    placementTransformIsRepresentable: true));
         }
 
         [Fact]
@@ -97,7 +111,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // deck-child make-or-break, re-checked server-side.
             Assert.Equal(
                 PartMountReject.TargetNotChildOfShip,
-                PartMount.EvaluatePlace(true, true, true, true, true, targetIsChildOfShip: false));
+                PartMount.EvaluatePlace(true, true, true, true, true, requesterOwnsShip: true,
+                    targetIsChildOfShip: false, placementTransformIsRepresentable: true));
+        }
+
+        [Theory]
+        [InlineData(float.NaN, 0f, 0f)]
+        [InlineData(float.PositiveInfinity, 0f, 0f)]
+        [InlineData(float.MaxValue, 0f, 0f)]
+        public void An_unrepresentable_local_offset_is_rejected(float x, float y, float z)
+        {
+            Assert.False(PartMount.IsRepresentableLocalOffset(x, y, z));
+            Assert.Equal(
+                PartMountReject.InvalidPlacementTransform,
+                PartMount.EvaluatePlace(true, true, true, true, true, true, true,
+                    placementTransformIsRepresentable: false));
+        }
+
+        [Fact]
+        public void An_ordinary_finite_local_offset_is_representable()
+        {
+            Assert.True(PartMount.IsRepresentableLocalOffset(12.5f, -4f, 80f));
         }
 
         [Fact]
@@ -107,7 +141,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // and matches what the client itself would have refused on first.
             Assert.Equal(
                 PartMountReject.NoCarriedPart,
-                PartMount.EvaluatePlace(true, hasCarriedPart: false, carriedIsLoosePart: true, carriedNotAlreadyMounted: true, shipIsBuilt: false, targetIsChildOfShip: false));
+                PartMount.EvaluatePlace(true, hasCarriedPart: false, carriedIsLoosePart: true,
+                    carriedNotAlreadyMounted: true, shipIsBuilt: false, requesterOwnsShip: false,
+                    targetIsChildOfShip: false, placementTransformIsRepresentable: false));
         }
 
         // ------------------------------------------------------------------

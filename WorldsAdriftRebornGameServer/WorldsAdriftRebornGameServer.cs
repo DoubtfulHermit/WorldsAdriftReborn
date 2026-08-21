@@ -206,6 +206,7 @@ namespace WorldsAdriftRebornGameServer
                 // exists to prevent.
                 Flight.OnPlayerGone(ownEntity.Value);
                 PartInteractions.OnPlayerGone(ownEntity.Value);
+                Game.Crafting.MountedParts.ClearCarried(ownEntity.Value);
 
                 // Fuel MIRRORS that same 1111 throttle stream, so it must forget the
                 // player wherever flight does or the two hold different opinions of a
