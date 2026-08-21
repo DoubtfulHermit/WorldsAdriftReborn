@@ -74,9 +74,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // revision; it is 13 rather than 12 because it was written against a
             // v10 base and 11 and 12 were spoken for by the time it landed. The
             // version is asserted here rather than compared to itself so a field
-            // added without a bump has to walk past a red test.
-            Assert.Equal(13, StatsSnapshot.SchemaVersion);
-            Assert.Equal(13, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            // added without a bump has to walk past a red test. v14 adds the
+            // `simulation` section - the interaction shadow model - which is
+            // observation only and carries its own `present`/`enabled` pair so a
+            // reader can tell an older server from one with the observer switched
+            // off from one that has not warmed up yet.
+            Assert.Equal(14, StatsSnapshot.SchemaVersion);
+            Assert.Equal(14, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

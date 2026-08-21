@@ -199,8 +199,55 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                     if(componentId == 8065)
                     {
-                        Blueprint.Data bData = new Blueprint.Data(new BlueprintData("Player"));
+                        // Every entity in this world was sent the literal "Player"
+                        // here, and every entity that is not a WEATHER WALL still is -
+                        // byte for byte, including an entity with no registration.
+                        // Only a wall gets "WallSegment", which is the blueprint the
+                        // WallSegment prefab wants. The decision is one function in
+                        // Multiplayer.Walls.WallPolicy rather than an expression
+                        // here, because this literal is read by EVERY entity and this
+                        // assembly has no test project to catch a widening that
+                        // caught the wrong ones.
+                        Blueprint.Data bData = new Blueprint.Data(
+                            new BlueprintData(WallSegmentWire.BlueprintNameFor(entityId)));
                         obj = bData;
+                    }
+                    else if(componentId == 1204)
+                    {
+                        // 1204 WallSegmentState - THE WHOLE WEATHER-WALL FEATURE.
+                        //
+                        // Four numbers, and from them the shipped client renders a
+                        // storm wall: opaque billowing cloud, rain, storm debris, an
+                        // audio mix, and ambient lightning bolts it spawns entirely
+                        // by itself. WallSegmentVisualizer has exactly ONE [Require]
+                        // and this is it.
+                        //
+                        // `length` IS A HALF-LENGTH - WallData does
+                        // P1 = position - forward*Length, P2 = position + forward*Length -
+                        // and `orientation` is the UNIT direction along the wall, from
+                        // which the visualiser sets transform.forward and nothing
+                        // else. The position comes from 190602, which is seeded FIRST
+                        // (WallPolicy.SeedComponents says why that order matters).
+                        //
+                        // A null seed - every non-wall entity, and every entity at all
+                        // when WAREBORN_WALLS is unset - leaves obj null, which the
+                        // shared tail below reports as NoSeedForEntity. That is the
+                        // pre-feature behaviour for an id with no branch, so "off" is
+                        // byte-identical.
+                        //
+                        // DO NOT ADD A 1229 BRANCH BESIDE THIS ONE. See
+                        // Game/WallSegmentWire.cs for the four reasons.
+                        Multiplayer.Walls.WallSegmentSeed? wall = WallSegmentWire.SeedFor(entityId);
+                        if (wall.HasValue)
+                        {
+                            Multiplayer.Walls.WallSegmentSeed seed = wall.Value;
+                            obj = new WallSegmentState.Data(new WallSegmentStateData(
+                                seed.WallTypeId,
+                                seed.WallId,
+                                new Improbable.Math.Vector3d(
+                                    seed.OrientationX, seed.OrientationY, seed.OrientationZ),
+                                seed.HalfLength));
+                        }
                     }
                     else if(componentId == 190602)
                     {
@@ -623,16 +670,41 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // (null-guarded), leaving the check to whatever
                         // ParentingMassAdderVisualizer.totalMass happens to be - so a
                         // generous seed is the belt-and-braces that keeps climb working.
-                        // No server mass model exists (1257 is known-absent), so the
-                        // honest seed is "lift is not the limiting factor": a large
+                        // The honest seed is "lift is not the limiting factor": a large
                         // totalLift, zero torque, reliable=true. VERIFIED ctor
                         // (gencode ShipLiftStateData: totalLift, totalTorque, reliable).
                         // Gated on IsBuiltHull so no other entity's 1258 is answered here.
+                        //
+                        // NOTE (2026-08-20): an older version of this comment claimed
+                        // "no server mass model exists (1257 is known-absent)". That is
+                        // STALE and was misleading in a load-bearing way. We DO serve
+                        // 1257 ParentingMassAdderState, fully per-material, ~2600 lines
+                        // below at the `componentId == 1257` branch, via ShipMassKgFor ->
+                        // HullMassCalculator.HullMassKg. Nor is AtlasMultiplier zero on
+                        // our client: EndOfTheWorld_Patch.cs pins it to 1f (a44aebb).
+                        // So climb works because TotalLift really is 1e6 against hull
+                        // masses of 500-1700 kg - not because either side is absent.
+                        // See docs/research/findings-material-mass.md section 4.
+                        //
+                        // The seed itself lives in Multiplayer, at
+                        // Materials/ShipLiftPolicy.SeededTotalLiftKg, and NOT as a
+                        // literal here. Reason, found by mutation testing on
+                        // 2026-08-20: this assembly has no test project, so while the
+                        // number sat inline it was guarded by nothing at all. Changing
+                        // it from 1e6 to 1e3 - which grounds every ship in the live
+                        // world, the legacy 2-cell hull already massing 1071 kg -
+                        // passed all 5,422 tests in silence. ShipLiftPolicyTests now
+                        // holds the seed against the heaviest buildable hull, so that
+                        // edit fails a test. Do not re-inline this value.
                         obj = new ShipLiftState.Data(new ShipLiftStateData(
-                            1000000f, new Improbable.Math.Vector3f(0f, 0f, 0f), true));
+                            (float)Multiplayer.Materials.ShipLiftPolicy.SeededTotalLiftKg,
+                            new Improbable.Math.Vector3f(0f, 0f, 0f), true));
 
                         Console.WriteLine("[info] seeding 1258 ShipLiftState for built hull entity " + entityId
-                            + " (totalLift=1e6): the sky core lifts, vertical input stays unblocked.");
+                            + " (totalLift=" + Multiplayer.Materials.ShipLiftPolicy.SeededTotalLiftKg.ToString("0")
+                            + " kg, margin " + Multiplayer.Materials.ShipLiftPolicy.LiftMargin().ToString("0")
+                            + "x over the heaviest buildable hull): the sky core lifts, "
+                            + "vertical input stays unblocked.");
                     }
                     else if(componentId == 190601)
                     {
@@ -1779,12 +1851,29 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     // the entity genuinely HAS it, not a seed.
                     else if(componentId == 1254)
                     {
-                        IslandLightningTimerState.Data ilData = new IslandLightningTimerState.Data(new IslandLightningTimerStateData(50 * 1000, // must be >= 30  and below must be > 0 to trigger lightning rumbles. multiply by 1000 to actually get the value you want ingame (50 in this case)
-                                                                                                                            0, // must be 0 or you will set the island into a storm
+                        // THE SEED IS NOW ANSWERED FROM THE LIVE STORM SCHEDULE when
+                        // WAREBORN_STORMS is on, so a player who logs in during a
+                        // storm is seeded INTO it rather than being told a clear sky
+                        // and then hearing nothing until it ends. Null - storms off,
+                        // or an entity that is not a scheduled island - falls through
+                        // to the literal below, byte-identical to what this server
+                        // has always sent.
+                        //
+                        // The countdown "must be >= 30" and the end "must be 0 or you
+                        // will set the island into a storm" were empirical notes; the
+                        // mechanism behind both is now established and is why the
+                        // storm is driven through the INTS and never through
+                        // isLightningActive. See Game.IslandStormWire.
+                        Multiplayer.Islands.IslandStormUpdate? storm =
+                            IslandStormWire.SeedFor(entityId);
+
+                        IslandLightningTimerState.Data ilData = new IslandLightningTimerState.Data(new IslandLightningTimerStateData(
+                                                                                                                            storm?.MillisTillNextLightning ?? 50 * 1000, // must be >= 30  and below must be > 0 to trigger lightning rumbles. multiply by 1000 to actually get the value you want ingame (50 in this case)
+                                                                                                                            storm?.MillisTillLightningEnd ?? 0, // 0 outside a storm; > 0 IS the storm switch (14.8.2)
                                                                                                                             1234,
                                                                                                                             1234,
-                                                                                                                            false,
-                                                                                                                            1,
+                                                                                                                            false, // NEVER true: it can teleport the island to Y -250..-1500 (14.8.2)
+                                                                                                                            (int)(storm?.Generation ?? 1),
                                                                                                                             new Improbable.Collections.List<EntityId> { new EntityId(2) }));
                         obj = ilData;
                     }

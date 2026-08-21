@@ -702,6 +702,11 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["shipModel"] = s.ShipModel.Json;
             game["interest"] = s.Interest.Json;
             game["skyWhale"] = s.SkyWhale.Json;
+            // The interaction shadow model. Deliberately a SIBLING of "runtime"
+            // rather than a field inside it: "runtime" is the authoritative
+            // ownership topology and this is an observational overlay, and the panel
+            // has to be able to label the two differently.
+            game["simulation"] = s.Simulation.Json;
             game["runtime"] = new JObject
             {
                 ["hostMode"] = s.RuntimeHostMode,

@@ -1567,6 +1567,150 @@ type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
 exact release wall placement as missing are superseded. Wall behavior remains
 unimplemented.
 
+### Interaction shadow model (local, off by default)
+
+The observation layer above domain ownership. `LocalDomainHost` already answers
+"who owns what"; nothing answered **"what is expensive to pull apart"**, and
+that is the question any future placement decision has to ask first. Behind
+`WAREBORN_SIMULATION_MODEL`, default **0**. Branch
+`feat/simulation-shadow-model`. Nothing is deployed.
+
+| variable | default | what it does |
+|---|---|---|
+| `WAREBORN_SIMULATION_MODEL` | `0` (off) | arms the observer. Only the exact string `1` enables it |
+
+**It only observes.** With the flag off, `SimulationShadowRuntime` never invokes
+the observation supplier at all — and that supplier is the only channel to live
+state, so a disabled observer cannot have read, and therefore cannot have
+perturbed, a ship, a player or an interest set. That is asserted structurally in
+`SimulationShadowRuntimeTests`, not promised in a comment. Even enabled it sends
+nothing, owns nothing and moves nothing; no hot path reads it.
+
+- **Core** — `Multiplayer/Simulation`: `SimulationEntityId`, `InteractionEdge`
+  (kind + ordinal strength + latency sensitivity + observed activity),
+  `InteractionPressure`, `SimulationWorldModel`, `WorldSnapshot`,
+  `SimulationDiagnostics`. Engine-agnostic; `SimulationCorePurityTests` enforces
+  that three ways. It reuses the existing `SimulationDomainId` deliberately —
+  two spellings of `ship:893` would make the two halves of the inspector
+  impossible to join.
+- **Adapter** — `Multiplayer/Simulation/Wareborn`: a plain observation record
+  and the projection that turns it into a world. The four first edges are
+  **containment** (aboard), **control** (helm), **interest** (resource checkout,
+  aggregated at the island DOMAIN, never per node) and **proximity** (ship near
+  island). `InteractionKind.Environment` is declared and never produced — that
+  is the wind wall's seam.
+- **Diagnostics** — `[sim]` lines on stdout every 5 s, never per tick.
+- **Inspector** — stats schema **v14** `simulation` section; the admin
+  Simulation card grows an "Interaction shadow model" block *below* the
+  authoritative ownership topology, labelled as an observation overlay.
+
+**⚠ `pressure` is UNCALIBRATED.** Nobody has measured a message rate, a physics
+contact rate or a migration cost. It is an ordinal ranking so a panel can sort
+by it. Do not gate behaviour on it; the moment something does, invented numbers
+become load-bearing and the first real measurement becomes a regression.
+
+**⚠ Members will read low until entities bind.** Island domains own nothing at
+boot — a soak on 2026-08-20 logged `[sim] domain island:haven kind=island
+members=1`, and that is faithful: `[domain-host] ... owned=0` with 127
+registrations still waiting for their `AddEntityOp`. The shadow model reports
+the ownership host, it does not guess ahead of it.
+
+**Deliberately absent**, because the vision doc's "do not freeze this API until
+real domain implementations expose what is actually required" beats the
+handover's PR-1 wish list: `SimulationContract`, `ConsistencyClass`,
+`FidelityClass`, free interaction-strength doubles, conserved-quantity string
+lists, a graph partitioner — and any `Tick` on a domain.
+
+### Understorms (local, off by default) — S1 of the storm plan
+
+The island lightning event that refreshes resources, server-side and complete.
+Behind `WAREBORN_STORMS`, which defaults to **0**; with it unset this server is
+byte-identical on the wire to one built without the feature. Branch
+`feat/understorm-s1`. Nothing is deployed.
+
+It adds **no component, no migration and no client change**. 1254
+`IslandLightningTimerState` is already seeded on every island, and the shipped
+`IslandLightningTimerVisualizer` that reads it is baked onto **255 of 255**
+island bundles (PROVED by a UnityPy type-tree sweep — the bundles are
+compressed, so grep cannot see this). The whole feature is that this server
+stops pinning 1254's two integers and starts scheduling them:
+`estimatedMilliTillNextLightning` drives the client's own 30-second rumble and
+camera shake within 300 m, and `estimatedMilliTillLightningEnd > 0` **is** the
+client's storm switch. When **an island's** storm ends, **that island's** trees,
+metal nodes and fuel canisters are restored (S2). The world-wide
+`ResetHarvestResources()` survives only as the authenticated operator's
+`reset-resources all`.
+
+| variable | default | what it does |
+|---|---|---|
+| `WAREBORN_STORMS` | `0` (off) | the master switch |
+| `WAREBORN_STORM_CADENCE_SECONDS` | `6300` (105 min) | per-island storm interval (RECOVERED — `TreeHarvest.UnderstormCadence`) |
+| `WAREBORN_STORM_DURATION_SECONDS` | `45` | how long one storm runs |
+| `WAREBORN_STORM_JITTER_FRACTION` | `0.2` | spread of islands' storms across the cadence, clamped to [0, 0.5] |
+| `WAREBORN_STORM_COUNTDOWN_REFRESH_SECONDS` | `8` | how often the countdown is re-pushed during the warning. **Floored at 8** — see below |
+
+**⚠ Two things a future agent must not re-derive.**
+
+1. **The client's countdown does not tick down on its own.**
+   `TimeEstimationSmoother.StepAndSmooth()` computes a decayed value and returns
+   it *without ever storing it*; `smoothed` is written only by `OnUpdatedValue`,
+   and only when `Mathf.Abs(new - held) > 7f`. It is a shipped bug. So the
+   warning exists only while the server re-pushes the countdown, and only when
+   each push moves it by **more than seven seconds**. A 5-second refresh buys
+   packets and changes nothing on screen. That is why the refresh interval has a
+   floor rather than a ceiling.
+2. **`isLightningActive` must never be written true.**
+   `IslandLocalTransformBehaviour.HandleLightningActiveUpdated(true)` writes the
+   island's transform to End-of-the-World doomsday code that lerps Y toward
+   −250…−1500 m. The bool buys nothing — the visualiser switches on the int.
+   Three absences currently defuse it (empty 1042 `Option`s; no island transform
+   authority granted; and the behaviour is on **0 of 255** bundles), and none of
+   them is ours to rely on. The update type has no bool field at all.
+
+**Known divergence from retail, stated rather than hidden:** placement is
+RESTORED, not re-rolled (retail's client re-sampled the island surface each
+time — §14.6.3). §14.10's S3 closes that. The other S1 divergence — one
+world-wide reset per generation at the *last* island's storm end — is **closed
+by S2** (below). With storms on and `WAREBORN_TREE_RESPAWN_SECONDS` unset,
+per-tree regrowth stops and the forest returns with the lightning, which is
+retail's shape; setting that variable is the revert path. Felled logs are never
+regrown by a storm.
+
+Not yet seen by a human. See §14.10/§14.11 of `docs/plans/feature-roadmap.md`
+and the maintainer test script in the S1 branch's report.
+
+#### S2 — per-island reset (branch `feat/understorm-s2`, NOT deployed)
+
+S1 was deployed and watched on 2026-08-20, and the one player-facing defect it
+found was **timing**: the reset landed **212 s** after the first island's storm
+started, under a clear sky (10:59:57 → 11:03:29 CEST, MEASURED). The mechanism
+was right — it restored exactly the 3 trees and 1 node the maintainer had
+harvested — but a global reset can only honestly fire once per generation, at
+the *last* island's storm end.
+
+S2 scopes it. Each of `TreeHarvest`, `NodeRegistry`, `MetalHarvest` and
+`FuelCanisterRegistry` gained a `ResetAll(Func<long,bool> include)` overload;
+`ResourceInterestService` exposes the `_resourceIslands` map it already builds
+for per-island checkout; `ResetHarvestResourcesOn(IslandId)` joins the two; and
+`IslandStormService` keeps a per-island reset generation.
+
+Headless at production's exact configuration (tier1 = 47 islands, 900 s, 0.2,
+45 s): worst gap from an island's own storm START to its own reset is **45.05 s**
+— the storm's own length plus one 20 Hz loop turn — and 36 of the 47 resets land
+before the last island has even begun to storm.
+
+Two traps recorded because they are invisible from the outside:
+
+* the reset call must sit **outside** the 1254 push's early exits, or an island
+  whose `AddEntityOp` has not run silently restores nothing *and* replays every
+  generation it slept through when it finally does;
+* `_resourceIslands` is **empty when spatial interest is off**, so ownership
+  falls back to the same `ClosestIsland` the map is built from. Production reads
+  `WAREBORN_INTEREST_RADIUS_M=120` (PROVED, read live 2026-08-20), so the map is
+  populated there — the fallback is for the off configuration.
+
+No new component, no migration, no client change. Nothing deployed.
+
 ## 10. Known risks and unfinished work
 
 - **Panel placement:** WAPatch `2026.08.14-7` is awaiting visual acceptance.

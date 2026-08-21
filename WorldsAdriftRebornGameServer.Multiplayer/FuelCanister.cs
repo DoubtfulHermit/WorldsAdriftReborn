@@ -222,11 +222,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public int Count => _byEntityId.Count;
 
         /// <summary>Restores every partially used or depleted canister.</summary>
-        public int ResetAll()
+        public int ResetAll() => ResetAll(null);
+
+        /// <summary>
+        /// The same restore, SCOPED to the canisters <paramref name="include"/>
+        /// accepts - an understorm strikes ONE island. Null means the whole world.
+        /// </summary>
+        public int ResetAll(Func<long, bool>? include)
         {
             int changed = 0;
-            foreach (Canister canister in _byEntityId.Values)
+            foreach (KeyValuePair<long, Canister> entry in _byEntityId)
             {
+                if (include != null && !include(entry.Key)) continue;
+                Canister canister = entry.Value;
                 if (canister.Shots != 0 || canister.Depleted) changed++;
                 canister.Shots = 0;
                 canister.Depleted = false;

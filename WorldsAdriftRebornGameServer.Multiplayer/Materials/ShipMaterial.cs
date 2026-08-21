@@ -53,14 +53,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
     ///   LIFT behaviour ("Cooling Factor", atlas lift), not electricity - see the
     ///   findings document on the lightning question before wiring it to anything.
     ///
-    /// * <see cref="Hardness"/>, <see cref="Durability"/>,
-    ///   <see cref="StressResistance"/>, <see cref="HeatResistance"/> - CHOSEN. The
+    /// * <see cref="Hardness"/> and <see cref="StressResistance"/> - CHOSEN. The
     ///   AXES are recovered (every one of the 24 retail descriptions is a sentence
     ///   about this exact set, and the dev blog names "strength (resilience),
-    ///   colour, conductivity, heat-dissipation"), but the per-material numbers
-    ///   lived on the dead GSIM worker and on a community research site whose data
-    ///   API is gone and unarchived. These values are authored to be faithful to
-    ///   the recovered descriptions, and nothing more is claimed for them.
+    ///   colour, conductivity, heat-dissipation"), but no source measures these two
+    ///   per material. They are authored to be faithful to the recovered
+    ///   descriptions, and nothing more is claimed for them.
+    ///
+    /// * <see cref="Durability"/> and <see cref="HeatResistance"/> -
+    ///   COMMUNITY-MEASURED for the twelve metals, CHOSEN elsewhere.
+    ///   CORRECTED 2026-08-20: these two were documented here as CHOSEN and they are
+    ///   not. Every one of the twelve metal values is an EXACT match, 12 of 12, to a
+    ///   measured column - Durability to wing-science "Casing / Health" (Closed Beta
+    ///   0.1.3.3, by Gouki) and HeatResistance to engine-science MECHANICAL
+    ///   INTERNALS "Overheat Limit". <see cref="MaterialCatalog"/> has always graded
+    ///   them correctly, so the two files contradicted each other and this one was
+    ///   the wrong one. Labelling measured data as invented is the same class of
+    ///   provenance error as the reverse: it invites a future reader to overwrite
+    ///   real numbers with taste. The woods, retail's three invented metals and this
+    ///   project's two additions genuinely are CHOSEN on both axes - no table covers
+    ///   them - and the per-row grading in <see cref="MaterialCatalog"/> says which
+    ///   is which.
     /// </summary>
     public sealed class ShipMaterial
     {
@@ -142,13 +155,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
         /// <summary>0..1. CHOSEN, faithful to the recovered description.</summary>
         public double Hardness { get; }
 
-        /// <summary>0..1. CHOSEN, faithful to the recovered description.</summary>
+        /// <summary>
+        /// 0..1. COMMUNITY-MEASURED for the twelve metals wing-science covers - its
+        /// "Casing / Health" column, normalised so the best performer is 1.0, and
+        /// reproduced here 12 of 12 exactly. CHOSEN for the woods, for orthite,
+        /// epilar and eternium, and for cobalt and aurium.
+        /// </summary>
         public double Durability { get; }
 
         /// <summary>0..1. CHOSEN, faithful to the recovered description.</summary>
         public double StressResistance { get; }
 
-        /// <summary>0..1. CHOSEN, faithful to the recovered description.</summary>
+        /// <summary>
+        /// 0..1. COMMUNITY-MEASURED for the twelve metals engine-science covers - its
+        /// MECHANICAL INTERNALS "Overheat Limit" material effectiveness, 12 of 12
+        /// exactly. Deliberately NOT the combustion-internals overheat column, which
+        /// measures heat DISSIPATION and ranks gold, tin and lead top; see the
+        /// <see cref="MaterialCatalog"/> remarks. CHOSEN for the woods, for orthite,
+        /// epilar and eternium, and for cobalt and aurium.
+        /// </summary>
         public double HeatResistance { get; }
 
         /// <summary>True when the mass had to be invented (retail never published one).</summary>

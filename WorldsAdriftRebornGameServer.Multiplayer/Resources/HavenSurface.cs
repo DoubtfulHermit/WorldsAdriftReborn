@@ -73,6 +73,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
         /// </summary>
         public const int DepositTargetCount = 40;
 
+        /// <summary>
+        /// THE UNDERSTORM RE-ROLL POOL (S3): how many deposit SEATS to generate, as
+        /// opposed to how many are OCCUPIED at once (<see cref="DepositTargetCount"/>).
+        ///
+        /// Retail re-rolled ore and fuel-pod placement on every understorm - the
+        /// client re-sampled its own island mesh for fresh positions (roadmap
+        /// §14.6.3, PROVED). This server places offline and deterministically, so the
+        /// equivalent is to generate a POOL of valid seats once and let each storm
+        /// choose which forty of them are occupied.
+        ///
+        /// 300 is a SATURATING request, not a count: the greedy min-spacing pass runs
+        /// out of 22 m-separated ground on Haven at <b>107 seats</b> (MEASURED - 1
+        /// anchor + 106 generated, over the real <see cref="DepositConfig"/> including
+        /// its exclusions), so any target above that yields the same 107. Asking for
+        /// 300 states the intent "every seat the island can hold" without pinning a
+        /// number that a surface or clearance change would silently invalidate.
+        ///
+        /// TWO PROPERTIES MAKE THIS SAFE, and both are asserted in the test suite:
+        ///
+        /// 1. <b>Prefix stability.</b> The generator is a greedy pass over a fixed
+        ///    hash order, so a larger target can only ever APPEND. The pool's first
+        ///    forty seats are byte-identical to <see cref="DepositLocals"/> - the
+        ///    layout production runs today - which is why generation 0 is the current
+        ///    world and no boot behaviour changes. MEASURED 39/39 on the generated
+        ///    tail plus the pinned anchor.
+        /// 2. <b>Every pair in the pool is already >= <see cref="DepositMinSpacing"/>
+        ///    apart</b>, because the pool itself was thinned by that same pass. So ANY
+        ///    subset of the pool is a valid layout, and the re-roll cannot produce a
+        ///    rock carpet however it chooses. This is what lets the storm pick seats
+        ///    freely without re-running placement or inventing a second policy.
+        /// </summary>
+        public const int DepositRerollPoolCount = 300;
+
         /// <summary>Trees need flatter ground than deposits so trunks stand naturally.</summary>
         public const double TreeMinUpwardNormal = 0.94;
 
@@ -155,6 +188,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
 
         private static IReadOnlyList<SurfaceSample>? _samples;
         private static IReadOnlyList<GeneratedPlacement>? _depositLocals;
+        private static IReadOnlyList<GeneratedPlacement>? _depositPool;
         private static IReadOnlyList<GeneratedPlacement>? _treeLocals;
         private static IReadOnlyList<GeneratedPlacement>? _fuelLocals;
         private static IReadOnlyList<GeneratedPlacement>? _lootLocals;
@@ -463,6 +497,48 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
                 _depositLocals = all;
             }
             return _depositLocals;
+        }
+
+        /// <summary>
+        /// THE FULL SEAT POOL the understorm re-roll draws from (S3): the same
+        /// deterministic layout as <see cref="DepositLocals"/>, generated out to
+        /// <see cref="DepositRerollPoolCount"/> instead of stopping at
+        /// <see cref="DepositTargetCount"/>.
+        ///
+        /// This is deliberately the SAME generator over the SAME surface and the SAME
+        /// <see cref="DepositConfig"/> - only the target count differs. S2's lesson was
+        /// that two classifications which can disagree will eventually disagree in
+        /// front of a player; a second placement policy would be that mistake again,
+        /// one layer down. There is exactly one set of rules about where a deposit may
+        /// stand on Haven, and both the boot layout and the re-roll read it.
+        ///
+        /// Because the generator is a greedy prefix, <c>DepositPool().Take(40)</c> IS
+        /// <see cref="DepositLocals"/>. Cached like its siblings; still no RNG and no
+        /// clock, so the pool is identical on every restart and a re-roll can be
+        /// described entirely by which seat indices are occupied.
+        /// </summary>
+        public static IReadOnlyList<GeneratedPlacement> DepositPool()
+        {
+            if (_depositPool == null)
+            {
+                GeneratedPlacement[] anchors = { ProvenDepositLocal };
+                SurfacePlacementConfig config = new SurfacePlacementConfig(
+                    minUpwardNormal: DepositMinUpwardNormal,
+                    minReachableHeightMetres: ResourceMinHeight,
+                    maxReachableHeightMetres: ResourceMaxHeight,
+                    minSpacingMetres: DepositMinSpacing,
+                    targetCount: DepositRerollPoolCount,
+                    exclusions: DepositExclusions());
+
+                IReadOnlyList<GeneratedPlacement> generated =
+                    SurfacePlacementGenerator.Generate(Samples, config, anchors);
+
+                List<GeneratedPlacement> all =
+                    new List<GeneratedPlacement>(1 + generated.Count) { ProvenDepositLocal };
+                all.AddRange(generated);
+                _depositPool = all;
+            }
+            return _depositPool;
         }
 
         /// <summary>

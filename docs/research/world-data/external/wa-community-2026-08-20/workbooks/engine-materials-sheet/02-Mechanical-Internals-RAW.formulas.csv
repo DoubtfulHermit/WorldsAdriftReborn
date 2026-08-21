@@ -1,0 +1,41 @@
+Engine,,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze
+Materials:,,, ,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze
+Casing:,240.0,,,,Mechanical Internals:,Aluminium,,,,Mechanical Internals:,Iron,,,,Mechanical Internals:,Nickel,,,,Mechanical Internals:,Lead
+Combustion Internals:,167.0,,,,Propeller:,Bronze,,,,Propeller:,Bronze,,,,Propeller:,Bronze,,,,Propeller:,Bronze
+Mechanical Internals:,98.0,,,,,,,,,,,,,,,,,,,,
+Propeller:,165.0,,,,Fuel Efficiency:,31.0,,,,Fuel Efficiency:,31.0,,,,Fuel Efficiency:,32.0,,,,Fuel Efficiency:,30.0
+,,,,,Overheat Limit:,42.0,,,,Overheat Limit:,50.0,,,,Overheat Limit:,47.0,,,,Overheat Limit:,48.0
+Base Stats,,,,,Spin Up:,66.0,,,,Spin Up:,59.0,,,,Spin Up:,61.0,,,,Spin Up:,63.0
+Resilience:,47.0,,,,Weight:,18 kg,,,,Weight:,27 kg,,,,Weight:,32 kg,,,,Weight:,42 kg
+Fuel Efficiency:,24.0,,,,,,,,,,,,,,,,,,,,
+Overheat Limit:,34.0,,,,,,,,,,,,,,,,,,,,
+Power:,24.0,,,,,,,,,,,,,,,,,,,,
+Spin Up:,47.0,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze
+,,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze
+,,,,,Mechanical Internals:,Titanium,,,,Mechanical Internals:,Steel,,,,Mechanical Internals:,Copper,,,,Mechanical Internals:,Gold
+,,,,,Propeller:,Bronze,,,,Propeller:,Bronze,,,,Propeller:,Bronze,,,,Propeller:,Bronze
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,Fuel Efficiency:,35.0,,,,Fuel Efficiency:,39.0,,,,Fuel Efficiency:,33.0,,,,Fuel Efficiency:,34.0
+,,,,,Overheat Limit:,44.0,,,,Overheat Limit:,46.0,,,,Overheat Limit:,53.0,,,,Overheat Limit:,54.0
+,,,,,Spin Up:,59.0,,,,Spin Up:,62.0,,,,Spin Up:,59.0,,,,Spin Up:,60.0
+,,,,,Weight:,21 kg,,,,Weight:,28 kg,,,,Weight:,35 kg,,,,Weight:,48 kg
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze,,,,Casing:,Bronze
+,,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze,,,,Combustion Internals:,Bronze
+,,,,,Mechanical Internals:,Tin,,,,Mechanical Internals:,Bronze,,,,Mechanical Internals:,Silver,,,,Mechanical Internals:,Tungsten
+,,,,,Propeller:,Bronze,,,,Propeller:,Bronze,,,,Propeller:,Bronze,,,,Propeller:,Bronze
+,,,,,,,,,,,,,,,,,,,,,
+,,,,,Fuel Efficiency:,30.0,,,,Fuel Efficiency:,32.0,,,,Fuel Efficiency:,32.0,,,,Fuel Efficiency:,35.0
+,,,,,Overheat Limit:,42.0,,,,Overheat Limit:,42.0,,,,Overheat Limit:,51.0,,,,Overheat Limit:,64.0
+,,,,,Spin Up:,58.0,,,,Spin Up:,64.0,,,,Spin Up:,62.0,,,,Spin Up:,61.0
+,,,,,Weight:,24 kg,,,,Weight:,29 kg,,,,Weight:,38 kg,,,,Weight:,52 kg

@@ -435,6 +435,10 @@
     var domainWarning=$('domainWarning');
     if(warnings.length){domainWarning.classList.add('show','spiral');text('domainWarningText',warnings.join('; ')+'.');}
     else{domainWarning.classList.remove('show','spiral');}
+    // The observation overlay. Set BEFORE the domain detail is re-selected below,
+    // so the shadow rows in the detail grid are for this poll and not the last one.
+    latestSimulation=g.simulation||null;
+    renderSimulationShadow();
     renderTopology();
     renderLiveWorldMap(reporting,g.ageSeconds);
     if(selectedRuntimeDomainId&&latestRuntimeDomains.some(function(d){return d.domainId===selectedRuntimeDomainId;}))selectRuntimeDomain(selectedRuntimeDomainId);

@@ -1,0 +1,902 @@
+{
+  "$comment": "Consolidated per-material mass/durability research. See docs/research/findings-material-mass.md for the argument, the negatives and the controls. NOT a server config file - nothing reads this.",
+  "shipped_mass_epoch": {
+    "READ_THIS_FIRST": "EPOCH TRAP. The surviving weight tables are DIFFERENT PATCH EPOCHS, not competing measurements of one truth. Their material ORDERINGS genuinely differ (final era: gold > tungsten; calculator era: tungsten > gold). PICK AN EPOCH AND BE INTERNALLY CONSISTENT; NEVER MIX ROWS ACROSS EPOCHS. Averaging or cherry-picking the best-evidenced value per material produces a ranking no version of the game ever had.",
+    "epoch_shipped": "final-era",
+    "field_carrying_it": "materials[].mass_used_by_wareborn_server, and materials[].mass_per_unit_kg.wiki_alpha6 - they are equal for all 23 retail materials",
+    "verified_2026_08_20": "MaterialCatalog.cs parsed and compared row-for-row: 23 of 23 retail materials match exactly. There is exactly one mass table in the codebase. ShipMaterial.cs declares the property but carries no values; itemData.json has no mass field.",
+    "why_this_epoch": [
+      "1. RIGHT QUANTITY (decisive): it is PANEL weight-per-unit, and HullMassCalculator computes hull mass from hull cells and panels. The calculator-era table is ENGINE-COMPONENT WPU, a different component class, additionally tier-scaled by wpuFactors [1, 0.875, 0.7777, 0.7083].",
+      "2. ONLY COMPLETE SET: the only table carrying orthite, epilar and eternium.",
+      "3. LATEST EPOCH: matches the Update 29.4 resilience data now held."
+    ],
+    "THE_MISTAKE_TO_AVOID": "Do NOT import tungsten 0.74 from tungsten_resolution below into the shipped table. That back-solve is correct and it belongs to the CALCULATOR era, where it corrects that sheet's 0.80. The final era independently publishes 0.70. Importing 0.74 leaves 22 final-era rows and one calculator-era row.",
+    "mechanical_guard": "WorldsAdriftRebornGameServer.Multiplayer/Materials/MaterialMassEpoch.cs enumerates the forbidden foreign-epoch values (incl. tungsten 0.74 and 0.80) and MaterialMassEpochTests fails with a message naming the trap.",
+    "known_deliberate_epoch_crossing": "AtlasLiftPerQualityKg is CALCULATOR-era while mass is FINAL-era. Defensible - lift is a different quantity and three independent sources publish the same rates - but recorded so it is not mistaken for the bug above. See findings-material-mass.md section 2.7."
+  },
+  "generated": "2026-08-20 (updated by feat/massalign: shipped_mass_epoch added, tungsten_resolution scoped to its epoch, 5 sources added)",
+  "join_key": "itemTypeId, joins docs/research/gathering/data/materials.json",
+  "provenance_labels": {
+    "RECOVERED": "from a retail artefact (shipped client, itemData.json, or the archived official-adjacent wiki)",
+    "COMMUNITY-MEASURED": "player measurement from an archived community spreadsheet; patch-dated where the sheet says so",
+    "DERIVED": "computed by this investigation from a COMMUNITY-MEASURED series; arithmetic shown in the findings doc",
+    "CHOSEN": "authored by this project; no source",
+    "not-established": "looked for, not found; control recorded in the findings doc"
+  },
+  "sources": {
+    "wiki_alpha6": {
+      "label": "RECOVERED",
+      "what": "Worlds Adrift wiki Metal + Wood 'Mass Table', Alpha 6 (final balance)",
+      "path": "docs/research/archive/worlds-adrift-wiki/pages/{Metal,Wood}.wikitext",
+      "caveat_verbatim": "All of the following data is a specific weight per unit for panels. Each component is believed to have a different weight per unit, but the order of weight remains the same.",
+      "note": "This is the table WorldsAdriftRebornGameServer.Multiplayer/Materials/MaterialCatalog.cs ships, verified row-for-row."
+    },
+    "community_waengenius": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "'WEIGHT' column (col D) of the Engine Power Calculator Data sheet; WAEngenius reads it as standardWpU",
+      "path": "docs/research/world-data/external/wa-community-2026-08-16/workbooks/waengenius-engine-power-data/00-CombustionPowerBoosts.csv",
+      "patch": "undated"
+    },
+    "community_panel_kg": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "'Large Panel Kg' column; equals community_waengenius x 40 for all 19 shared materials",
+      "path": "docs/research/world-data/external/wa-community-2026-08-16/workbooks/panel-resilience-cannon-shots/00-Kg-Per-Shot.csv",
+      "patch": "Early Access 0.2.2.1 (sheet self-label; also says 'In-Progress', 'New patch is weird.')"
+    },
+    "community_standard_wpu_tab": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "the separate '03-Standard-WPU' tab, woods only; ~1.33x the col-D wood weights and NOT the column WAEngenius consumes",
+      "path": "docs/research/world-data/external/wa-community-2026-08-16/workbooks/waengenius-engine-power-data/03-Standard-WPU.csv",
+      "patch": "undated"
+    },
+    "wing_science": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "raw in-game wing kg readings (one slot's material varied, all else fixed) + Casing 'Health' ranking",
+      "path": "docs/research/world-data/external/wa-community-2026-08-16/workbooks/wing-science/",
+      "patch": "Worlds Adrift Closed Beta 0.1.3.3",
+      "author": "Gouki (Morrow#9503)"
+    },
+    "engine_science": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "combustion/mechanical-internals/propeller material effectiveness incl. overheat limit",
+      "path": "docs/research/world-data/external/wa-community-2026-08-16/workbooks/engine-science/00-Sheet1.csv",
+      "patch": "undated"
+    },
+    "falagar_2017": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "'Advanced Resource Stats' by Falagar, magicgameworld.com, dated 2017-07-06 - an INDEPENDENT per-material weight-per-unit table, 12 metals + 8 woods",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20/guides/magicgameworld-advanced-resource-stats.html",
+      "patch": "2017-07-06 (earliest source we hold)"
+    },
+    "cannon_science_recovered": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "'Worlds Adrift Cannon Science' / 'Cannon Materials Sheet v1.0 - Beta version 0.1.0 by Fallout' - the previously-deleted sheet, Formatted tab recovered from the Wayback Machine. Carries PER-CANNON-COMPONENT kg, which is a different quantity from panel weight-per-unit.",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20/workbooks/cannon-science/",
+      "patch": "Beta 0.1.0",
+      "caveat": "00-Formatted.derived.csv is OUR parse of the Wayback HTML, not a Google export. Authoritative bytes are wayback-20190602112029-edit.html. The three RAW tabs are NOT recoverable - Wayback only rendered the active tab."
+    },
+    "engine_materials_sheet": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "'Engine Materials Sheet' by Gouki - a SIXTH workbook, absent from the 2026-08-16 snapshot, still live and downloaded 2026-08-20. Carries the per-material Casing Health durability ranking.",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20/workbooks/engine-materials-sheet/",
+      "patch": "Worlds Adrift Closed Beta 0.1.3.3"
+    },
+    "sciencesheet_xls": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "'weight' column of sciencesheet.xls, Worlds-Adrift-Engine-Science repo (looy3). 15 metals: the FINAL-ERA table verbatim, incl. orthite/epilar/eternium. Also carries a 'resilience boost' column (exact multiples of 1/78) and a 'cooling factor' column.",
+      "url": "https://raw.githubusercontent.com/looy3/Worlds-Adrift-Engine-Science/master/data/sciencesheet.xls",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/engine-science-sciencesheet-xls/",
+      "note": "INDEPENDENT corroboration of the wiki_alpha6 mass table: 15 of 15 metals, zero residual. Before this, the wiki was the sole witness for the table we ship.",
+      "epoch": "final-era"
+    },
+    "metal_chart_endurance": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "'Metal Chart': per-metal ENDURANCE and ENDUR/WEIGHT, plus a calculator-era WEIGHT column (.26kg aluminium, .38kg iron, .40kg steel).",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/metal-chart-endurance/00-published.csv",
+      "epoch": "calculator-era",
+      "wired": false
+    },
+    "node_resilience_sheet": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "Q1-Q10 salvage-pulses-to-falloff per metal, by Ryu_Khan#3747 / Simayi. Independently confirms the flat 'Large Panel - 60 Resilience'.",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/node-resilience-sheet/00-export.csv",
+      "wired": false
+    },
+    "fureniku_weight_lift": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "Fureniku's ship calculator: calculator-era 'Unit Weight' AND the atlas 'KG per Quality' lift rates, side by side in one table.",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/fureniku-weight-lift/",
+      "significance": "This is the epoch trap caught in the wild, and the provenance of our own lift column: its weights are calculator era (tungsten 0.80) while its lift rates are exactly the ones we ship. Also reproduces iron's anomalous +1 max lift (61, not 60)."
+    },
+    "atlas_lift_table_third_copy": {
+      "label": "COMMUNITY-MEASURED",
+      "what": "A third independent copy of the atlas lift table, Q1-Q10 per metal - the same rates our AtlasLiftPerQualityKg ships.",
+      "path": "docs/research/world-data/external/wa-community-2026-08-20b/workbooks/sheet-1fPpHFB3kPaV6LNJoWZET1ooEoZSSgy_hbBXfBHCwFGs/00-export.csv"
+    }
+  },
+  "quality_scaling": {
+    "mass": {
+      "value": "none",
+      "label": "RECOVERED",
+      "evidence_verbatim": "Using higher quality materials will give a higher statistic boost to the part you are making, without any additional cost of weight.",
+      "source": "docs/research/archive/worlds-adrift-wiki/pages/Metal.wikitext",
+      "server": "encoded as HullMassCalculator.QualityAffectsMass = false"
+    },
+    "part_stats": {
+      "value": "Q1-Q10 per-material boost curves exist for Combustion Internals Power and Propeller Power",
+      "label": "COMMUNITY-MEASURED",
+      "source": "community_waengenius 00-CombustionPowerBoosts.csv columns E..X"
+    },
+    "durability": {
+      "value": null,
+      "label": "not-established",
+      "note": "the only quality-varying durability data is 13 usable cannon-shot rows spanning Q2-Q10; see durability_caveat"
+    }
+  },
+  "tier_wpu_factors": {
+    "values": [
+      1,
+      0.875,
+      0.7777,
+      0.7083
+    ],
+    "label": "COMMUNITY-MEASURED",
+    "source": "waengenius/source/app/app.js:23 EngineSchem.wpuFactors",
+    "formula_verbatim": "mass += materialData[slot.material].unitMass * EngineSchem.wpuFactors[schem.tier-1] * schem.components[ss].matCount",
+    "note": "schematic-tier discount on a COMPONENT's material count. Independently corroborated: the community 'Sheet3' wood column equals the 03-Standard-WPU wood column x 0.7083 for all 7 woods it covers."
+  },
+  "durability_caveat": "There is no per-material durability CONSTANT from any retail artefact. Two community proxies exist and they do not agree: wing-science Casing 'Health' (12 metals, CB 0.1.3.3) ranks Lead top-3 at 0.972, while the panel cannon-shot experiment gives Lead the FEWEST shots (11) of any material measured. The cannon experiment has 13 usable rows out of 200; the other 187 are #DIV/0! from empty shot counts and must not be read as zero.",
+  "materials": [
+    {
+      "itemTypeId": "aluminium",
+      "name": "Aluminium",
+      "category": "Metal",
+      "rarity": 3,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.33,
+        "community_waengenius": 0.26,
+        "community_panel_kg_div40": 0.26,
+        "wing_science_implied_DERIVED": 0.244,
+        "falagar_2017": 0.26
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.694,
+        "engine_mech_overheat_limit_0_1": 0.3333,
+        "large_panel_kg": 10.4
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.33,
+      "disagreement": {
+        "spread_kg": 0.086,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "ash",
+      "name": "Ash Wood",
+      "category": "Wood",
+      "rarity": "",
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.22,
+        "community_waengenius": 0.26,
+        "community_panel_kg_div40": 0.26,
+        "community_standard_wpu_tab": 0.35,
+        "falagar_2017": 0.35
+      },
+      "durability": {
+        "large_panel_kg": 10.4
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.22,
+      "disagreement": {
+        "spread_kg": 0.04,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "birch",
+      "name": "Birch Wood",
+      "category": "Wood",
+      "rarity": "",
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.2,
+        "community_waengenius": 0.24,
+        "community_panel_kg_div40": 0.24,
+        "community_standard_wpu_tab": 0.32,
+        "falagar_2017": 0.32
+      },
+      "durability": {
+        "panel_cannon_shots": [
+          {
+            "quality": 6,
+            "cannon_shots_to_destroy_large_panel": 12
+          }
+        ],
+        "large_panel_kg": 9.6
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.2,
+      "disagreement": {
+        "spread_kg": 0.04,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "bronze",
+      "name": "Bronze",
+      "category": "Metal",
+      "rarity": 0,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.42,
+        "community_waengenius": 0.42,
+        "community_panel_kg_div40": 0.42,
+        "wing_science_implied_DERIVED": 0.42,
+        "falagar_2017": 0.42
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.694,
+        "engine_mech_overheat_limit_0_1": 0.5,
+        "panel_cannon_shots": [
+          {
+            "quality": 6,
+            "cannon_shots_to_destroy_large_panel": 12
+          }
+        ],
+        "large_panel_kg": 16.8
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.42
+    },
+    {
+      "itemTypeId": "cedar",
+      "name": "Cedar Wood",
+      "category": "Wood",
+      "rarity": "",
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.13,
+        "community_waengenius": 0.15,
+        "community_panel_kg_div40": 0.15,
+        "community_standard_wpu_tab": 0.2,
+        "falagar_2017": 0.2
+      },
+      "durability": {
+        "panel_cannon_shots": [
+          {
+            "quality": 6,
+            "cannon_shots_to_destroy_large_panel": 10
+          }
+        ],
+        "large_panel_kg": 6.0
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.13
+    },
+    {
+      "itemTypeId": "chestnut",
+      "name": "Chestnut Wood",
+      "category": "Wood",
+      "rarity": "",
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.17,
+        "community_waengenius": 0.19,
+        "community_panel_kg_div40": 0.19,
+        "community_standard_wpu_tab": 0.25,
+        "falagar_2017": 0.25
+      },
+      "durability": {
+        "large_panel_kg": 7.6
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.17
+    },
+    {
+      "itemTypeId": "copper",
+      "name": "Copper",
+      "category": "Metal",
+      "rarity": 1,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.55,
+        "community_waengenius": 0.5,
+        "community_panel_kg_div40": 0.5,
+        "wing_science_implied_DERIVED": 0.491,
+        "falagar_2017": 0.5
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.667,
+        "engine_mech_overheat_limit_0_1": 0.5833,
+        "panel_cannon_shots": [
+          {
+            "quality": 4,
+            "cannon_shots_to_destroy_large_panel": 12
+          }
+        ],
+        "large_panel_kg": 20.0
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.55,
+      "disagreement": {
+        "spread_kg": 0.059,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "elm",
+      "name": "Elm Wood",
+      "category": "Wood",
+      "rarity": "",
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.18,
+        "community_waengenius": 0.22,
+        "community_panel_kg_div40": 0.22,
+        "community_standard_wpu_tab": 0.29,
+        "falagar_2017": 0.28
+      },
+      "durability": {
+        "large_panel_kg": 8.8
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.18,
+      "disagreement": {
+        "spread_kg": 0.04,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "epilar",
+      "name": "Epilar",
+      "category": "Metal",
+      "rarity": 2,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.46
+      },
+      "durability": {
+        "status": "not-established"
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.46
+    },
+    {
+      "itemTypeId": "eternium",
+      "name": "Eternium",
+      "category": "Metal",
+      "rarity": 3,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.5
+      },
+      "durability": {
+        "status": "not-established"
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.5
+    },
+    {
+      "itemTypeId": "gold",
+      "name": "Gold",
+      "category": "Metal",
+      "rarity": 3,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.73,
+        "community_waengenius": 0.69,
+        "community_panel_kg_div40": 0.69,
+        "wing_science_implied_DERIVED": 0.702,
+        "falagar_2017": 0.69
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.833,
+        "engine_mech_overheat_limit_0_1": 0.5833,
+        "large_panel_kg": 27.6
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.73,
+      "disagreement": {
+        "spread_kg": 0.04,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "hemlock",
+      "name": "Hemlock Wood",
+      "category": "Wood",
+      "rarity": "",
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.15,
+        "community_waengenius": 0.17,
+        "community_panel_kg_div40": 0.17,
+        "community_standard_wpu_tab": 0.23,
+        "falagar_2017": 0.22
+      },
+      "durability": {
+        "large_panel_kg": 6.8
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.15,
+      "disagreement": {
+        "spread_kg": 0.02,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "iron",
+      "name": "Iron",
+      "category": "Metal",
+      "rarity": 0,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.39,
+        "community_waengenius": 0.38,
+        "community_panel_kg_div40": 0.38,
+        "wing_science_implied_DERIVED": 0.367,
+        "falagar_2017": 0.38
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.75,
+        "engine_mech_overheat_limit_0_1": 0.6667,
+        "panel_cannon_shots": [
+          {
+            "quality": 4,
+            "cannon_shots_to_destroy_large_panel": 12
+          },
+          {
+            "quality": 5,
+            "cannon_shots_to_destroy_large_panel": 12
+          },
+          {
+            "quality": 8,
+            "cannon_shots_to_destroy_large_panel": 14
+          }
+        ],
+        "large_panel_kg": 15.2
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.39,
+      "disagreement": {
+        "spread_kg": 0.023,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "lead",
+      "name": "Lead",
+      "category": "Metal",
+      "rarity": 0,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.56,
+        "community_waengenius": 0.6,
+        "community_panel_kg_div40": 0.6,
+        "wing_science_implied_DERIVED": 0.596,
+        "falagar_2017": 0.6
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.972,
+        "engine_mech_overheat_limit_0_1": 0.3333,
+        "panel_cannon_shots": [
+          {
+            "quality": 4,
+            "cannon_shots_to_destroy_large_panel": 11
+          }
+        ],
+        "large_panel_kg": 24.0
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.56,
+      "disagreement": {
+        "spread_kg": 0.04,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "nickel",
+      "name": "Nickel",
+      "category": "Metal",
+      "rarity": 2,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.43,
+        "community_waengenius": 0.46,
+        "community_panel_kg_div40": 0.46,
+        "wing_science_implied_DERIVED": 0.455,
+        "falagar_2017": 0.46
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.889,
+        "engine_mech_overheat_limit_0_1": 0.8333,
+        "panel_cannon_shots": [
+          {
+            "quality": 3,
+            "cannon_shots_to_destroy_large_panel": 12
+          }
+        ],
+        "large_panel_kg": 18.4
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.43,
+      "disagreement": {
+        "spread_kg": 0.03,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "oak",
+      "name": "Oak Wood",
+      "category": "Wood",
+      "rarity": "",
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.23,
+        "community_waengenius": 0.28,
+        "community_panel_kg_div40": 0.28,
+        "community_standard_wpu_tab": 0.38,
+        "falagar_2017": 0.38
+      },
+      "durability": {
+        "large_panel_kg": 11.2
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.23,
+      "disagreement": {
+        "spread_kg": 0.05,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "orthite",
+      "name": "Orthite",
+      "category": "Metal",
+      "rarity": 1,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.43
+      },
+      "durability": {
+        "status": "not-established"
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.43
+    },
+    {
+      "itemTypeId": "palm",
+      "name": "Palm Wood",
+      "category": "Wood",
+      "rarity": "",
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.25,
+        "community_waengenius": 0.31,
+        "community_standard_wpu_tab": 0.41,
+        "falagar_2017": 0.41
+      },
+      "durability": {
+        "status": "not-established"
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.25,
+      "disagreement": {
+        "spread_kg": 0.06,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "silver",
+      "name": "Silver",
+      "category": "Metal",
+      "rarity": 2,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.66,
+        "community_waengenius": 0.55,
+        "community_panel_kg_div40": 0.55,
+        "wing_science_implied_DERIVED": 0.544,
+        "falagar_2017": 0.55
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.778,
+        "engine_mech_overheat_limit_0_1": 0.5,
+        "large_panel_kg": 22.0
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.66,
+      "disagreement": {
+        "spread_kg": 0.116,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "steel",
+      "name": "Steel",
+      "category": "Metal",
+      "rarity": 1,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.5,
+        "community_waengenius": 0.4,
+        "community_panel_kg_div40": 0.4,
+        "wing_science_implied_DERIVED": 0.385,
+        "falagar_2017": 0.4
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.778,
+        "engine_mech_overheat_limit_0_1": 0.75,
+        "panel_cannon_shots": [
+          {
+            "quality": 5,
+            "cannon_shots_to_destroy_large_panel": 15
+          },
+          {
+            "quality": 8,
+            "cannon_shots_to_destroy_large_panel": 14
+          }
+        ],
+        "large_panel_kg": 16.0
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.5,
+      "disagreement": {
+        "spread_kg": 0.115,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "tin",
+      "name": "Tin",
+      "category": "Metal",
+      "rarity": 1,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.38,
+        "community_waengenius": 0.34,
+        "community_panel_kg_div40": 0.34,
+        "wing_science_implied_DERIVED": 0.332,
+        "falagar_2017": 0.34
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.722,
+        "engine_mech_overheat_limit_0_1": 0.25,
+        "panel_cannon_shots": [
+          {
+            "quality": 2,
+            "cannon_shots_to_destroy_large_panel": 12
+          }
+        ],
+        "large_panel_kg": 13.6
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.38,
+      "disagreement": {
+        "spread_kg": 0.048,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "titanium",
+      "name": "Titanium",
+      "category": "Metal",
+      "rarity": 2,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.35,
+        "community_waengenius": 0.3,
+        "community_panel_kg_div40": 0.3,
+        "wing_science_implied_DERIVED": 0.296,
+        "falagar_2017": 0.3
+      },
+      "durability": {
+        "wing_casing_health_0_1": 0.722,
+        "engine_mech_overheat_limit_0_1": 0.75,
+        "panel_cannon_shots": [
+          {
+            "quality": 10,
+            "cannon_shots_to_destroy_large_panel": 15
+          }
+        ],
+        "large_panel_kg": 12.0
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.35,
+      "disagreement": {
+        "spread_kg": 0.054,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    },
+    {
+      "itemTypeId": "tungsten",
+      "name": "Tungsten",
+      "category": "Metal",
+      "rarity": 3,
+      "in_item_catalogue": true,
+      "mass_per_unit_kg": {
+        "wiki_alpha6": 0.7,
+        "community_waengenius": 0.8,
+        "community_panel_kg_div40": 0.8,
+        "wing_science_implied_DERIVED": 0.738,
+        "falagar_2017": 0.74
+      },
+      "durability": {
+        "wing_casing_health_0_1": 1.0,
+        "engine_mech_overheat_limit_0_1": 1.0,
+        "large_panel_kg": 32.0
+      },
+      "notes": [],
+      "mass_used_by_wareborn_server": 0.7,
+      "disagreement": {
+        "spread_kg": 0.1,
+        "note": "wiki Alpha 6 vs community sheets differ; sources are from different patches - see findings doc, they are NOT averaged"
+      }
+    }
+  ],
+  "materials_in_catalogue_with_no_community_mass": [
+    "orthite",
+    "epilar",
+    "eternium",
+    "cobalt",
+    "aurium"
+  ],
+  "retail_materials_removed_before_alpha6": {
+    "woods": [
+      "Ironwood",
+      "Mahogany",
+      "Ebony",
+      "Maple"
+    ],
+    "metals_with_wiki_mass": {
+      "Magnesium": 0.13,
+      "Palladium": 0.87,
+      "Platinum": 1.64
+    },
+    "label": "RECOVERED",
+    "source": "wiki Wood.wikitext History section and Metal.wikitext Mass Table"
+  },
+  "pine": {
+    "status": "DOES NOT EXIST",
+    "note": "Worlds Adrift never had a Pine wood. The eight retail woods are ash, birch, cedar, chestnut, elm, hemlock, oak, palm. The maintainer's 'pine vs chestnut' is a misremembering; the nearest light wood to chestnut is cedar or hemlock.",
+    "label": "RECOVERED"
+  },
+  "shipped_client_verdict": {
+    "per_material_mass": "NOT SHIPPED",
+    "per_material_durability": "NOT SHIPPED",
+    "q1_q10_stat_curves": "NOT SHIPPED",
+    "label": "PROVED",
+    "how": "MaterialManager MonoBehaviour PathID 1373 in level0 parsed byte-exact via UnityPy get_raw_data (6304/6304 bytes consumed, 0 remaining): 32 materials carrying ONLY name, id, ComponentMaterial enum {metal,wood,none,atlas}, tintColor, specColor, paintColorSets. No mass/density/durability/quality field. Swept all 8 game DLLs as BOTH UTF-8 and UTF-16LE string dumps (a plain 'grep -a' on .NET DLLs is a FALSE NEGATIVE - user strings are UTF-16LE); swept 55,885 MonoBehaviours / 1,247 distinct file x script pairs across level0, level1, resources.assets, sharedassets0/1. Asset bundles are island terrain only (255 x <id>@island_unityclient); all gameplay prefabs are in resources.assets. clientGameDB.bytes has no material table.",
+    "controls": [
+      "'Ship weighs more' -> Assembly-CSharp.dll (proves the UTF-16 dump sweep was live)",
+      "MonoScript name map resolved 5084/5084 from globalgamemanagers.assets",
+      "'OriginalMaterials' -> 23 consumers, while 'casingQuality' -> 0 (same component, same sweep)",
+      "'baseHPValue = 2000f' found in the same decompiled tree where the tier factors 0.875/0.7777/0.7083 returned 0 hits"
+    ],
+    "consequence": "Mass and durability are SERVER-AUTHORITATIVE. The client is a display layer: ParentingMassAdderVisualizer assigns Rigidbody mass straight from component 1257, and CraftingStationClientState (1005) carries an already-computed float currentWeight plus predictedStats. All client users are Reader-only. The community spreadsheet numbers are therefore neither corroborated NOR contradicted by the shipped client - the client simply does not carry them, and they could only ever have lived on Bossa's dead server workers.",
+    "client_material_roster_32": [
+      "iron",
+      "copper",
+      "gold",
+      "silver",
+      "platinum",
+      "palladium",
+      "steel",
+      "magnesium",
+      "titanium",
+      "nickel",
+      "tungsten",
+      "bronze",
+      "tin",
+      "aluminium",
+      "lead",
+      "metal1",
+      "ash",
+      "birch",
+      "cedar",
+      "chestnut",
+      "ebony",
+      "elm",
+      "hemlock",
+      "ironwood",
+      "mahogany",
+      "maple",
+      "oak",
+      "palm",
+      "atlasShard",
+      "epilar",
+      "eternium",
+      "orthite"
+    ],
+    "roster_note": "The client still ships the REMOVED materials (platinum, palladium, magnesium, ebony, ironwood, mahogany, maple) as colour definitions. Still no pine."
+  },
+  "rebalance_history": {
+    "label": "WIKI",
+    "source": "docs/research/archive/worlds-adrift-wiki/pages/Update_*.wikitext, Beta_*.wikitext",
+    "why_it_matters": "Materials were rebalanced repeatedly, so a mass value without a patch date is not a fact about the game, only about a moment in it.",
+    "notes": [
+      {
+        "patch": "Beta 0.2.0.5",
+        "verbatim": "Wood weight reduced across the board by 15%."
+      },
+      {
+        "patch": "Update 29",
+        "verbatim": "To coincide with the re-implementation of overheat, ALL METAL STATS HAVE BEEN REBALANCED.",
+        "note": "epilar/orthite/eternium introduced here"
+      },
+      {
+        "patch": "Update 29.3",
+        "verbatim": "Iron, Lead, Bronze, Tin, Nickel, Alum, Eternium rebalanced."
+      },
+      {
+        "patch": "Update 31",
+        "verbatim": "Copper/Silver/Gold have had their weight reduced"
+      },
+      {
+        "patch": "Update 31",
+        "verbatim": "Some woods have had their durability reduced"
+      }
+    ]
+  },
+  "dating_analysis": {
+    "label": "DERIVED",
+    "conclusion": "UNRESOLVED - the evidence points both ways and is recorded rather than resolved.",
+    "wood_signal": "Beta 0.2.0.5's 'reduced across the board by 15%' predicts wiki = community x 0.85. Observed mean ratio across all 8 woods is 0.846, and the direction is right for all 8 - but per-material rounding only reproduces 4 of 8 exactly. Strongly suggestive, not conclusive.",
+    "metal_signal_for_community_being_LATER": "Update 31 says copper, silver and gold had their weight REDUCED. Community values are lower than wiki for exactly those three, three for three (0.55->0.50, 0.66->0.55, 0.73->0.69).",
+    "metal_signal_for_community_being_EARLIER": "The community sheets contain NO epilar, orthite or eternium, and those three metals were introduced in Update 29. A post-Update-31 sheet covering 12 metals would be expected to include them.",
+    "counter_evidence": "The wiki/community metal deltas do not run in one direction: nickel, lead and tungsten are HIGHER in the community table while aluminium, titanium, tin, iron and steel are lower and bronze is identical. That is not a single patch delta in either direction.",
+    "wiki_table_dating": "Metal.wikitext is tagged {{NeedsUpdate|page}}, includes epilar/orthite/eternium (so post-Update-29), yet still shows the pre-Update-31 higher copper/silver/gold weights. It is therefore most likely Update-29/30-era and NOT the final shutdown balance, contrary to how MaterialCatalog.cs describes it."
+  },
+  "panel_resilience_is_flat": {
+    "label": "WIKI",
+    "finding": "Panels.wikitext gives EVERY panel bar1value = 60 regardless of material, and Helms.wikitext 25. The wiki's own Resilience page says 'Only the casing affects resilience.' and carries no numbers at all - its data was an embedded Google Sheet that was never archived.",
+    "consequence": "Supports the cannon-shot observation that a large panel takes 10-15 shots regardless of material: panel resilience may simply not have been per-material at that patch."
+  },
+  "tungsten_resolution": {
+    "label": "DERIVED",
+    "question": "Tungsten is the single largest disagreement in the whole table.",
+    "values": {
+      "wiki_alpha6": 0.7,
+      "community_waengenius_and_panel": 0.8,
+      "falagar_2017": 0.74,
+      "wing_measurement_implied": 0.726
+    },
+    "conclusion": "THREE of the four sources cluster at 0.70-0.74 and the WAEngenius/panel value of 0.80 is the outlier. Two of those three are independent of each other: Falagar's 2017 guide (0.74) and my own fit to the wing-science raw kilogram readings (0.726-0.738, computed before the Falagar table was retrieved). That convergence is the strongest single piece of evidence in this investigation, because the wing fit reproduces every other metal within integer-rounding while missing tungsten by ~4 kg against the 0.80 value - and lands on Falagar's number instead. I would treat 0.80 as an error in the WAEngenius weight column, propagated into the panel sheet via the shared x40 table.",
+    "EPOCH_WARNING": "This section resolves tungsten WITHIN THE CALCULATOR ERA (0.80 -> 0.74). It does NOT apply to the final-era table we ship, which independently says 0.70 and is corroborated by sciencesheet.xls. DO NOT COPY 0.74 INTO THE SHIPPED TABLE. See shipped_mass_epoch at the top of this file.",
+    "applies_to_shipped_table": false
+  },
+  "wood_mass_has_three_tiers": {
+    "label": "DERIVED",
+    "chain": "Falagar 2017 / '03-Standard-WPU' tab (cedar 0.20) -> WAEngenius weight column (cedar 0.15) -> wiki (cedar 0.13)",
+    "note": "Falagar 2017 and the 03-Standard-WPU tab agree within 0.01 on every wood, so they are ONE source, not two - which removes one of the four apparent wood tables. The remaining three are successive rebalances. Beta 0.2.0.5's 'Wood weight reduced across the board by 15%' fits the WAEngenius->wiki step in DIRECTION for all 8 woods (mean ratio 0.846 against a stated 0.85) but reproduces only 4 of 8 exactly under rounding, and does not explain the earlier Falagar->WAEngenius step (a uniform x0.75). Recorded, not resolved."
+  },
+  "still_missing": [
+    {
+      "target": "Cannon Science RAW tabs (Barrel / Firing Mechanism / Ammo Loader)",
+      "status": "not recoverable",
+      "why": "Wayback rendered only the sheet's active tab; no per-gid, /htmlview, /pubhtml or /export capture exists in the CDX index. Google still returns HTTP 410."
+    },
+    {
+      "target": "The wiki Resilience page's embedded Google Sheet (published id 2PACX-1vRmePDFVdYQMHvzCIIxKmGMa3mSIsA46HZfZICb-SsrV8ArKvzyoeMf4m1cRuFKd7fAheXRTrnEZcAn)",
+      "status": "NOT ATTEMPTED / still open",
+      "why": "This is the only known per-material RESILIENCE source and it was never archived. Resilience.wikitext carries the embed but no numbers. Highest-value remaining target."
+    },
+    {
+      "target": "Skycore Science Graph published sheet",
+      "status": "not retrieved",
+      "why": "/pubhtml returns title only; /pub?output=csv HTTP 400; gid variant HTTP 401 sign-in wall. The 12-metal Q1-Q10 lift table it feeds IS archived via the wiki page."
+    },
+    {
+      "target": "worldsadrift.fandom.com live",
+      "status": "blocked",
+      "why": "HTTP 403 to curl, 402 to WebFetch. Wayback gamepedia 2018 captures used instead."
+    },
+    {
+      "target": "Wood durability, any source",
+      "status": "not-established",
+      "why": "No source retrieved in either snapshot measures wood durability. All eight woods' durability remains CHOSEN."
+    }
+  ]
+}

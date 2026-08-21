@@ -1047,7 +1047,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// biome profile is birch; this remains available for a future island whose
         /// recovered per-island data actually names several woods.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0, string? releaseWorldDistricts = null, bool includeWildernessShrine = true, bool includeLootContainers = false, string? lootCountEnv = null)
+        /// <param name="includeWeatherWalls">
+        /// Whether to register the release map's 44 WEATHER WALLS as
+        /// <c>WallSegment</c> entities carrying <c>1204 WallSegmentState</c> - the
+        /// storm rifts, wind rifts, sand storms and world edge the shipped client
+        /// already has every renderer for and has never been given the geometry of.
+        /// OFF by default (<c>WAREBORN_WALLS=1</c>), and off is byte-identical on the
+        /// wire because nothing is registered at all.
+        ///
+        /// VISUAL ONLY, structurally: the wall FORCE paths live in
+        /// <c>ShipPreprocessor</c>'s <c>UnityWorker</c> branch and are not on our
+        /// hulls, so serving 1204 applies zero newtons to anything. See
+        /// <see cref="Walls.WallPolicy"/>.
+        /// </param>
+        /// <param name="wallTypesEnv">
+        /// The raw WAREBORN_WALL_TYPES value, or null for every type. The cost lever:
+        /// dropping type 1 drops the 11 storm rifts and with them the world-wide
+        /// ambient-bolt spawn rate, which is the one part of this feature whose
+        /// expense is derived from a formula rather than measured.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0, string? releaseWorldDistricts = null, bool includeWildernessShrine = true, bool includeLootContainers = false, string? lootCountEnv = null, bool includeWeatherWalls = false, string? wallTypesEnv = null)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
             int terrainCount = FirstRegionTerrainCountPolicy.Clamp(firstRegionTerrainCount);
@@ -1344,6 +1363,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 // spawn plan legible.
                 registry.Register(WildernessChamberEntity(islands.Require(IslandCatalog.HavenId)));
                 registry.Register(WildernessShrineEntity(islands.Require(IslandCatalog.HavenId)));
+            }
+
+            // THE WEATHER WALLS. Registered LAST, and not through
+            // RegisterClearOfChamber: a wall is a region boundary tens of kilometres
+            // long with no collider, it sits on no ground and nothing can grow
+            // through it. Nothing else in the plan depends on a wall's entity id, and
+            // going last means every existing entity keeps the id it had, so a run
+            // with walls and a run without are directly comparable.
+            foreach (WorldEntity wall in Walls.WorldWalls.All(includeWeatherWalls, wallTypesEnv))
+            {
+                registry.Register(wall);
             }
 
             return registry;

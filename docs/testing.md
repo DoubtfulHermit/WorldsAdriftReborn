@@ -175,6 +175,80 @@ is responsible, and neither needs a bot:
   in the state described above, and a rising age with a flat gap is the original
   "rate flat, contents ageing" pathology the drift check watches for.
 
+## Looking at the weather walls (`WAREBORN_WALLS`)
+
+There is no headless check for this one and there cannot be. Relaybot proves the
+44 entities and their two components arrive; **only a Unity client on a real GPU
+can prove a wall is drawn**, because everything downstream of `1204` —
+`WeatherTextureGenerator`, `CmdBufClouds`, the storm renderer swap, the debris
+emitters, the ambient bolts — is client-side rendering the harness cannot
+execute. So this is a look-at-it script, ordered cheapest-first.
+
+**Start the server with walls on.** Nothing else changes; with `WAREBORN_WALLS`
+unset no wall is registered at all and the wire is byte-identical to a build
+without the feature.
+
+```sh
+WAREBORN_WALLS=1 <however you normally start the game server>
+```
+
+**1. Confirm the server thinks they exist**, before launching a client. One
+line, and it names the cost:
+
+```
+[info] weather walls: ON, 44 of 44 served (11 storm rift(s), 53.4 km of storm
+wall -> that many km drive the world-wide ambient-bolt rate). Visual only: ...
+```
+
+**2. Confirm a client is told about them.** Join, then in the server log:
+
+```sh
+grep -c "queued AddEntityOp for world entity 'wall-"                      <log>   # expect 44
+grep "seeding 190602 for entity .* WallSegment"                           <log> | head -1
+grep -iE "failed to initialize component|DROPPING the whole AddComponent" <log>   # expect NOTHING
+```
+
+**3. THE CHEAPEST LOOK: fly WEST from spawn.** The single `WorldEndWall` is a
+north-south curtain at `x = 15943.65` running the world's full 36 km, and the
+player spawn is `(17212, -312, -1130)` — **1.27 km due east of it**. Fly west; it
+enters visual range ~800 m out, so after roughly 500 m of travel a translucent,
+see-through "waterfall of air" curtain should fill the horizon north to south.
+*It is a WIND-type wall, so expect the translucent curtain, NOT dark cloud* — it
+drives `wallColor.r` and never `.g` (`findings-storm-walls.md` §11a). If this is
+not there, nothing below will work either, and the fault is delivery rather than
+geometry.
+
+**4. THE PAYOFF: the nearest Storm Rift is `wall-28`** — dark opaque billowing
+cloud, rain, storm debris, an audio shift and free ambient lightning.
+
+- Cross the world-end curtain heading west, then turn to **bearing ≈ 344°**
+  (north, slightly west) and fly **4.6 km**, to about **`(15944, 3338)`**. That
+  is `wall-28`'s eastern end; it runs 4.7 km west from there to `(11270, 3869)`.
+- What to expect on the way in (`findings-storm-walls.md` §2.1): **~758 m**
+  clouds visibly thicken · **~578 m** rain starts · **~367 m** full storm, the
+  volumetric cloud renderer is *swapped out* for the opaque one and the debris
+  emitters switch on · **~336 m** whiteout, ~40 m visibility.
+- **`CmdBufClouds.enabled = false` inside ~367 m is EXPECTED.** If someone
+  reports "the normal clouds vanished near the storm", that is the documented
+  renderer swap, not a bug.
+- Ambient bolts should flicker along the wall with no server involvement. At
+  most two are alive at once (`_randomLightningSlots = 2`, RECOVERED).
+
+**5. A sand storm, for the third renderer:** `wall-12`, bearing ≈ 217°, 6.5 km
+from spawn, midpoint `(13305, -6292)`.
+
+**What a PASS looks like, and what it does not include.** A wall you can see, fly
+into and fly out of, with no log errors. **It will not push your ship at all**,
+and that is correct: the three wall force paths live in `ShipPreprocessor`'s
+`UnityWorker` branch and are not on our hulls, so `1204` applies zero newtons.
+"The wall did nothing to my ship" is not a failure of this feature.
+
+**If a wall renders in the wrong PLACE**, suspect ordering rather than geometry:
+`WallSegmentVisualizer` captures `transform.position` once at `OnEnable`, so a
+wall that registered before its `190602` landed stays where it was instantiated,
+forever and silently. The seed order (`190602` then `1204`) is what prevents
+that, and `WallPolicyTests` pins it.
+
 ## The post-deploy check for the game server
 
 ```sh

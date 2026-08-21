@@ -58,6 +58,16 @@
          LootScrapTableIntegrityTests re-reads itemData.json and asserts the two
          still agree. Reviewed DATA, diffable in git. See LootScrapTable. -->
     <EmbeddedResource Include="Loot\loot-scrap-tiers.txt" />
+    <!-- The release map's 44 weather walls as endpoint pairs, projected out of
+         docs/research/world-data/wamap-islands.json#Walls by
+         tools/world-import/generate-release-wall-segments.py. That IS the complete
+         retail payload for a wall - WorldEditorWallData.WallStoreData carried
+         {x1,z1,x2,z2,Type} and no tuning at all - so there is nothing here to tune
+         and nothing missing. The midpoint/direction/HALF-length arithmetic that
+         turns these into 1204 WallSegmentState deliberately lives in C#
+         (WallCatalog), where it is unit-tested, rather than baked in here.
+         Generated DATA: regenerate, never hand-edit. -->
+    <EmbeddedResource Include="Walls\release-wall-segments.json" />
   </ItemGroup>
 
 </Project>

@@ -123,6 +123,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void An_understorm_reset_never_regrows_a_LOG_lying_on_the_ground()
+        {
+            // THE UNDERSTORM'S RESET RUNS THIS EXACT METHOD, so this is where "the
+            // storm regrew a felled log" gets caught.
+            //
+            // Two reasons it must not, and they agree. Mechanically a log is a piece
+            // of a tree, not a damaged tree: "restoring" it would sprout a whole
+            // birch out of a trunk on the ground, and out of the trunk somebody was
+            // halfway through chopping. And it is closer to retail, which did not
+            // preserve them either - "logs that are on the ground will be REMOVED
+            // when an understorm hits" (Islands wiki). A log that lies there until
+            // its linger expires is nearer to removal than a log that becomes a tree.
+            FakeClock clock = new FakeClock();
+            TreeHarvest harvest = Planted(clock, TreeEntity);
+
+            const long Log = 900;
+            int partialLog = Trees.FullSectionMask & ~1;      // a trunk missing a section
+            Assert.True(harvest.PlantFelled(Log, Trees.Topology(), Trees.WoodType, partialLog));
+
+            // A damaged STANDING tree too, so the reset has something legitimate to
+            // do and an empty result cannot pass this test by accident.
+            ChopOnce(harvest, clock, TreeEntity);
+
+            IReadOnlyList<TreeRespawn> reset = harvest.ResetAll();
+
+            Assert.Single(reset);
+            Assert.Equal(TreeEntity, reset[0].TreeEntityId);
+            Assert.DoesNotContain(reset, r => r.TreeEntityId == Log);
+            Assert.Equal(partialLog, harvest.MaskOf(Log));
+            Assert.NotEqual(Trees.FullSectionMask, harvest.MaskOf(Log));
+        }
+
+        [Fact]
         public void The_regrowth_waits_the_full_delay_after_the_cut()
         {
             FakeClock clock = new FakeClock();

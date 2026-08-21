@@ -774,12 +774,37 @@ namespace WorldsAdriftRebornGameServer
             // and plays NOTHING (TreeClientVisualizer's break effect fires only on
             // bits LEAVING the mask). No wood is granted: regrowth is not a harvest,
             // so there is no CutterEntityId and no HarvestReward.Award here.
+            //
+            // ...UNLESS AN UNDERSTORM IS GOING TO DO IT. TreeHarvest's own doc names
+            // DueRespawns as the seam a storm should take over, and retail's shape is
+            // the one this switch restores: you could strip an area bare and it
+            // STAYED bare until the storm. With WAREBORN_STORMS on and no explicit
+            // WAREBORN_TREE_RESPAWN_SECONDS, the per-tree timers stop firing and the
+            // forest comes back with the lightning instead (Harvest.ResetAll, inside
+            // ResetHarvestResources). An operator who set the tree knob keeps their
+            // per-tree timers - that is the revert path. See
+            // Multiplayer.Islands.IslandStormPolicy.PerTreeRegrowthEnabled.
+            if (!PerTreeRegrowth)
+            {
+                return;
+            }
+
             foreach (TreeRespawn respawn in Harvest.DueRespawns())
             {
                 Console.WriteLine("[info] " + respawn + ".");
                 PushTreeSectionMask(respawn.TreeEntityId, respawn.SectionMask);
             }
         }
+
+        /// <summary>
+        /// Whether a chopped tree still heals on its own five-minute timer, or waits
+        /// for the next understorm. See
+        /// <see cref="Multiplayer.Islands.IslandStormPolicy.PerTreeRegrowthEnabled"/>.
+        /// </summary>
+        private static readonly bool PerTreeRegrowth =
+            Multiplayer.Islands.IslandStormPolicy.PerTreeRegrowthEnabled(
+                Multiplayer.Islands.IslandStormPolicy.EnabledFromEnvironment(),
+                Environment.GetEnvironmentVariable("WAREBORN_TREE_RESPAWN_SECONDS"));
 
         /// <summary>
         /// Pushes one tree's new <c>1036 sectionMask</c> to every peer that holds
@@ -1698,27 +1723,156 @@ namespace WorldsAdriftRebornGameServer
         /// Authenticated operator understorm: restore every damaged tree, metal
         /// node and fuel canister, then push the intact state only to peers that
         /// currently have each entity checked out.
+        ///
+        /// This stays WORLD-WIDE and it is the operator's <c>reset-resources all</c>,
+        /// which asks for exactly that. The UNDERSTORM no longer calls it - see
+        /// <see cref="ResetHarvestResourcesOn"/> for why, and for the 3 m 32 s
+        /// production defect that using this here produced.
         /// </summary>
-        internal static string ResetHarvestResources()
+        internal static string ResetHarvestResources() => ResetHarvestResourcesIn(null);
+
+        /// <summary>
+        /// ONE ISLAND'S UNDERSTORM RESET: restore only the trees, metal nodes and
+        /// fuel canisters that belong to <paramref name="island"/>.
+        ///
+        /// ⚠ WHY THIS EXISTS, AND WHY THE GLOBAL RESET IS NOT GOOD ENOUGH (S2,
+        /// §14.10). Storms are per island and jittered, so a world-wide reset can
+        /// only honestly fire once per generation, at the LAST island's storm end -
+        /// otherwise forty-seven islands reset the whole world forty-seven times per
+        /// cadence, forty-six of them while the island in question is calm. MEASURED
+        /// live on 2026-08-20: the first island's storm started 10:59:57 CEST and the
+        /// reset landed 11:03:29, <b>3 m 32 s later</b>, under a clear sky. At the
+        /// authentic 6300 s cadence that becomes ~15-20 minutes. The cause and effect
+        /// the whole feature exists to convey does not survive that gap.
+        /// </summary>
+        internal static string ResetHarvestResourcesOn(Multiplayer.Islands.IslandId island) =>
+            ResetHarvestResourcesIn(island);
+
+        /// <summary>
+        /// ONE ISLAND'S UNDERSTORM RE-ROLL (S3): move that island's deposits to the
+        /// seats <see cref="Multiplayer.Islands.IslandResourceReroll"/> chose for this
+        /// storm generation, and tell the peers holding them.
+        ///
+        /// Call this AFTER the reset. The reset restores a mined deposit to intact at
+        /// its old position; the re-roll then moves the intact deposit to its new one.
+        /// Doing it in the other order would broadcast the restore to the seat the rock
+        /// has already left.
+        ///
+        /// ⚠ NO DECISION IS TAKEN IN THIS METHOD, deliberately, and that is S2's lesson
+        /// applied a second time. Which seat each deposit takes is
+        /// <c>IslandResourceReroll.SeatsFor</c>, in the assembly that HAS a test
+        /// project; this file cannot be unit-tested (it needs a Windows game install to
+        /// compile against), so all it is allowed to do is loop, call, and broadcast.
+        /// A source-reading wiring test reads the one line that asks for the seats.
+        ///
+        /// SCOPE: Haven's own static <c>deposit-N</c> field only.
+        /// <c>MetalDeposits.HavenIndexOf</c> returns null for release-world and
+        /// Trades-Challenge deposits, which are placed from their own catalogues and
+        /// have no seat pool, so they are restored in place exactly as before. That is a
+        /// stated S3 limit, not an oversight - extending the re-roll to the release
+        /// world needs a per-island seat pool first, which is the same prerequisite the
+        /// 1010/1011 handshake route has.
+        /// </summary>
+        /// <returns>How many deposits actually moved.</returns>
+        internal static int RerollIslandDeposits(
+            Multiplayer.Islands.IslandId island, long generation)
         {
-            IReadOnlyList<TreeRespawn> trees = Harvest.ResetAll();
+            int moved = 0;
+            foreach (long entityId in Nodes.EntityIds)
+            {
+                Multiplayer.MetalNode? node = Nodes.NodeOf(entityId);
+                if (node == null) continue;
+
+                // THE WHOLE DECISION IS ONE CALL, and that is deliberate - see
+                // MetalDeposits.RerolledNode for the mutation that escaped when this
+                // loop did its own seat arithmetic. Null means "does not move": not
+                // Haven's static field, generation 0, or this deposit kept its seat.
+                Multiplayer.MetalNode? reseated =
+                    Multiplayer.MetalDeposits.RerolledNode(island, generation, node.Key);
+                if (reseated == null) continue;
+
+                if (!Nodes.Reseat(entityId, reseated)) continue;
+
+                BroadcastNodeReset(entityId);
+                moved++;
+            }
+
+            if (moved > 0)
+            {
+                Console.WriteLine("[storm] understorm re-roll on " + island.Value
+                    + ": moved " + moved + " deposit(s) into generation " + generation
+                    + "'s layout.");
+            }
+            return moved;
+        }
+
+        /// <summary>
+        /// The one body behind both. <paramref name="island"/> null = the whole world.
+        /// </summary>
+        private static string ResetHarvestResourcesIn(Multiplayer.Islands.IslandId? island)
+        {
+            // ⚠ THE SCOPE DECISION IS DELIBERATELY NOT INLINE HERE. It used to be,
+            // and replacing it with a bare `= null` reinstated the world-wide reset
+            // with the whole 4215-test suite still green - see
+            // Multiplayer.Islands.IslandResourceScope for the escaped mutation. The
+            // decision is now in the assembly that can be unit-tested; this line's
+            // only job is to hand over the island, and a wiring test reads it.
+            Func<long, bool>? include = Multiplayer.Islands.IslandResourceScope.Include(
+                island, IslandOwningResource);
+
+            IReadOnlyList<TreeRespawn> trees = Harvest.ResetAll(include);
             foreach (TreeRespawn tree in trees)
                 PushTreeSectionMask(tree.TreeEntityId, tree.SectionMask);
 
             List<long> metal = Nodes.EntityIds
-                .Where(id => Nodes.IsDestroyed(id) || Nodes.ShotPointsOf(id).Count > 0
-                    || MetalHarvest.HitsOn(id) > 0).ToList();
-            Nodes.ResetAll();
-            MetalHarvest.ResetAll();
+                .Where(id => (include == null || include(id))
+                    && (Nodes.IsDestroyed(id) || Nodes.ShotPointsOf(id).Count > 0
+                        || MetalHarvest.HitsOn(id) > 0)).ToList();
+            Nodes.ResetAll(include);
+            MetalHarvest.ResetAll(include);
             foreach (long nodeId in metal) BroadcastNodeReset(nodeId);
 
             List<long> fuel = FuelCanisters.EntityIds
-                .Where(id => FuelCanisters.ShotsOn(id) > 0).ToList();
-            FuelCanisters.ResetAll();
+                .Where(id => (include == null || include(id)) && FuelCanisters.ShotsOn(id) > 0)
+                .ToList();
+            FuelCanisters.ResetAll(include);
             foreach (long canisterId in fuel) BroadcastFuelCanisterReset(canisterId);
 
             return "Reset " + trees.Count + " tree(s), " + metal.Count
-                + " metal node(s), and " + fuel.Count + " fuel canister(s).";
+                + " metal node(s), and " + fuel.Count + " fuel canister(s)"
+                + (island == null ? "" : " on " + island.Value.Value) + ".";
+        }
+
+        /// <summary>
+        /// WHICH ISLAND A HARVESTABLE BELONGS TO, for the per-island understorm reset.
+        ///
+        /// The answer comes from <see cref="ResourceInterest"/>, which already had to
+        /// classify every streamed resource in order to check it out per island. Using
+        /// its map rather than a second one is deliberate: two classifications that
+        /// could disagree would mean a storm resetting resources the player standing
+        /// on the island does not hold.
+        ///
+        /// ⚠ THE FALLBACK IS NOT DECORATION. That map is only populated when spatial
+        /// interest is on (<c>WAREBORN_INTEREST_RADIUS_M</c>; PROVED to be 120 on
+        /// production, read 2026-08-20). With interest off the map is EMPTY, and a
+        /// per-island reset that trusted it would silently restore nothing at all -
+        /// green tests, dead feature, which is the exact failure mode this repo has
+        /// shipped twice. So an unclassified id is re-derived from its position with
+        /// the same <c>ClosestIsland</c> the map itself was built from.
+        /// </summary>
+        internal static Multiplayer.Islands.IslandId? IslandOwningResource(long entityId)
+        {
+            Multiplayer.Islands.IslandId? known = ResourceInterest.IslandOf(entityId);
+            if (known != null) return known;
+
+            Multiplayer.WorldEntity? entity = WorldEntities.ByEntityId(entityId);
+            if (entity == null) return null;
+
+            IReadOnlyList<Multiplayer.Islands.IslandDefinition> islands = IslandTopology.All;
+            if (islands.Count == 0) return null;
+
+            return Multiplayer.Islands.IslandResourceInterestPolicy.ClosestIsland(
+                entity.Position, islands);
         }
 
         private static void BroadcastFuelCanisterReset(long entityId)
@@ -2315,6 +2469,139 @@ namespace WorldsAdriftRebornGameServer
         }
 
         /// <summary>
+        /// The interaction shadow model: the observation layer that makes the
+        /// world's causal coupling visible.
+        ///
+        /// <para>
+        /// It OBSERVES AND NOTHING ELSE. It sends no packet, touches no interest
+        /// set, changes no spawn order and holds no authority; the ownership
+        /// registry (<see cref="DomainHost"/>) remains the only thing that decides
+        /// who owns what. Gated on WAREBORN_SIMULATION_MODEL, and with the flag off
+        /// the runtime never even calls the reader below - which is the whole of the
+        /// "disabling it produces identical behaviour" guarantee, and is asserted in
+        /// SimulationShadowRuntimeTests rather than promised here.
+        /// </para>
+        /// </summary>
+        internal static readonly Multiplayer.Simulation.Wareborn.SimulationShadowRuntime Simulation =
+            new Multiplayer.Simulation.Wareborn.SimulationShadowRuntime(
+                Multiplayer.Simulation.Wareborn.SimulationObserverPolicy.IsEnabled(
+                    Environment.GetEnvironmentVariable(
+                        Multiplayer.Simulation.Wareborn.SimulationObserverPolicy.EnabledEnvVar)),
+                ObserveWorldForShadowModel);
+
+        /// <summary>
+        /// Reads one pass of live world state into plain values for the shadow model.
+        ///
+        /// EVERY call in here is a read. No accessor used below mutates: AboardTracker
+        /// exposes ShipOf/AboardShip beside the mutating Observe/Forget and only the
+        /// first two appear here, and DomainHost is consulted through Domains rather
+        /// than Assign/Move. This method contains no rules - which edges exist and how
+        /// strong they are is decided by WarebornSimulationProjection over in the
+        /// Multiplayer assembly, where it has a test project.
+        /// </summary>
+        private static Multiplayer.Simulation.Wareborn.WarebornWorldObservation ObserveWorldForShadowModel()
+        {
+            Multiplayer.Islands.IslandRegistry islands = IslandTopology;
+
+            // Islands come from the ownership host, not the island catalogue: the
+            // shadow model must describe the domains that actually exist this boot,
+            // and the release catalogue lists hundreds that are not hosted.
+            List<Multiplayer.Simulation.Wareborn.ObservedIsland> observedIslands =
+                new List<Multiplayer.Simulation.Wareborn.ObservedIsland>();
+            foreach (Multiplayer.Domains.ILocalSimulationDomain domain in DomainHost.Domains)
+            {
+                if (domain is Multiplayer.Domains.IslandDomain islandDomain)
+                {
+                    observedIslands.Add(new Multiplayer.Simulation.Wareborn.ObservedIsland(
+                        islandDomain.IslandId.Value, domain.EntityIds));
+                }
+            }
+
+            List<Multiplayer.Simulation.Wareborn.ObservedShip> observedShips =
+                new List<Multiplayer.Simulation.Wareborn.ObservedShip>();
+            foreach (Multiplayer.Ship.Domains.ShipDomain ship in ShipDomains.All)
+            {
+                long hullEntityId = ship.HullEntityId;
+                // The same liveness test the stats snapshot already uses, so the two
+                // halves of the admin card cannot disagree about whether a hull moves.
+                bool moving = Flight.IsPiloted(hullEntityId)
+                    || !ship.Flight.State.IsAtRest
+                    || ship.Flight.Input.Throttle != 0f;
+
+                Multiplayer.FixedPointPosition at =
+                    Flight.TryGetFlownPose(hullEntityId, out Multiplayer.FixedPointPosition pose, out _)
+                        ? pose
+                        : WorldEntities.TransformSeedFor(hullEntityId);
+
+                Multiplayer.Islands.IslandId nearestId =
+                    Multiplayer.Islands.IslandResourceInterestPolicy.ClosestIsland(at, islands.All);
+                Multiplayer.Islands.IslandDefinition nearest = islands.ById(nearestId);
+                double distanceMetres = nearest == null
+                    ? double.NaN
+                    : MetresBetween(at, nearest.GlobalOrigin);
+
+                List<long> aboard = new List<long>();
+                foreach (ulong peerId in Aboard.AboardShip(hullEntityId))
+                {
+                    long? aboardEntityId = Players.EntityOf(peerId);
+                    if (aboardEntityId.HasValue) aboard.Add(aboardEntityId.Value);
+                }
+
+                observedShips.Add(new Multiplayer.Simulation.Wareborn.ObservedShip(
+                    hullEntityId,
+                    ship.EntityIds,
+                    aboard,
+                    Flight.PilotEntityOf(hullEntityId),
+                    moving,
+                    nearest == null ? null : nearestId.Value,
+                    distanceMetres));
+            }
+
+            List<Multiplayer.Simulation.Wareborn.ObservedPlayer> observedPlayers =
+                new List<Multiplayer.Simulation.Wareborn.ObservedPlayer>();
+            foreach ((ulong peerId, long entityId) in Players.All())
+            {
+                List<string> interested = new List<string>();
+                ENetPeerHandle? peerHandle = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                if (peerHandle != null)
+                {
+                    // ResourceInterestService stays authoritative for checkout; this
+                    // reads its result and aggregates to the ISLAND, never one edge
+                    // per resource node.
+                    foreach (InterestPeerIslandStat holding in ResourceInterest.HoldingsFor(peerHandle))
+                    {
+                        if (holding.CheckedOut > 0) interested.Add(holding.IslandId);
+                    }
+                }
+                observedPlayers.Add(new Multiplayer.Simulation.Wareborn.ObservedPlayer(
+                    entityId, Aboard.ShipOf(peerId), interested));
+            }
+
+            return new Multiplayer.Simulation.Wareborn.WarebornWorldObservation(
+                observedIslands, observedShips, observedPlayers);
+        }
+
+        private static double MetresBetween(
+            Multiplayer.FixedPointPosition a, Multiplayer.FixedPointPosition b)
+        {
+            double dx = a.MetresX - b.MetresX;
+            double dy = a.MetresY - b.MetresY;
+            double dz = a.MetresZ - b.MetresZ;
+            return Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        }
+
+        /// <summary>
+        /// Refreshes the shadow model on its own slow cadence and prints the
+        /// section-11 lines when it does. No-op when the flag is off. Never per tick:
+        /// the runtime self-throttles to SimulationObserverPolicy.RefreshInterval.
+        /// </summary>
+        private static void MaybeObserveSimulation()
+        {
+            if (!Simulation.Poll(ServerClock.Elapsed)) return;
+            foreach (string line in Simulation.LatestDiagnostics) Console.WriteLine(line);
+        }
+
+        /// <summary>
         /// Assembles the current snapshot: the accumulated counters, the relay's
         /// live mode/rate, and one row per player IN WORLD (from <see cref="Players"/>,
         /// so it lists spawned entities; a peer still on its loading screen is in
@@ -2545,7 +2832,19 @@ namespace WorldsAdriftRebornGameServer
                 // move the console with it.
                 shipModel: new ShipMapRuntimeStat(
                     Flight.Tuning.AccelMps2, Flight.Tuning.MaxSpeedMps),
-                interest: interest);
+                interest: interest,
+                // The shadow model, as of its own last refresh - NOT rebuilt here.
+                // The stats file is written every 3 s and the shadow model every 5 s
+                // on purpose: making the file drive the model would put an
+                // observation-only subsystem on the dashboard's clock and quietly
+                // triple how often it walks the world.
+                simulation: new SimulationRuntimeStat(
+                    Simulation.Enabled,
+                    Simulation.RefreshCount,
+                    Multiplayer.Simulation.Wareborn.SimulationObserverPolicy
+                        .RefreshInterval.TotalSeconds,
+                    Simulation.LastError,
+                    Simulation.LatestSnapshot));
         }
 
         /// <summary>
@@ -2852,6 +3151,62 @@ namespace WorldsAdriftRebornGameServer
                 : Multiplayer.Regions.RegionRegistry.CreateDefault(IslandTopology);
 
         /// <summary>
+        /// THE UNDERSTORM. Each island's 1254 lightning timer, and the world
+        /// per-island resource reset that a storm ending performs.
+        ///
+        /// OFF unless <c>WAREBORN_STORMS</c> says otherwise. With it off this costs
+        /// one bool per main-loop turn and this server is byte-identical on the wire
+        /// to one built without the feature: 1254 is still seeded exactly as it
+        /// always was and simply never updated.
+        ///
+        /// The schedule, the two integers and the decision to send anything at all
+        /// are the pure <see cref="Multiplayer.Islands.IslandStormPolicy"/>,
+        /// <see cref="Multiplayer.Islands.IslandStormPush"/> and
+        /// <see cref="Multiplayer.Islands.IslandStormService"/>; the wire is
+        /// <see cref="Game.IslandStormWire"/>. Nothing in that chain can write
+        /// <c>isLightningActive</c> - see the wire's remarks for the island-drop
+        /// hazard that rule exists for.
+        /// </summary>
+        /// <remarks>
+        /// DECLARED HERE, AFTER <see cref="IslandTopology"/>, AND THAT IS LOAD-BEARING.
+        /// Static field initialisers run in TEXTUAL order, so a declaration up beside
+        /// <see cref="Fauna"/> would read a null topology and schedule storms for an
+        /// empty world - silently, and only on the release path. Fauna and SkyWhale
+        /// solve the same problem by seeding themselves later in Main; this one needs
+        /// the island list at construction, so it is simply declared after it.
+        /// </remarks>
+        internal static readonly Multiplayer.Islands.IslandStormService Storms = BuildStormService();
+
+        private static Multiplayer.Islands.IslandStormService BuildStormService()
+        {
+            TimeSpan duration = Multiplayer.Islands.IslandStormPolicy.DurationFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Islands.IslandStormPolicy.DurationEnvVar));
+
+            List<string> islandIds = new List<string>();
+            foreach (Multiplayer.Islands.IslandDefinition island in IslandTopology.All)
+            {
+                islandIds.Add(island.Id.Value);
+            }
+
+            return new Multiplayer.Islands.IslandStormService(
+                ServerClock,
+                new Game.IslandStormWire.Wire(),
+                islandIds,
+                Multiplayer.Islands.IslandStormPolicy.EnabledFromEnvironment(),
+                Multiplayer.Islands.IslandStormPolicy.CadenceFrom(
+                    Environment.GetEnvironmentVariable(
+                        Multiplayer.Islands.IslandStormPolicy.CadenceEnvVar), duration),
+                duration,
+                Multiplayer.Islands.IslandStormPolicy.JitterFrom(
+                    Environment.GetEnvironmentVariable(
+                        Multiplayer.Islands.IslandStormPolicy.JitterEnvVar)),
+                Multiplayer.Islands.IslandStormPolicy.CountdownRefreshFrom(
+                    Environment.GetEnvironmentVariable(
+                        Multiplayer.Islands.IslandStormPolicy.CountdownRefreshEnvVar)));
+        }
+
+        /// <summary>
         /// EVERY non-player thing this server puts in the world, and the one
         /// entity id each is known by on every client.
         ///
@@ -2865,6 +3220,26 @@ namespace WorldsAdriftRebornGameServer
         /// 190602 position: the question "where does this entity go" used to have
         /// exactly two possible answers and now has one per registration.
         /// </summary>
+        /// <remarks>
+        /// STATIC-FIELD TEXTUAL ORDER IS LOAD-BEARING, as it is for
+        /// <c>Storms</c>: C# initialises static fields in declaration order, so
+        /// <see cref="WeatherWallsEnabled"/> and <see cref="WeatherWallTypes"/> are
+        /// declared immediately ABOVE this. Declared below it they would still be at
+        /// their default (<c>false</c>/<c>null</c>) when this line runs, and
+        /// WAREBORN_WALLS would read as permanently off no matter what the operator
+        /// set - a feature flag that silently does nothing.
+        /// <c>WallSegmentWiringTests</c> pins the order.
+        /// </remarks>
+        internal static readonly bool WeatherWallsEnabled =
+            Multiplayer.Walls.WallPolicy.EnabledFromEnvironment();
+
+        /// <summary>
+        /// WAREBORN_WALL_TYPES, raw. Null means every wall type. Read once here; see
+        /// the ordering remark on <see cref="WorldEntities"/>.
+        /// </summary>
+        internal static readonly string? WeatherWallTypes =
+            Environment.GetEnvironmentVariable(Multiplayer.Walls.WallPolicy.TypesEnvVar);
+
         internal static readonly WorldEntityRegistry WorldEntities =
             Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree, SpawnMetal, MetalOnlyProven,
                 Environment.GetEnvironmentVariable("WAREBORN_TREE_COUNT"),
@@ -2885,7 +3260,9 @@ namespace WorldsAdriftRebornGameServer
                 ReleaseWorldEnabled ? ReleaseWorldDistricts : null,
                 WildernessShrineEnabled,
                 SpawnLootContainers,
-                Environment.GetEnvironmentVariable("WAREBORN_LOOT_COUNT"));
+                Environment.GetEnvironmentVariable("WAREBORN_LOOT_COUNT"),
+                WeatherWallsEnabled,
+                WeatherWallTypes);
 
         internal static readonly Game.ResourceInterestService ResourceInterest =
             new Game.ResourceInterestService(
@@ -4607,6 +4984,45 @@ namespace WorldsAdriftRebornGameServer
                     + "stream each client the world entities near it; unset = every entity is sent, as before).");
             }
 
+            // The understorm's settled configuration, printed whether it is on or
+            // off. A feature that is off should SAY it is off with the name of the
+            // variable that turns it on: this repo has twice shipped a green suite
+            // over an unplugged feature, and a silent boot is how that survives.
+            if (Storms.Enabled)
+            {
+                Console.WriteLine("[info] understorms: ON over " + Storms.IslandCount
+                    + " island(s); one every " + Storms.Cadence.TotalMinutes.ToString("0.#")
+                    + " min per island (jitter " + Storms.JitterFraction.ToString("0.##")
+                    + " of that), lasting " + Storms.Duration.TotalSeconds.ToString("0.#")
+                    + " s, countdown refreshed every " + Storms.CountdownRefresh.TotalSeconds.ToString("0.#")
+                    + " s. The client rumbles and shakes for the last "
+                    + Multiplayer.Islands.IslandStormPolicy.TelegraphSeconds.ToString("0")
+                    + " s within " + Multiplayer.Islands.IslandStormPolicy.TelegraphRadiusMetres.ToString("0")
+                    + " m. Each island's own resources reset the moment ITS storm "
+                    + "ends - not the world's, and not when the last island is done.");
+            }
+            else
+            {
+                Console.WriteLine("[info] understorms: OFF (set "
+                    + Multiplayer.Islands.IslandStormPolicy.EnabledEnvVar
+                    + "=1 to schedule island lightning and the resource reset it drives).");
+            }
+
+            // The weather walls, printed on the same principle: a feature that is off
+            // says so, with the name of the variable that turns it on. When it is ON
+            // the line names the STORM-RIFT KILOMETRAGE, because that single number
+            // is the world-wide ambient-bolt spawn-rate input and is the one cost of
+            // this feature that was derived from the client's formula rather than
+            // measured - an operator watching frame times needs it in the log.
+            Console.WriteLine("[info] " + Multiplayer.Walls.WorldWalls.Describe(
+                WeatherWallsEnabled, WeatherWallTypes)
+                + (WeatherWallsEnabled
+                    ? ". Visual only: the wall force paths are UnityWorker-side and are not on our hulls, "
+                      + "so this applies zero newtons. Trim with "
+                      + Multiplayer.Walls.WallPolicy.TypesEnvVar + "=0,3,5 to drop the storm rifts."
+                    : " - set " + Multiplayer.Walls.WallPolicy.EnabledEnvVar
+                      + "=1 to put the release map's 44 storm/wind/sand walls in the sky."));
+
             while (keepRunning)
             {
                 // Fallback flush for parked mirror ops. The ack-driven flush only
@@ -4684,6 +5100,17 @@ namespace WorldsAdriftRebornGameServer
                 // idle (an empty-dictionary walk that allocates nothing). See
                 // Game.SkyWhaleService for the wire-shape contract.
                 SkyWhale.Tick();
+                // THE UNDERSTORM: each island's 1254 countdown, the storm switch, and
+                // that island's OWN resource reset when ITS storm ends. Off
+                // unless WAREBORN_STORMS=1; cheap when off (one bool) and cheap when
+                // on (a walk of a handful of islands doing integer arithmetic that
+                // almost always decides to send nothing). Deliberately AFTER the
+                // per-entity services and BEFORE DeferredActions, so the reset's
+                // resource pushes ride the same turn as the storm's own end update.
+                // See Game.IslandStormWire for the wire-shape contract and the
+                // island-drop hazard the "never write isLightningActive" rule exists
+                // for.
+                Storms.Tick();
                 // Fire any due one-shot "seed in-progress then flip" completions on the main
                 // loop: the shipyard fold-out flip (1205 deployed=true), the crafted-part
                 // materialize flip (1013 spawning=false), and timed station-craft completions.
@@ -4712,6 +5139,14 @@ namespace WorldsAdriftRebornGameServer
                 // health appended when readable). Runs with the other timers so a
                 // peer that has gone silent still gets its line.
                 ReportPeerRates();
+
+                // Rebuild the interaction shadow model, at most every 5 s and only
+                // when WAREBORN_SIMULATION_MODEL is set. Placed BEFORE the stats
+                // write so the dashboard publishes the model built this turn rather
+                // than the previous one, and after every service above so it sees a
+                // settled turn. Observation only; it can neither fail into this loop
+                // nor change anything above it. See SimulationShadowRuntime.
+                MaybeObserveSimulation();
 
                 // Snapshot the live session to /tmp/wareborn-stats.json for the
                 // operator dashboard. Self-throttled to a few seconds and atomic;
