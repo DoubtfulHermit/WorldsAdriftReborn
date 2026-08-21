@@ -128,6 +128,20 @@ changes.
 
 ### Exact deployed revisions
 
+**FLIGHT/WALL FOLLOW-UP 2026-08-21.** Game server `b46f242` is deployed.
+Canvas-driven motion now carries the full ambient relative-wind velocity even
+with the helm lever centred; the former gate incorrectly let sail thrust move
+the hull while making the drag equation see still air. Sail power remains at
+its original default 30, wind remains `2.236`, and varying wind remains off.
+The new closed-form 3094 kg/two-sail regression test was mutation-checked and
+the full Multiplayer suite passed **4484/0**. `WAREBORN_WALLS=1` is now live:
+all 44 release walls are served, including 11 storm rifts, as visuals only with
+zero wall force. Managed-DLL staged/live SHA-256 matched, all persistence
+surfaces restored, and boot contained no error/fatal/persistence-off line. The
+post-deploy component-interest checker remains INCONCLUSIVE until a player
+connects. Rollback binaries are in
+`/opt/wareborn/backups/pre-b46f242-20260821-1842/`.
+
 **DEPLOYMENT 2026-08-21.** Game and login/admin were deployed together from
 `3528d5c` after consolidating `feat/understorm-s1` (including S2/S3, wall
 visuals and the simulation shadow model), `feat/wind`, and
