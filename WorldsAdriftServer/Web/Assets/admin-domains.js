@@ -128,6 +128,24 @@
       }else{
         addDetailItem(grid,'Flight forces','not reported (force model off or older server)');
       }
+      var bounds=ship.worldBounds;
+      if(bounds&&bounds.present===true){
+        addDetailItem(grid,'Retail world bounds',bounds.enabled===true?'enabled':'disabled');
+        addDetailItem(grid,'World edge',Number(bounds.edgeLengthMetres).toFixed(0)+' m · push at ±'
+          +Number(bounds.horizontalPushbackThresholdMetres).toFixed(0)+' m · clamp at ±'
+          +Number(bounds.horizontalHardLimitMetres).toFixed(0)+' m');
+        addDetailItem(grid,'Vertical bounds','push at '+Number(bounds.verticalPushbackMetres).toFixed(0)
+          +' m · clamp at '+Number(bounds.verticalHardLimitMetres).toFixed(0)+' m');
+        addDetailItem(grid,'Boundary distance',Number(bounds.boundaryDistanceMetres).toFixed(2)+' m');
+        addDetailItem(grid,'Boundary pushback','Δv ['+Number(bounds.pushbackDeltaVxMps).toFixed(2)+', '
+          +Number(bounds.pushbackDeltaVyMps).toFixed(2)+', '
+          +Number(bounds.pushbackDeltaVzMps).toFixed(2)+'] m/s · '
+          +String(bounds.referenceSubsteps||0)+' × 20ms');
+        addDetailItem(grid,'Boundary safety',(bounds.hardClamped===true?'HARD CLAMP · ':'')
+          +(bounds.invalidState===true?'INVALID STATE QUARANTINED':'state finite'));
+      }else{
+        addDetailItem(grid,'Retail world bounds','not reported (older server)');
+      }
     }
     text('detailNote',ship
       ? 'Ship motion is emitted hull-first under one authority generation and replication sequence. Affinity is spatial context, not authority ownership.'
@@ -180,7 +198,7 @@
     });
   }
   function renderInfrastructure(g,reporting){
-    var runtime=(g&&g.runtime)||{},terrain=(g&&g.terrain)||{},interest=(g&&g.interest)||{};
+    var runtime=(g&&g.runtime)||{},terrain=(g&&g.terrain)||{},interest=(g&&g.interest)||{},bounds=(g&&g.worldBounds)||{};
     var domains=runtime.shipDomains||[];
     text('infraHostId',runtime.hostId&&runtime.hostId!=='unknown'?runtime.hostId:'local:primary');
     text('infraHostMode',runtime.hostMode==='local-single-process'?'local single-process':(runtime.hostMode||'not reported'));
@@ -197,6 +215,11 @@
     text('infraTerrain',reporting?(terrain.present===true?(terrain.mode||'reported'):'not reported by schema '+(g.schemaVersion||'unknown')):'not reported');
     text('infraTerrainPeers',reporting&&terrain.present===true?String(terrain.trackedPeerCount||0):'—');
     text('infraTerrainWarnings',reporting&&terrain.present===true?String(terrain.warningCount||0):'—');
+    text('infraWorldBounds',reporting?(bounds.present===true?(bounds.enabled===true?'enabled':'disabled'):'not reported by schema '+(g.schemaVersion||'unknown')):'not reported');
+    text('infraWorldBoundsEnvelope',reporting&&bounds.present===true
+      ? (Number(bounds.edgeLengthMetres).toFixed(0)+' m edge · ±'+Number(bounds.horizontalHardLimitMetres).toFixed(0)
+        +' m horizontal · '+Number(bounds.verticalHardLimitMetres).toFixed(0)+' m ceiling · '
+        +(Number(bounds.referenceStepSeconds)*1000).toFixed(0)+'ms reference'):'—');
     text('infraShipDomains',reporting?String(domains.length):'—');
     text('infraLiveCadence',reporting?String(domains.filter(function(d){return d.liveCadenceExpected===true;}).length):'—');
     text('infraStaleDeliveries',reporting?String(domains.filter(function(d){return d.staleDelivery===true;}).length):'—');

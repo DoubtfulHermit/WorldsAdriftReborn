@@ -1,5 +1,6 @@
 using Newtonsoft.Json.Linq;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
@@ -279,6 +280,56 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(1.25, (double)f["windAlongHeadingMps"]!);
             Assert.Equal(715.5, (double)f["sailForceNewtons"]!);
             Assert.Equal(5.75, (double)f["predictedTerminalSpeedMps"]!);
+        }
+
+        [Fact]
+        public void A_ship_domain_serializes_world_bounds_configuration_and_exact_step_result()
+        {
+            var telemetry = new RetailWorldBoundsTelemetry(
+                enabled: true, boundaryDistanceMetres: 42.25,
+                pushbackDeltaVxMps: -3.5, pushbackDeltaVyMps: -7.25,
+                pushbackDeltaVzMps: 1.75, hardClamped: true,
+                invalidState: false, referenceSubsteps: 12);
+            var bounds = new ShipWorldBoundsStat(
+                enabled: true, edgeLengthMetres: 36_000,
+                horizontalPushbackThresholdMetres: 17_600,
+                horizontalHardLimitMetres: 17_700,
+                verticalPushbackMetres: 800, verticalHardLimitMetres: 1_000,
+                telemetry);
+            var domain = new ShipDomainStat(
+                "ship:84", 84, 5, 92, 240, 10,
+                17_650, 900, 0, active: true, piloted: true,
+                liveCadenceExpected: true, pilotPlayerEntityId: 4,
+                aboardPlayerEntityIds: new[] { 4L }, deckCount: 1,
+                mountedPartCount: 2, subscriberCount: 1,
+                worldBounds: bounds);
+            var snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), shipDomains: new[] { domain },
+                worldBounds: new WorldBoundsRuntimeStat(
+                    true, 36_000, 17_600, 17_700, 800, 1_000, 0.02));
+
+            JObject root = JObject.Parse(snapshot.ToJson());
+            JObject runtimeBounds = (JObject)root["worldBounds"]!;
+            Assert.True((bool)runtimeBounds["present"]!);
+            Assert.True((bool)runtimeBounds["enabled"]!);
+            Assert.Equal(0.02, (double)runtimeBounds["referenceStepSeconds"]!);
+
+            JObject d = (JObject)((JArray)((JObject)root["runtime"]!)
+                ["shipDomains"]!)[0];
+            JObject w = (JObject)d["worldBounds"]!;
+            Assert.True((bool)w["present"]!);
+            Assert.True((bool)w["enabled"]!);
+            Assert.Equal(36_000, (double)w["edgeLengthMetres"]!);
+            Assert.Equal(17_600, (double)w["horizontalPushbackThresholdMetres"]!);
+            Assert.Equal(17_700, (double)w["horizontalHardLimitMetres"]!);
+            Assert.Equal(42.25, (double)w["boundaryDistanceMetres"]!);
+            Assert.Equal(-3.5, (double)w["pushbackDeltaVxMps"]!);
+            Assert.Equal(-7.25, (double)w["pushbackDeltaVyMps"]!);
+            Assert.Equal(1.75, (double)w["pushbackDeltaVzMps"]!);
+            Assert.True((bool)w["hardClamped"]!);
+            Assert.False((bool)w["invalidState"]!);
+            Assert.Equal(12, (int)w["referenceSubsteps"]!);
         }
 
         /// <summary>

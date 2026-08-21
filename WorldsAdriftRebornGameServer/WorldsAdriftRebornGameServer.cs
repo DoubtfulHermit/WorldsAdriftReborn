@@ -2690,7 +2690,8 @@ namespace WorldsAdriftRebornGameServer
                     // top-level OwnerCharacterUid reads through this, so the
                     // operator surface and the map panel cannot disagree.
                     HullStatFor(domain.HullEntityId),
-                    Flight.FlightStatFor(domain.HullEntityId)));
+                    Flight.FlightStatFor(domain.HullEntityId),
+                    Flight.WorldBoundsStatFor(domain.HullEntityId)));
             }
 
             // Operator topology: the ownership-only host is the source of truth for
@@ -2903,6 +2904,14 @@ namespace WorldsAdriftRebornGameServer
                 // move the console with it.
                 shipModel: new ShipMapRuntimeStat(
                     Flight.Tuning.AccelMps2, Flight.Tuning.MaxSpeedMps),
+                worldBounds: new WorldBoundsRuntimeStat(
+                    Flight.WorldBounds.Enabled,
+                    Flight.WorldBounds.EdgeLengthMetres,
+                    Flight.WorldBounds.HorizontalPushbackThresholdMetres,
+                    Flight.WorldBounds.HorizontalHardLimitMetres,
+                    Multiplayer.Ship.Flight.RetailWorldBoundsPolicy.VerticalPushbackMetres,
+                    Multiplayer.Ship.Flight.RetailWorldBoundsPolicy.VerticalHardLimitMetres,
+                    Multiplayer.Ship.Flight.RetailWorldBoundsPolicy.ReferenceStepSeconds),
                 interest: interest,
                 // The shadow model, as of its own last refresh - NOT rebuilt here.
                 // The stats file is written every 3 s and the shadow model every 5 s

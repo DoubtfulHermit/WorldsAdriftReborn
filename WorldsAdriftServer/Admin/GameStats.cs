@@ -188,6 +188,10 @@ namespace WorldsAdriftServer.Admin
         /// </summary>
         public GameShipModelStat ShipModel { get; private init; } = GameShipModelStat.Absent();
 
+        /// <summary>Process-wide optional retail world-edge configuration (schema v17+).</summary>
+        public GameWorldBoundsRuntimeStat WorldBounds { get; private init; } =
+            GameWorldBoundsRuntimeStat.Absent();
+
         /// <summary>
         /// The interest section (schema v10+). Never null: an older game server -
         /// including the v8 and v9 files still in the field - projects to an
@@ -285,6 +289,7 @@ namespace WorldsAdriftServer.Admin
                 Terrain = GameTerrainStat.Parse(o["terrain"] as JObject),
                 Fauna = GameFaunaStat.Parse(o["fauna"] as JObject),
                 ShipModel = GameShipModelStat.Parse(o["shipModel"] as JObject),
+                WorldBounds = GameWorldBoundsRuntimeStat.Parse(o["worldBounds"] as JObject),
                 Interest = GameInterestStat.Parse(o["interest"] as JObject),
                 SkyWhale = GameSkyWhaleStat.Parse(o["skyWhale"] as JObject),
                 Simulation = GameSimulationStat.Parse(o["simulation"] as JObject),
@@ -1497,6 +1502,48 @@ namespace WorldsAdriftServer.Admin
         }
     }
 
+    internal sealed class GameWorldBoundsRuntimeStat
+    {
+        public bool Present { get; private init; }
+        public JObject Json { get; private init; } = new JObject();
+
+        public static GameWorldBoundsRuntimeStat Absent() => new GameWorldBoundsRuntimeStat
+        {
+            Present = false,
+            Json = Build(null),
+        };
+
+        public static GameWorldBoundsRuntimeStat Parse(JObject? source) => source == null
+            ? Absent()
+            : new GameWorldBoundsRuntimeStat { Present = true, Json = Build(source) };
+
+        private static JObject Build(JObject? w) => new JObject
+        {
+            ["present"] = w != null && ((bool?)w["present"] ?? false),
+            ["enabled"] = w != null && ((bool?)w["enabled"] ?? false),
+            ["edgeLengthMetres"] = Positive((double?)w?["edgeLengthMetres"] ?? 0, 10_000_000),
+            ["horizontalPushbackThresholdMetres"] = Positive(
+                (double?)w?["horizontalPushbackThresholdMetres"] ?? 0, 5_000_000),
+            ["horizontalHardLimitMetres"] = Positive(
+                (double?)w?["horizontalHardLimitMetres"] ?? 0, 5_000_000),
+            ["verticalPushbackMetres"] = Signed(
+                (double?)w?["verticalPushbackMetres"] ?? 0, 1_000_000),
+            ["verticalHardLimitMetres"] = Signed(
+                (double?)w?["verticalHardLimitMetres"] ?? 0, 1_000_000),
+            ["referenceStepSeconds"] = Positive(
+                (double?)w?["referenceStepSeconds"] ?? 0, 1),
+        };
+
+        private static double Positive(double value, double maximum) =>
+            Math.Max(0, Signed(value, maximum));
+
+        private static double Signed(double value, double maximum)
+        {
+            if (!double.IsFinite(value)) return 0;
+            return Math.Clamp(value, -maximum, maximum);
+        }
+    }
+
     internal sealed class GameShipDomainStat
     {
         /// <summary>
@@ -1591,8 +1638,41 @@ namespace WorldsAdriftServer.Admin
                 ["vzMps"] = Finite((double?)d["vzMps"] ?? 0, MaxHullMetres),
                 ["hull"] = Hull(hull, revision),
                 ["flight"] = Flight(d["flight"] as JObject),
+                ["worldBounds"] = WorldBounds(d["worldBounds"] as JObject),
             }};
         }
+
+        /// <summary>
+        /// Allowlisted world-edge configuration and last applied consequence.
+        /// A missing block is explicit present:false; no boundary behavior is
+        /// inferred by this reader from positions alone.
+        /// </summary>
+        private static JObject WorldBounds(JObject? w) => new JObject
+        {
+            ["present"] = w != null && ((bool?)w["present"] ?? false),
+            ["enabled"] = w != null && ((bool?)w["enabled"] ?? false),
+            ["edgeLengthMetres"] = Math.Max(0,
+                Finite((double?)w?["edgeLengthMetres"] ?? 0, 10_000_000)),
+            ["horizontalPushbackThresholdMetres"] = Math.Max(0,
+                Finite((double?)w?["horizontalPushbackThresholdMetres"] ?? 0, 5_000_000)),
+            ["horizontalHardLimitMetres"] = Math.Max(0,
+                Finite((double?)w?["horizontalHardLimitMetres"] ?? 0, 5_000_000)),
+            ["verticalPushbackMetres"] = Finite(
+                (double?)w?["verticalPushbackMetres"] ?? 0, 1_000_000),
+            ["verticalHardLimitMetres"] = Finite(
+                (double?)w?["verticalHardLimitMetres"] ?? 0, 1_000_000),
+            ["boundaryDistanceMetres"] = Finite(
+                (double?)w?["boundaryDistanceMetres"] ?? 0, 10_000_000),
+            ["pushbackDeltaVxMps"] = Finite(
+                (double?)w?["pushbackDeltaVxMps"] ?? 0, 10_000),
+            ["pushbackDeltaVyMps"] = Finite(
+                (double?)w?["pushbackDeltaVyMps"] ?? 0, 10_000),
+            ["pushbackDeltaVzMps"] = Finite(
+                (double?)w?["pushbackDeltaVzMps"] ?? 0, 10_000),
+            ["hardClamped"] = w != null && ((bool?)w["hardClamped"] ?? false),
+            ["invalidState"] = w != null && ((bool?)w["invalidState"] ?? false),
+            ["referenceSubsteps"] = Count((int?)w?["referenceSubsteps"] ?? 0),
+        };
 
         /// <summary>
         /// Allowlisted live force-model telemetry. Signed force, angle and

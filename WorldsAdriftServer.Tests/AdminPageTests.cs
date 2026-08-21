@@ -822,6 +822,27 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains(".map-swatch.wall-1{background:#c04ae8}", html);
         }
 
+        [Fact]
+        public void Ship_detail_renders_truthful_world_bounds_state_and_consequences()
+        {
+            string html = AdminPage.Dashboard("{}", new string('a', 64));
+
+            Assert.Contains("var bounds=ship.worldBounds", html);
+            Assert.Contains("'Retail world bounds'", html);
+            Assert.Contains("bounds.horizontalPushbackThresholdMetres", html);
+            Assert.Contains("bounds.horizontalHardLimitMetres", html);
+            Assert.Contains("bounds.verticalPushbackMetres", html);
+            Assert.Contains("bounds.verticalHardLimitMetres", html);
+            Assert.Contains("bounds.boundaryDistanceMetres", html);
+            Assert.Contains("bounds.pushbackDeltaVxMps", html);
+            Assert.Contains("bounds.hardClamped", html);
+            Assert.Contains("bounds.invalidState", html);
+            Assert.Contains("bounds.referenceSubsteps", html);
+            Assert.Contains("id=\"infraWorldBounds\"", html);
+            Assert.Contains("id=\"infraWorldBoundsEnvelope\"", html);
+            Assert.Contains("g&&g.worldBounds", html);
+        }
+
         private static string[] DistrictsForTier(IEnumerable<JObject> cells, int tier)
         {
             return cells.Where(cell => (int?)cell["type"] == tier)

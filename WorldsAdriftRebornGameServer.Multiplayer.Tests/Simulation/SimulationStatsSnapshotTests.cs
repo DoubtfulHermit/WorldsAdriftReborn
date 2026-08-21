@@ -35,7 +35,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Simulation
 
         [Fact]
         public void The_current_stats_schema_includes_the_inspector_section() =>
-            Assert.Equal(16, StatsSnapshot.SchemaVersion);
+            Assert.Equal(17, StatsSnapshot.SchemaVersion);
 
         [Fact]
         public void A_server_that_never_built_the_section_writes_an_explicit_absence()

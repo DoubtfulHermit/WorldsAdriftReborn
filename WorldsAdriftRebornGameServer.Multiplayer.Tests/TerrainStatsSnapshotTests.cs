@@ -81,8 +81,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // off from one that has not warmed up yet. v15 adds per-ship force
             // telemetry; v16 adds its exact runtime sample metadata and the
             // versioned authenticated World Inspector.
-            Assert.Equal(16, StatsSnapshot.SchemaVersion);
-            Assert.Equal(16, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            // observer contract; v17 adds opt-in retail world-edge telemetry.
+            Assert.Equal(17, StatsSnapshot.SchemaVersion);
+            Assert.Equal(17, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

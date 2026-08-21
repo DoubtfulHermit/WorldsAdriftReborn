@@ -86,6 +86,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly CadenceTimer _cadence;
         private readonly FlightTuning _tuning;
         private readonly WallFlightInfluence _wallFlightInfluence;
+        private readonly RetailWorldBoundsPolicy _worldBounds;
         private readonly PilotSeats _seats = new PilotSeats();
         private readonly ShipDomainRegistry _domains;
         private readonly LocalDomainHost? _domainHost;
@@ -102,6 +103,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// generous for it.
         /// </summary>
         internal FlightTuning Tuning => _tuning;
+        internal RetailWorldBoundsPolicy WorldBounds => _worldBounds;
 
         /// <summary>The authority token issued at the player's current helm handoff.</summary>
         private readonly Dictionary<long, ShipAuthorityToken> _authorityByPlayer = new();
@@ -168,6 +170,8 @@ namespace WorldsAdriftRebornGameServer.Game
             _tuning = FlightTuning.FromEnvironment(Environment.GetEnvironmentVariable);
             _wallFlightInfluence = WallFlightInfluence.FromEnvironment(
                 WallPolicy.EnabledFromEnvironment(), Environment.GetEnvironmentVariable);
+            _worldBounds = RetailWorldBoundsPolicy.FromEnvironment(
+                Environment.GetEnvironmentVariable);
 
             if (Enabled)
             {
@@ -175,6 +179,11 @@ namespace WorldsAdriftRebornGameServer.Game
                     + " its built ship. " + _tuning + "; drive target = "
                     + (DriveTargetIsHelm ? "HELM" : "HULL") + " (WAREBORN_FLIGHT_DRIVE_TARGET).");
                 Console.WriteLine("[info] " + _wallFlightInfluence.Describe());
+                Console.WriteLine("[info] retail flight world bounds are "
+                    + (_worldBounds.Enabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_WORLD_BOUNDS; edge "
+                    + _worldBounds.EdgeLengthMetres.ToString("0.##",
+                        System.Globalization.CultureInfo.InvariantCulture) + " m).");
             }
         }
 
@@ -720,7 +729,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 double agility = AgilityScaleFor(hullEntityId);
                 FlightEmit emit = session.Advance(
                     nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility,
-                    PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments);
+                    PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
+                    _worldBounds);
                 CompleteDepartureIfOutside(hullEntityId, session.State);
                 PersistPoseWhenDue(hullEntityId, session.State);
                 if (!emit.Emit)
@@ -1267,6 +1277,21 @@ namespace WorldsAdriftRebornGameServer.Game
                 evaluation.PropulsionAccelerationMps2,
                 evaluation.WindAlongHeadingMps,
                 evaluation.PredictedSettledSpeedMps);
+        }
+
+        internal Multiplayer.ShipWorldBoundsStat WorldBoundsStatFor(long hullEntityId)
+        {
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            RetailWorldBoundsTelemetry telemetry = domain?.Flight.LastWorldBoundsTelemetry
+                ?? RetailWorldBoundsTelemetry.Off;
+            return new Multiplayer.ShipWorldBoundsStat(
+                _worldBounds.Enabled,
+                _worldBounds.EdgeLengthMetres,
+                _worldBounds.HorizontalPushbackThresholdMetres,
+                _worldBounds.HorizontalHardLimitMetres,
+                RetailWorldBoundsPolicy.VerticalPushbackMetres,
+                RetailWorldBoundsPolicy.VerticalHardLimitMetres,
+                telemetry);
         }
 
         /// <summary>

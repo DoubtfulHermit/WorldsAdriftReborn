@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
@@ -176,6 +177,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     }
 
     /// <summary>
+    /// Process-wide configuration of the opt-in retail flight world edge. This
+    /// exists even when there are zero ship domains, so an operator can distinguish
+    /// "disabled" from "no ship happened to report it".
+    /// </summary>
+    public readonly struct WorldBoundsRuntimeStat
+    {
+        public WorldBoundsRuntimeStat(bool enabled, double edgeLengthMetres,
+            double horizontalPushbackThresholdMetres, double horizontalHardLimitMetres,
+            double verticalPushbackMetres, double verticalHardLimitMetres,
+            double referenceStepSeconds)
+        {
+            Present = true;
+            Enabled = enabled;
+            EdgeLengthMetres = edgeLengthMetres;
+            HorizontalPushbackThresholdMetres = horizontalPushbackThresholdMetres;
+            HorizontalHardLimitMetres = horizontalHardLimitMetres;
+            VerticalPushbackMetres = verticalPushbackMetres;
+            VerticalHardLimitMetres = verticalHardLimitMetres;
+            ReferenceStepSeconds = referenceStepSeconds;
+        }
+
+        public bool Present { get; }
+        public bool Enabled { get; }
+        public double EdgeLengthMetres { get; }
+        public double HorizontalPushbackThresholdMetres { get; }
+        public double HorizontalHardLimitMetres { get; }
+        public double VerticalPushbackMetres { get; }
+        public double VerticalHardLimitMetres { get; }
+        public double ReferenceStepSeconds { get; }
+    }
+
+    /// <summary>
     /// One read-only evaluation of the force model for one live hull. These are
     /// inputs and consequences of the same model flight is executing, never a
     /// second browser-side approximation. <see cref="Present"/> false means the
@@ -223,6 +256,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public double PropulsionAccelerationMps2 { get; }
         public double WindAlongHeadingMps { get; }
         public double PredictedTerminalSpeedMps { get; }
+    }
+
+    /// <summary>
+    /// The optional retail world-edge policy as actually evaluated for one hull.
+    /// Configuration is present even before a hull moves; per-step consequences
+    /// remain zero until an enabled policy evaluates a cadence interval.
+    /// </summary>
+    public readonly struct ShipWorldBoundsStat
+    {
+        public ShipWorldBoundsStat(bool enabled, double edgeLengthMetres,
+            double horizontalPushbackThresholdMetres, double horizontalHardLimitMetres,
+            double verticalPushbackMetres, double verticalHardLimitMetres,
+            RetailWorldBoundsTelemetry telemetry)
+        {
+            Present = true;
+            Enabled = enabled;
+            EdgeLengthMetres = edgeLengthMetres;
+            HorizontalPushbackThresholdMetres = horizontalPushbackThresholdMetres;
+            HorizontalHardLimitMetres = horizontalHardLimitMetres;
+            VerticalPushbackMetres = verticalPushbackMetres;
+            VerticalHardLimitMetres = verticalHardLimitMetres;
+            BoundaryDistanceMetres = telemetry.BoundaryDistanceMetres;
+            PushbackDeltaVxMps = telemetry.PushbackDeltaVxMps;
+            PushbackDeltaVyMps = telemetry.PushbackDeltaVyMps;
+            PushbackDeltaVzMps = telemetry.PushbackDeltaVzMps;
+            HardClamped = telemetry.HardClamped;
+            InvalidState = telemetry.InvalidState;
+            ReferenceSubsteps = telemetry.ReferenceSubsteps;
+        }
+
+        public bool Present { get; }
+        public bool Enabled { get; }
+        public double EdgeLengthMetres { get; }
+        public double HorizontalPushbackThresholdMetres { get; }
+        public double HorizontalHardLimitMetres { get; }
+        public double VerticalPushbackMetres { get; }
+        public double VerticalHardLimitMetres { get; }
+        public double BoundaryDistanceMetres { get; }
+        public double PushbackDeltaVxMps { get; }
+        public double PushbackDeltaVyMps { get; }
+        public double PushbackDeltaVzMps { get; }
+        public bool HardClamped { get; }
+        public bool InvalidState { get; }
+        public int ReferenceSubsteps { get; }
     }
 
     /// <summary>
@@ -276,6 +353,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>The force model's live inputs and prediction for this hull.</summary>
         public ShipFlightStat Flight { get; }
 
+        /// <summary>The configured and last-evaluated retail world-edge policy.</summary>
+        public ShipWorldBoundsStat WorldBounds { get; }
+
         /// <summary>
         /// The character uid this hull belongs to, or "" when the owner is not
         /// known to this boot. The operator surface answers "the ship this player
@@ -300,7 +380,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int mountedPartCount, int subscriberCount,
             double yawRadians = 0, double yawRateRadPerSec = 0,
             double vxMps = 0, double vyMps = 0, double vzMps = 0,
-            ShipHullStat hull = default, ShipFlightStat flight = default)
+            ShipHullStat hull = default, ShipFlightStat flight = default,
+            ShipWorldBoundsStat worldBounds = default)
         {
             YawRadians = yawRadians;
             YawRateRadPerSec = yawRateRadPerSec;
@@ -309,6 +390,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             VzMps = vzMps;
             Hull = hull;
             Flight = flight;
+            WorldBounds = worldBounds;
             DomainId = domainId ?? string.Empty;
             HullEntityId = hullEntityId;
             AuthorityGeneration = authorityGeneration;
@@ -491,7 +573,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // sample time, wall influence and along-heading wind consumed by the runtime
         // tick. It remains authenticated admin telemetry; this file is not itself
         // an HTTP endpoint.
-        public const int SchemaVersion = 16;
+        // v17: the snapshot gains process-wide `worldBounds` configuration even
+        // with zero ships, and each ship domain gains an explicit `worldBounds`
+        // result: final boundary distance, applied velocity delta,
+        // hard-clamp/invalid-state verdicts and reference-substep count. This is
+        // observation only and remains present with enabled:false.
+        public const int SchemaVersion = 17;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -573,6 +660,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>The authenticated World Inspector observer contract (schema v16+).</summary>
         public WorldInspectorRuntimeStat WorldInspector { get; }
+        public WorldBoundsRuntimeStat WorldBounds { get; }
 
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
@@ -608,12 +696,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             InterestRuntimeStat interest = default,
             SkyWhaleRuntimeStat? skyWhale = null,
             SimulationRuntimeStat simulation = default,
-            WorldInspectorRuntimeStat worldInspector = default)
+            WorldInspectorRuntimeStat worldInspector = default,
+            WorldBoundsRuntimeStat worldBounds = default)
         {
             ShipModel = shipModel;
             Interest = interest;
             Simulation = simulation;
             WorldInspector = worldInspector;
+            WorldBounds = worldBounds;
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
             UptimeSeconds = uptimeSeconds;
@@ -725,6 +815,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             AppendFauna(b, Fauna);
             b.Append(',');
             AppendShipModel(b, ShipModel);
+            b.Append(',');
+            AppendWorldBoundsRuntime(b, WorldBounds);
             b.Append(',');
             AppendInterest(b, Interest);
             b.Append(',');
@@ -971,6 +1063,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Num(b, "windowSeconds", s.WindowSeconds); b.Append(',');
             Num(b, "maxWindowSeconds", s.MaxWindowSeconds); b.Append(',');
             Num(b, "toleratedErrorMetres", s.ToleratedErrorMetres);
+            b.Append('}');
+        }
+
+        private static void AppendWorldBoundsRuntime(StringBuilder b, WorldBoundsRuntimeStat w)
+        {
+            Key(b, "worldBounds");
+            b.Append('{');
+            Bool(b, "present", w.Present); b.Append(',');
+            Bool(b, "enabled", w.Enabled); b.Append(',');
+            Num(b, "edgeLengthMetres", Trim(w.EdgeLengthMetres)); b.Append(',');
+            Num(b, "horizontalPushbackThresholdMetres", Trim(w.HorizontalPushbackThresholdMetres)); b.Append(',');
+            Num(b, "horizontalHardLimitMetres", Trim(w.HorizontalHardLimitMetres)); b.Append(',');
+            Num(b, "verticalPushbackMetres", Trim(w.VerticalPushbackMetres)); b.Append(',');
+            Num(b, "verticalHardLimitMetres", Trim(w.VerticalHardLimitMetres)); b.Append(',');
+            Num(b, "referenceStepSeconds", Trim(w.ReferenceStepSeconds));
             b.Append('}');
         }
 
@@ -1406,7 +1513,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Num(b, "vzMps", Trim(d.VzMps)); b.Append(',');
 
             AppendHull(b, d.Hull); b.Append(',');
-            AppendShipFlight(b, d.Flight);
+            AppendShipFlight(b, d.Flight); b.Append(',');
+            AppendWorldBounds(b, d.WorldBounds);
+            b.Append('}');
+        }
+
+        private static void AppendWorldBounds(StringBuilder b, ShipWorldBoundsStat w)
+        {
+            Key(b, "worldBounds"); b.Append('{');
+            Bool(b, "present", w.Present); b.Append(',');
+            Bool(b, "enabled", w.Enabled); b.Append(',');
+            Num(b, "edgeLengthMetres", Trim(w.EdgeLengthMetres)); b.Append(',');
+            Num(b, "horizontalPushbackThresholdMetres", Trim(w.HorizontalPushbackThresholdMetres)); b.Append(',');
+            Num(b, "horizontalHardLimitMetres", Trim(w.HorizontalHardLimitMetres)); b.Append(',');
+            Num(b, "verticalPushbackMetres", Trim(w.VerticalPushbackMetres)); b.Append(',');
+            Num(b, "verticalHardLimitMetres", Trim(w.VerticalHardLimitMetres)); b.Append(',');
+            Num(b, "boundaryDistanceMetres", Trim(w.BoundaryDistanceMetres)); b.Append(',');
+            Num(b, "pushbackDeltaVxMps", Trim(w.PushbackDeltaVxMps)); b.Append(',');
+            Num(b, "pushbackDeltaVyMps", Trim(w.PushbackDeltaVyMps)); b.Append(',');
+            Num(b, "pushbackDeltaVzMps", Trim(w.PushbackDeltaVzMps)); b.Append(',');
+            Bool(b, "hardClamped", w.HardClamped); b.Append(',');
+            Bool(b, "invalidState", w.InvalidState); b.Append(',');
+            Num(b, "referenceSubsteps", w.ReferenceSubsteps);
             b.Append('}');
         }
 

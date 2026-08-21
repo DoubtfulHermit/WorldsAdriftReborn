@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
@@ -87,6 +88,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>The exact wind/force sample consumed by the latest physical step.</summary>
         public ShipForceEvaluation LastForceEvaluation { get; private set; }
 
+        /// <summary>The exact optional world-edge result consumed by the latest cadence step.</summary>
+        public RetailWorldBoundsTelemetry LastWorldBoundsTelemetry { get; private set; }
+
         public bool IsManned => _manned;
 
         /// <summary>
@@ -170,6 +174,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             _state = FlightState.AtRestAt(x, y, z, yawRadians);
             _input = FlightControlInput.Neutral;
             LastForceEvaluation = ShipForceEvaluation.Unavailable;
+            LastWorldBoundsTelemetry = RetailWorldBoundsTelemetry.Off;
             _restEmitted = 0;
         }
 
@@ -184,6 +189,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             _state = FlightState.AtRestAt(_state.X, _state.Y, _state.Z, _state.YawRadians);
             _input = FlightControlInput.Neutral;
             LastForceEvaluation = ShipForceEvaluation.Unavailable;
+            LastWorldBoundsTelemetry = RetailWorldBoundsTelemetry.Off;
             _manned = false;
             _restEmitted = 0;
         }
@@ -196,7 +202,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public FlightEmit Advance(long nowMs, double stepSeconds, FlightTuning tuning,
             int unfurledSails = 0, double agilityScale = 1.0,
             ShipPropulsion? propulsion = null,
-            IReadOnlyList<WeatherWallSegment>? walls = null)
+            IReadOnlyList<WeatherWallSegment>? walls = null,
+            RetailWorldBoundsPolicy? worldBounds = null)
         {
             // A latched non-zero throttle is live even if the pilot released the
             // helm before the first integration tick, while the hull is technically
@@ -214,11 +221,62 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // The wind field's clock is the server's own millisecond clock, so
                 // every hull in the world samples the SAME wind at the same moment
                 // - two ships side by side must not disagree about the weather.
-                _state = FlightIntegrator.StepEvaluated(
-                    _state, _input, stepSeconds, tuning, out ShipForceEvaluation evaluation,
-                    unfurledSails, agilityScale, propulsion,
-                    nowMs / 1000.0, walls);
-                LastForceEvaluation = evaluation;
+                if (worldBounds?.Enabled == true)
+                {
+                    // Retail WorldEdgePushback was a Unity FixedUpdate behaviour.
+                    // The reconstructed flight cadence is 240 ms, so run the
+                    // existing integrator and the recovered edge rule together in
+                    // deterministic 20 ms reference slices. This is deliberately
+                    // local to the opt-in boundary feature; OFF remains the exact
+                    // historical one-call path below.
+                    double remaining = stepSeconds;
+                    double elapsed = 0.0;
+                    int substeps = 0;
+                    double dvx = 0.0, dvy = 0.0, dvz = 0.0;
+                    bool hardClamped = false, invalidState = false;
+                    double distance = worldBounds.DistanceToBoundary(_state);
+                    ShipForceEvaluation evaluation = ShipForceEvaluation.Unavailable;
+                    while (remaining > 1e-12)
+                    {
+                        double dt = Math.Min(RetailWorldBoundsPolicy.ReferenceStepSeconds, remaining);
+                        FlightState previous = _state;
+                        FlightState candidate = FlightIntegrator.StepEvaluated(
+                            previous, _input, dt, tuning, out evaluation,
+                            unfurledSails, agilityScale, propulsion,
+                            (nowMs / 1000.0) - stepSeconds + elapsed + dt, walls);
+                        RetailWorldBoundsStep bounded = worldBounds.Apply(previous, candidate);
+                        _state = bounded.State;
+                        RetailWorldBoundsTelemetry sample = bounded.Telemetry;
+                        dvx += sample.PushbackDeltaVxMps;
+                        dvy += sample.PushbackDeltaVyMps;
+                        dvz += sample.PushbackDeltaVzMps;
+                        hardClamped |= sample.HardClamped;
+                        invalidState |= sample.InvalidState;
+                        distance = sample.BoundaryDistanceMetres;
+                        substeps++;
+                        elapsed += dt;
+                        remaining -= dt;
+                        // Quarantine means reject the entire cadence candidate,
+                        // not "stop for 20 ms and resume from origin". A later
+                        // authoritative tick may move again from the finite rest
+                        // state, but this corrupt interval ends here.
+                        if (sample.InvalidState)
+                            break;
+                    }
+                    LastForceEvaluation = evaluation;
+                    LastWorldBoundsTelemetry = new RetailWorldBoundsTelemetry(
+                        true, distance, dvx, dvy, dvz,
+                        hardClamped, invalidState, substeps);
+                }
+                else
+                {
+                    _state = FlightIntegrator.StepEvaluated(
+                        _state, _input, stepSeconds, tuning, out ShipForceEvaluation evaluation,
+                        unfurledSails, agilityScale, propulsion,
+                        nowMs / 1000.0, walls);
+                    LastForceEvaluation = evaluation;
+                    LastWorldBoundsTelemetry = RetailWorldBoundsTelemetry.Off;
+                }
 
                 if (_state.IsAtRest && !_manned)
                 {

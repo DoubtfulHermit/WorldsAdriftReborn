@@ -700,6 +700,7 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["terrain"] = s.Terrain.Json;
             game["fauna"] = s.Fauna.Json;
             game["shipModel"] = s.ShipModel.Json;
+            game["worldBounds"] = s.WorldBounds.Json;
             game["interest"] = s.Interest.Json;
             game["skyWhale"] = s.SkyWhale.Json;
             // The interaction shadow model. Deliberately a SIBLING of "runtime"
