@@ -133,6 +133,13 @@ namespace WorldsAdriftServer.Admin
     /// </summary>
     internal sealed class GameStatsSnapshot
     {
+        // The stats file is a cross-process boundary, not trusted object memory.
+        // These ceilings sit above supported deployments but keep a corrupt file
+        // from becoming an unbounded authenticated payload or browser DOM.
+        internal const int MaxPlayers = 1024;
+        internal const int MaxRuntimeDomains = 512;
+        internal const int MaxShipDomains = 256;
+
         public int SchemaVersion { get; private init; }
         public DateTimeOffset BootTime { get; private init; }
         public DateTimeOffset GeneratedAt { get; private init; }
@@ -219,6 +226,7 @@ namespace WorldsAdriftServer.Admin
             {
                 foreach (JToken t in arr)
                 {
+                    if (players.Count >= MaxPlayers) break;
                     if (t is JObject p)
                     {
                         players.Add(GamePlayerStat.Parse(p));
@@ -230,13 +238,23 @@ namespace WorldsAdriftServer.Admin
             if (runtime?["shipDomains"] is JArray domainArray)
             {
                 foreach (JToken t in domainArray)
+                {
+                    if (domains.Count >= MaxShipDomains) break;
                     if (t is JObject d) domains.Add(GameShipDomainStat.Parse(d));
+                }
             }
             List<GameRuntimeDomainStat> runtimeDomains = new List<GameRuntimeDomainStat>();
+            HashSet<string> runtimeDomainIds = new HashSet<string>(StringComparer.Ordinal);
             if (runtime?["domains"] is JArray runtimeDomainArray)
             {
                 foreach (JToken t in runtimeDomainArray)
-                    if (t is JObject d) runtimeDomains.Add(GameRuntimeDomainStat.Parse(d));
+                {
+                    if (runtimeDomains.Count >= MaxRuntimeDomains) break;
+                    if (t is not JObject d) continue;
+                    string stableId = GameRuntimeDomainStat.StableId(d);
+                    if (stableId.Length == 0 || !runtimeDomainIds.Add(stableId)) continue;
+                    runtimeDomains.Add(GameRuntimeDomainStat.Parse(d, stableId));
+                }
             }
 
             return new GameStatsSnapshot
@@ -290,6 +308,14 @@ namespace WorldsAdriftServer.Admin
     /// </summary>
     internal sealed class GameTerrainStat
     {
+        // The writer retains 64 lifecycle events. Reassert that and table caps at
+        // the reader boundary; browser slice() calls are rendering caps, not
+        // payload or memory caps.
+        internal const int MaxPlayers = 1024;
+        internal const int MaxIslands = 512;
+        internal const int MaxEvents = 64;
+        private const int MaxPlayerIslands = 512;
+
         /// <summary>
         /// The three modes the game server can report. Anything else - including
         /// a section written by a future schema - reads as "unknown" rather than
@@ -346,17 +372,26 @@ namespace WorldsAdriftServer.Admin
             JArray players = new JArray();
             if (t?["players"] is JArray playerArray)
                 foreach (JToken token in playerArray)
+                {
+                    if (players.Count >= MaxPlayers) break;
                     if (token is JObject p) players.Add(BuildPlayer(p));
+                }
 
             JArray islands = new JArray();
             if (t?["islands"] is JArray islandArray)
                 foreach (JToken token in islandArray)
+                {
+                    if (islands.Count >= MaxIslands) break;
                     if (token is JObject i) islands.Add(BuildIsland(i));
+                }
 
             JArray events = new JArray();
             if (t?["events"] is JArray eventArray)
                 foreach (JToken token in eventArray)
+                {
+                    if (events.Count >= MaxEvents) break;
                     if (token is JObject e) events.Add(BuildEvent(e));
+                }
 
             return new JObject
             {
@@ -390,6 +425,7 @@ namespace WorldsAdriftServer.Admin
             {
                 foreach (JToken token in cells)
                 {
+                    if (islands.Count >= MaxPlayerIslands) break;
                     if (token is not JObject cell) continue;
                     islands.Add(new JObject
                     {
@@ -1339,26 +1375,68 @@ namespace WorldsAdriftServer.Admin
 
     internal sealed class GameRuntimeDomainStat
     {
+        private const int MaxTextLength = 128;
+        private const int MaxCount = 10_000_000;
+        private const double MaxWorldCoordinate = 10_000_000.0;
+
         public JObject Json { get; private init; } = new JObject();
 
-        public static GameRuntimeDomainStat Parse(JObject d) => new GameRuntimeDomainStat
+        /// <summary>
+        /// Canonical selection identity across polls. Labels, hosts and order may
+        /// change; domainId does not. Blank ids cannot be selected, and the parent
+        /// parser keeps only the first duplicate so one key never names two rows.
+        /// </summary>
+        internal static string StableId(JObject d) => Text((string?)d["domainId"], "");
+
+        public static GameRuntimeDomainStat Parse(JObject d) => Parse(d, StableId(d));
+
+        internal static GameRuntimeDomainStat Parse(JObject d, string stableId) => new GameRuntimeDomainStat
         {
             Json = new JObject
             {
-                ["domainId"] = (string?)d["domainId"] ?? "",
-                ["kind"] = (string?)d["kind"] ?? "unknown",
-                ["label"] = (string?)d["label"] ?? "Unnamed domain",
-                ["hostId"] = (string?)d["hostId"] ?? "unknown",
+                ["domainId"] = stableId,
+                ["kind"] = Kind((string?)d["kind"]),
+                ["label"] = Text((string?)d["label"], "Unnamed domain"),
+                ["hostId"] = Text((string?)d["hostId"], "unknown"),
                 ["affinityDomainId"] = d["affinityDomainId"]?.Type == JTokenType.String
-                    ? (string?)d["affinityDomainId"] : null,
-                ["entityCount"] = (int?)d["entityCount"] ?? 0,
+                    ? NullableText((string?)d["affinityDomainId"]) : null,
+                ["entityCount"] = Count((int?)d["entityCount"] ?? 0),
                 ["active"] = (bool?)d["active"] ?? false,
-                ["warningCount"] = (int?)d["warningCount"] ?? 0,
-                ["x"] = (double?)d["x"] ?? 0,
-                ["y"] = (double?)d["y"] ?? 0,
-                ["z"] = (double?)d["z"] ?? 0,
+                ["warningCount"] = Count((int?)d["warningCount"] ?? 0),
+                ["x"] = Coordinate((double?)d["x"] ?? 0),
+                ["y"] = Coordinate((double?)d["y"] ?? 0),
+                ["z"] = Coordinate((double?)d["z"] ?? 0),
             }
         };
+
+        private static string Kind(string? value) => value switch
+        {
+            "island" => "island",
+            "ship" => "ship",
+            "static-ship" => "static-ship",
+            _ => "unknown",
+        };
+
+        private static string Text(string? value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return fallback;
+            string trimmed = value!.Trim();
+            return trimmed.Length <= MaxTextLength ? trimmed : trimmed.Substring(0, MaxTextLength);
+        }
+
+        private static JToken NullableText(string? value)
+        {
+            string text = Text(value, "");
+            return text.Length == 0 ? JValue.CreateNull() : new JValue(text);
+        }
+
+        private static int Count(int value) => value < 0 ? 0 : Math.Min(value, MaxCount);
+
+        private static double Coordinate(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value)) return 0;
+            return Math.Max(-MaxWorldCoordinate, Math.Min(MaxWorldCoordinate, value));
+        }
     }
 
     /// <summary>
