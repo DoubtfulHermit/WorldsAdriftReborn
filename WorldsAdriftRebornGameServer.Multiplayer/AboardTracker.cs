@@ -200,6 +200,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 : (long?)null;
         }
 
+        /// <summary>
+        /// The exact ship surface whose transform owns the player's current 1073
+        /// positionRelative.  This is deliberately not replaced by the ship root:
+        /// retail computes positionRelative with ground.transform.InverseTransformPoint,
+        /// so a deck panel or mounted helm has its own origin and rotation.
+        /// </summary>
+        public long? RelativeSurfaceOf(ulong playerId)
+        {
+            if (!_players.TryGetValue(playerId, out PlayerRelativeState? state)
+                || !state.IsAboard || !state.RelativeToKnown || state.RelativeTo <= 0)
+            {
+                return null;
+            }
+
+            long? root = _membership.RootOf(state.RelativeTo);
+            return root.HasValue && root.Value == state.ShipRootEntityId
+                ? state.RelativeTo
+                : (long?)null;
+        }
+
         /// <summary>Whether the player is aboard any ship.</summary>
         public bool IsAboardAnything(ulong playerId) => ShipOf(playerId).HasValue;
 

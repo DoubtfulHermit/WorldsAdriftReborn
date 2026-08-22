@@ -95,6 +95,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Aboard_position_is_recomposed_through_the_exact_ground_surface()
+        {
+            string handler = Source("WorldsAdriftRebornGameServer", "Game", "Components", "Update",
+                "Handlers", "ClientAuthoritativePlayerState_Handler.cs");
+
+            Assert.Contains("RelativeSurfaceOf", handler, StringComparison.Ordinal);
+            Assert.Contains("TryShipSurfaceWorldPose", handler, StringComparison.Ordinal);
+            Assert.Contains("TransformSurfaceLocalPoint", handler, StringComparison.Ordinal);
+            Assert.DoesNotContain("basePos.MetresX + p.X", handler, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void Fixed_clock_is_opt_in_and_does_not_replace_the_024_wire_cadence()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");

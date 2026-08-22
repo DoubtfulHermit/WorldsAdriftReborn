@@ -145,6 +145,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Relative_surface_preserves_the_exact_ground_transform_frame()
+        {
+            ShipMembership membership = OneShip();
+            membership.Register(101, Hull); // an offset deck panel
+            membership.Register(102, Hull); // a mounted helm
+            AboardTracker t = new AboardTracker(membership);
+
+            Assert.Null(t.RelativeSurfaceOf(Player));
+            t.Observe(Player, StepOnto(101, 1f, isShip: true));
+            Assert.Equal(101, t.RelativeSurfaceOf(Player));
+
+            // Sparse position ticks do not erase relativeTo.
+            t.Observe(Player, PositionOnly());
+            Assert.Equal(101, t.RelativeSurfaceOf(Player));
+
+            // Moving across colliders changes the local coordinate frame even
+            // though it remains the same semantic ship.
+            t.Observe(Player, RelativeToOnly(102, isShip: true));
+            Assert.Equal(102, t.RelativeSurfaceOf(Player));
+
+            t.Observe(Player, RelativeToOnly(Island, isShip: false));
+            Assert.Null(t.RelativeSurfaceOf(Player));
+        }
+
+        [Fact]
         public void Moving_ship_contact_grace_is_one_second_but_a_real_leave_still_matures()
         {
             Assert.Equal(TimeSpan.FromSeconds(1), AboardTracker.ContactGapGrace);

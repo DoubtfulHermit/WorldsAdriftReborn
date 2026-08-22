@@ -125,18 +125,28 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 long? ship = WorldsAdriftRebornGameServer.Aboard.ShipOf(PeerIdentity.IdOf(player));
                 if (ship.HasValue)
                 {
-                    Multiplayer.FixedPointPosition basePos;
-                    if (!WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(ship.Value, out basePos, out _))
+                    long? surface = WorldsAdriftRebornGameServer.Aboard
+                        .RelativeSurfaceOf(PeerIdentity.IdOf(player));
+                    if (surface.HasValue
+                        && Game.ShipInteractionEligibility.TryShipSurfaceWorldPose(
+                            ship.Value, surface.Value, out Multiplayer.FixedPointPosition surfacePos,
+                            out uint surfaceRotation))
                     {
-                        basePos = WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(ship.Value);
+                        // Retail produced this value with
+                        // ground.transform.InverseTransformPoint(player.position).
+                        // Recompose it through that exact ground transform.  Adding it
+                        // directly to the hull origin is wrong whenever relativeTo is a
+                        // deck panel or mounted part (the ordinary built-ship case).
+                        WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
+                            player,
+                            Game.ShipInteractionEligibility.TransformSurfaceLocalPoint(
+                                surfacePos, surfaceRotation, p.X, p.Y, p.Z),
+                            "aboard ship " + ship.Value + " surface " + surface.Value);
                     }
-                    WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
-                        player,
-                        Multiplayer.FixedPointPosition.FromMetres(
-                            basePos.MetresX + p.X,
-                            basePos.MetresY + p.Y,
-                            basePos.MetresZ + p.Z),
-                        "aboard ship " + ship.Value);
+                    // If the exact surface cannot be resolved, retain the last known
+                    // global centre.  Manufacturing a hull-relative pose here both
+                    // corrupts resource interest and can authorize/reject the wrong
+                    // physical interaction.
                 }
                 else
                 {
