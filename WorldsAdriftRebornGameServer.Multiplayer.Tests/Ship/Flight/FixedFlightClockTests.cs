@@ -144,6 +144,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(8, modernCopy.BuiltShips[0].FlightSnapshot!.AuthorityGeneration);
         }
 
+        [Theory]
+        [InlineData(long.MaxValue)]
+        [InlineData(long.MaxValue - 1)]
+        public void Exhausted_or_nearly_exhausted_authority_epoch_fails_closed(long generation)
+        {
+            var snapshot = DurableShipFlightSnapshot.Capture(
+                FlightState.AtRestAt(1, 2, 3), FlightControlInput.Neutral,
+                generation, false, 0, false, 0);
+
+            Assert.False(snapshot.TryRead(out _, out _));
+        }
+
         [Fact]
         public void Truncated_durable_file_is_quarantined_not_partially_loaded()
         {

@@ -28,6 +28,32 @@ namespace WorldsAdriftServer.Tests
             Assert.False((bool)bounds["enabled"]!);
             Assert.Equal(0, (double)bounds["edgeLengthMetres"]!);
             Assert.Equal(0, (int)bounds["referenceSubsteps"]!);
+            JObject clock = (JObject)ship.Json["fixedClock"]!;
+            Assert.False((bool)clock["present"]!);
+            Assert.False((bool)clock["enabled"]!);
+        }
+
+        [Fact]
+        public void Fixed_clock_projection_is_allowlisted_and_bounded()
+        {
+            GameShipDomainStat ship = GameShipDomainStat.Parse(JObject.Parse(@"{
+              ""fixedClock"": {
+                ""present"": true, ""enabled"": true, ""stepMs"": 20,
+                ""catchUpCap"": 25, ""completedSteps"": 1234,
+                ""droppedSteps"": -5, ""pressureEvents"": 2,
+                ""remainderSeconds"": 0.019, ""fictionalControl"": true
+              }
+            }"));
+            JObject clock = (JObject)ship.Json["fixedClock"]!;
+
+            Assert.True((bool)clock["present"]!);
+            Assert.True((bool)clock["enabled"]!);
+            Assert.Equal(20, (int)clock["stepMs"]!);
+            Assert.Equal(25, (int)clock["catchUpCap"]!);
+            Assert.Equal(1234, (long)clock["completedSteps"]!);
+            Assert.Equal(0, (long)clock["droppedSteps"]!);
+            Assert.Equal(0.019, (double)clock["remainderSeconds"]!, 6);
+            Assert.Null(clock["fictionalControl"]);
         }
 
         [Fact]
@@ -63,7 +89,7 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void Schema_v17_world_bounds_crosses_writer_and_admin_projection_intact()
+        public void Schema_v18_bounds_and_fixed_clock_cross_writer_and_admin_projection_intact()
         {
             var bounds = new ShipWorldBoundsStat(true, 36_000, 17_600, 17_700, 800, 1_000,
                 new RetailWorldBoundsTelemetry(true, 73.25, -4, -5, 6, true, true, 12));
@@ -72,7 +98,8 @@ namespace WorldsAdriftServer.Tests
                 active: true, piloted: false, liveCadenceExpected: true,
                 pilotPlayerEntityId: null, aboardPlayerEntityIds: Array.Empty<long>(),
                 deckCount: 0, mountedPartCount: 0, subscriberCount: 0,
-                worldBounds: bounds);
+                worldBounds: bounds,
+                fixedClock: new FixedFlightClockStat(true, 20, 25, 100, 3, 2, 0.01));
             string json = new StatsSnapshot(
                 0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
                 Array.Empty<PlayerStat>(), shipDomains: new[] { domain },
@@ -81,6 +108,7 @@ namespace WorldsAdriftServer.Tests
 
             GameStatsSnapshot parsed = GameStatsSnapshot.Parse(JObject.Parse(json));
             JObject projected = (JObject)Assert.Single(parsed.ShipDomains).Json["worldBounds"]!;
+            JObject fixedClock = (JObject)Assert.Single(parsed.ShipDomains).Json["fixedClock"]!;
 
             Assert.Equal(18, parsed.SchemaVersion);
             Assert.True(parsed.WorldBounds.Present);
@@ -92,6 +120,9 @@ namespace WorldsAdriftServer.Tests
             Assert.True((bool)projected["hardClamped"]!);
             Assert.True((bool)projected["invalidState"]!);
             Assert.Equal(12, (int)projected["referenceSubsteps"]!);
+            Assert.True((bool)fixedClock["enabled"]!);
+            Assert.Equal(100, (long)fixedClock["completedSteps"]!);
+            Assert.Equal(3, (long)fixedClock["droppedSteps"]!);
         }
     }
 }

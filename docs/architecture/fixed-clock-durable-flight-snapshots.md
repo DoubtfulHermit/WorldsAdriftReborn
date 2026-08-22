@@ -1,6 +1,7 @@
 # Fixed simulation clock and durable flight snapshots
 
-Status: implemented on `feat/fixed-clock-snapshots`; not merged, pushed, deployed, or enabled.
+Status: independently integrated with Tracks 1 and 3 on
+`integ/flight-wave1-crossreview`; not pushed, merged to main, deployed, or enabled.
 
 ## Period 1 — discovery
 
@@ -41,8 +42,10 @@ labelled Wareborn safety policy, not retail values.
   exported per ship in schema 18 under `fixedClock` and logged on pressure.
 - Physics stepping is separated from publication: `FlightSession.AdvanceFixed()`
   performs N 20 ms integrations and makes one stock-cadence emission decision.
-- `WAREBORN_FLIGHT_FIXED_STEP=1` opts in. The default path remains the previous
-  one-call-per-0.24-second behavior.
+- `WAREBORN_FLIGHT_FIXED_STEP=1` opts in to both the clock and durable moving-flight
+  restore. The default path remains the previous one-call-per-0.24-second behavior,
+  ignores any prior durable checkpoint, writes pose-only state and clears a stale
+  checkpoint on its next persistence pass.
 - `BuiltShipRecord.FlightSnapshot` is an additive version-1 checkpoint carrying every
   scalar represented by today's flight model (position, yaw, yaw rate, roll, pitch,
   speed command and XYZ velocity), all five held inputs, authority generation, and
@@ -71,7 +74,9 @@ The review checked:
   exhausted epochs fail closed to the legacy pose. Atomic JSON quarantines an unreadable
   whole document using its existing `.broken` mechanism.
 - Stall safety: the backlog is consumed after the cap, not retained; pressure is visible.
-- Rollback: legacy pose fields continue updating and schema additions are optional.
+- Rollback: legacy pose fields continue updating, durable restore is ignored while
+  the switch is OFF, and the next pose-only write clears the old checkpoint so a
+  later re-enable cannot resume stale momentum. Schema additions are optional.
 - Concurrency: all mutation remains on the single poll loop; snapshots are written by
   the existing atomic writer.
 - Lifecycle: dock capture writes a settled checkpoint; moving restore becomes active;

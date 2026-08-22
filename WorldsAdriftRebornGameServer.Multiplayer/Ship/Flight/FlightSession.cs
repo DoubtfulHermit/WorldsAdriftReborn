@@ -221,7 +221,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             RetailWorldBoundsPolicy? worldBounds = null,
             double fixedStepSeconds = FixedFlightClock.StepSeconds)
         {
-            if (fixedStepCount < 0) throw new ArgumentOutOfRangeException(nameof(fixedStepCount));
+            if (fixedStepCount < 0 || fixedStepCount > FixedFlightClock.DefaultMaxCatchUpSteps)
+                throw new ArgumentOutOfRangeException(nameof(fixedStepCount));
             // A latched non-zero throttle is live even if the pilot released the
             // helm before the first integration tick, while the hull is technically
             // still at rest. Without this term that perfectly valid command would
@@ -243,11 +244,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // physics step actually consumes it, or sail-only departure would
                 // be lost at activation.
                 if (fixedStepCount > 0) _canvasWakeRequested = false;
+                double boundsDvx = 0.0, boundsDvy = 0.0, boundsDvz = 0.0;
+                double boundsDistance = worldBounds?.Enabled == true
+                    ? worldBounds.DistanceToBoundary(_state) : 0.0;
+                int boundsSubsteps = 0;
+                bool boundsHardClamped = false, boundsInvalid = false;
                 for (int fixedStep = 0; fixedStep < fixedStepCount; fixedStep++)
                 {
                     IntegrateForDuration(fixedStepSeconds,
                         firstFixedStepTimeSeconds + (fixedStep * fixedStepSeconds),
                         tuning, unfurledSails, agilityScale, propulsion, walls, worldBounds);
+                    if (worldBounds?.Enabled == true)
+                    {
+                        RetailWorldBoundsTelemetry sample = LastWorldBoundsTelemetry;
+                        boundsDvx += sample.PushbackDeltaVxMps;
+                        boundsDvy += sample.PushbackDeltaVyMps;
+                        boundsDvz += sample.PushbackDeltaVzMps;
+                        boundsDistance = sample.BoundaryDistanceMetres;
+                        boundsSubsteps += sample.ReferenceSubsteps;
+                        boundsHardClamped |= sample.HardClamped;
+                        boundsInvalid |= sample.InvalidState;
+                        // Track 1 quarantines the entire cadence candidate. Do not
+                        // resume from the finite rest anchor inside the same outer
+                        // fixed-step batch.
+                        if (sample.InvalidState) break;
+                    }
+                }
+                if (worldBounds?.Enabled == true)
+                {
+                    LastWorldBoundsTelemetry = new RetailWorldBoundsTelemetry(
+                        true, boundsDistance, boundsDvx, boundsDvy, boundsDvz,
+                        boundsHardClamped, boundsInvalid, boundsSubsteps);
                 }
 
                 if (_state.IsAtRest && !_manned)

@@ -624,7 +624,7 @@ namespace WorldsAdriftRebornGameServer.Game
         {
             ShipDomain domain = _domains.GetOrAdd(hullEntityId, () =>
             {
-                if (durable != null
+                if (FixedStepEnabled && durable != null
                     && durable.TryRead(out FlightState restoredState, out FlightControlInput _))
                 {
                     if (durable.WasDocked)
@@ -641,7 +641,7 @@ namespace WorldsAdriftRebornGameServer.Game
                         new AuthorityGeneration(durable.AuthorityGeneration),
                         new FlightSession(restoredState));
                 }
-                if (durable != null)
+                if (FixedStepEnabled && durable != null)
                 {
                     Console.WriteLine("[warning] flight: ignored invalid/unsupported durable snapshot for hull "
                         + hullEntityId + "; using legacy pose.");
@@ -1499,12 +1499,20 @@ namespace WorldsAdriftRebornGameServer.Game
                 WorldStatePersistence.UpdateBuiltShipPose(index.Value, position, state.YawRadians);
                 return;
             }
-            var durable = Multiplayer.Persistence.DurableShipFlightSnapshot.Capture(
-                state, domain.Flight.Input, domain.Generation.Value, domain.Flight.IsManned,
-                domain.AboardPeerIds.Count, Crafting.BuiltShips.IsHullDocked(hullEntityId),
-                WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId));
-            WorldStatePersistence.UpdateBuiltShipFlight(index.Value,
-                position, state.YawRadians, durable);
+            if (FixedStepEnabled)
+            {
+                var durable = Multiplayer.Persistence.DurableShipFlightSnapshot.Capture(
+                    state, domain.Flight.Input, domain.Generation.Value, domain.Flight.IsManned,
+                    domain.AboardPeerIds.Count, Crafting.BuiltShips.IsHullDocked(hullEntityId),
+                    WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId));
+                WorldStatePersistence.UpdateBuiltShipFlight(index.Value,
+                    position, state.YawRadians, durable);
+            }
+            else
+            {
+                WorldStatePersistence.UpdateBuiltShipPose(index.Value,
+                    position, state.YawRadians);
+            }
         }
 
         /// <summary>

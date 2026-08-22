@@ -198,8 +198,13 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count) return;
             BuiltShipRecord record = snapshot.BuiltShips[persistentIndex];
             if (record.HullPosition() == position
-                && System.Math.Abs(record.HullYawRadians - yawRadians) < 0.000001) return;
+                && System.Math.Abs(record.HullYawRadians - yawRadians) < 0.000001
+                && record.FlightSnapshot == null) return;
             record.UpdatePose(position, yawRadians);
+            // A pose-only write means durable moving-flight is disabled. Remove a
+            // prior opt-in checkpoint so a later re-enable cannot resume stale
+            // velocity from before the rollback window.
+            record.FlightSnapshot = null;
             Save();
         }
 

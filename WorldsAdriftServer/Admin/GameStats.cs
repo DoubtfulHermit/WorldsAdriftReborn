@@ -1639,8 +1639,23 @@ namespace WorldsAdriftServer.Admin
                 ["hull"] = Hull(hull, revision),
                 ["flight"] = Flight(d["flight"] as JObject),
                 ["worldBounds"] = WorldBounds(d["worldBounds"] as JObject),
+                ["fixedClock"] = FixedClock(d["fixedClock"] as JObject),
             }};
         }
+
+        /// <summary>Allowlisted fixed-clock pressure; absent on schema 17 and older.</summary>
+        private static JObject FixedClock(JObject? c) => new JObject
+        {
+            ["present"] = c != null && ((bool?)c["present"] ?? false),
+            ["enabled"] = c != null && ((bool?)c["enabled"] ?? false),
+            ["stepMs"] = Math.Clamp((int?)c?["stepMs"] ?? 0, 0, 1_000),
+            ["catchUpCap"] = Math.Clamp((int?)c?["catchUpCap"] ?? 0, 0, 10_000),
+            ["completedSteps"] = Math.Clamp((long?)c?["completedSteps"] ?? 0, 0, long.MaxValue),
+            ["droppedSteps"] = Math.Clamp((long?)c?["droppedSteps"] ?? 0, 0, long.MaxValue),
+            ["pressureEvents"] = Math.Clamp((long?)c?["pressureEvents"] ?? 0, 0, long.MaxValue),
+            ["remainderSeconds"] = Math.Max(0,
+                Finite((double?)c?["remainderSeconds"] ?? 0, 1_000)),
+        };
 
         /// <summary>
         /// Allowlisted world-edge configuration and last applied consequence.

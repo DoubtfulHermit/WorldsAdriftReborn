@@ -230,7 +230,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
             state = default;
             input = default;
             if (Version != CurrentVersion || AuthorityGeneration <= 0
-                || AuthorityGeneration == long.MaxValue || AboardCount < 0
+                // Restore consumes one epoch and the first future handoff must be
+                // able to consume another. Reject an exhausted or nearly exhausted
+                // durable epoch and fall back to the legacy pose seam.
+                || AuthorityGeneration >= long.MaxValue - 1 || AboardCount < 0
                 || UnfurledSailCount < 0
                 || !Finite(X) || !Finite(Y) || !Finite(Z) || !Finite(YawRadians)
                 || !Finite(YawRateRadPerSec) || !Finite(RollRadians) || !Finite(PitchRadians)

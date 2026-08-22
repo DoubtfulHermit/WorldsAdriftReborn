@@ -117,6 +117,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Contains("UpdateBuiltShipFlight", persistence, StringComparison.Ordinal);
             Assert.Contains("snapshot.BuiltShips[i].FlightSnapshot", persistence,
                 StringComparison.Ordinal);
+            Assert.Contains("if (FixedStepEnabled && durable != null)", service,
+                StringComparison.Ordinal);
+            Assert.Contains("if (FixedStepEnabled)", service, StringComparison.Ordinal);
+            Assert.Contains("record.FlightSnapshot = null", persistence,
+                StringComparison.Ordinal);
         }
     }
 }
