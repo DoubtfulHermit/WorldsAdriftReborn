@@ -2926,7 +2926,8 @@ sail power and sail mass.** No pair of values produces one.
 #### Two things that ARE real, and together they are what the memory is made of
 
 **1. The gain per sail collapses fast.** Even with no sail mass at all, `v ∝ n^0.4`.
-On the live legacy hull (595 kg) at the current sail power, best heading:
+On the live legacy hull (595 kg) at the 2026-08-21 sail power of 420, best heading
+(historical baseline; superseded by the 2026-08-22 calibration audit):
 
 | sails | settled speed | gain from the previous sail |
 |---|---|---|
@@ -3054,15 +3055,17 @@ it.
 1. **Whether the force model feels right**, which is the only acceptance test
    that matters for a physics change. Fly with `WAREBORN_FLIGHT_FORCES=1` and
    compare a light hull, a heavy hull, and the same hull with canvas up and down.
-2. **Whether 1400 N per engine and 420 per sail are the right magnitudes.** Engine
+2. **Whether 1400 N per engine and 840 per sail are the right magnitudes.** Engine
    power re-derives today's reference speed. Sail power is now independently
-   calibrated so four sails on the 800 kg reference hull settle just under the
-   shipped dial's 30-knot "fast" mark, and is pinned across 128 mass/sail/heading
-   cases. Both remain WAREBORN tuning because retail's per-part data is lost.
+   now selects the stronger member of the one surviving retail balance bracket
+   after the lower member failed live acceptance; four sails on the 800 kg
+   reference total mass settle near 38 knots. The full evidence and matrices are
+   in `docs/research/sail-speed-calibration-2026-08-22.md`. Both remain WAReborn
+   tuning because retail's per-part data is lost.
 3. **Whether a stationary ship under sail moves at a rate that reads as
-   sailing** rather than as drifting. On the 800 kg reference hull, two sails
-   now settle at 2.6–12.1 m/s depending on heading, against 12.0 m/s under two
-   engines.
+   sailing** rather than as drifting. On an 800 kg total flight mass, two sails
+   now settle at about 1.9–15.3 m/s depending on heading, against the roughly
+   12 m/s still-air two-engine reference.
 4. ~~**What the unpatched client does with a real `1258`.**~~ **ANSWERED, and it
    is a live hazard rather than a live flight question** — see F2. What a live
    flight *should* now check is the inverse: whether a piloted ship ever shows

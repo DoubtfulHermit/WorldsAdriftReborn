@@ -270,24 +270,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// 2.2 newtons and would move an 800 kg ship at 0.003 m/s^2 - i.e. the
         /// seed is a stub, not a physical value.
         ///
-        /// CALIBRATION (2026-08-21): this is solved from three independent anchors,
-        /// not from one live hull. The shipped airspeed dial calls 30 knots "fast";
-        /// the remembered useful rig is three-to-four sails; and the recovered
-        /// recovered 2.5-power drag law says exactly what force makes those two statements
-        /// meet. Four well-trimmed sails on the 800 kg reference hull at the
-        /// client's 2.236 m/s fallback wind need about 422 N/(m/s) each to settle
-        /// just under 30 knots including the recovered hull-wind carry. The same
-        /// value puts one sail at about 17 knots, two at 22 and three at 26, so the
-        /// square-root law gives the documented sharply diminishing fourth-sail
-        /// return without inventing a cap or changing wind.
+        /// CALIBRATION (2026-08-22): 840 is the upper end of a surviving retail
+        /// balance bracket, not a claim that the lost GSim value has been recovered.
+        /// Update 27 build 989 explicitly "Halved wind power, which functionally
+        /// halves thrust from sails." The shipped client retained the force equation
+        /// but not either era's server-authored SailState.Power, so 420 and 840 are
+        /// the only evidence-linked pair available to us. Live acceptance then
+        /// established that the lower member made a real 3,094 kg, two-sail ship
+        /// take roughly 45 seconds to reach 5.43 m/s and still read as too slow.
+        /// Choosing 840 deliberately restores the stronger known retail balance
+        /// era without changing ambient wind, drag, hull mass or stopping behaviour.
         ///
-        /// This remains WAREBORN TUNING: retail's per-sail data is lost. What is
-        /// materially stronger than the former 30 is the evidence chain and the
-        /// full mass/sail/heading matrix pinned in SailCalibrationMatrixTests.
-        /// The 3,094 kg live hull is one row of that matrix, not the calibration
-        /// target: two sails range from roughly 2.6 to 13.4 knots by heading.
+        /// It also stays inside the surviving instruments and community evidence:
+        /// four sails on an 800 kg total flight mass settle near 38 knots, beyond
+        /// the client's 30-knot "fast" VFX mark but far below its 70-knot dial;
+        /// modelling the reported 69-sail experiment with our deliberately
+        /// conservative 50 kg/part placeholder reaches about 57 knots. The full
+        /// mass/sail/heading and acceleration matrices are pinned in
+        /// SailCalibrationMatrixTests and documented in the 2026-08-22 audit.
         /// </summary>
-        public const double DefaultSailPowerNewtonsPerWind = 420.0;
+        public const double DefaultSailPowerNewtonsPerWind = 840.0;
 
         // ------------------------------------------------------------------
         // The equations.

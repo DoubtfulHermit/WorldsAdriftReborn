@@ -306,8 +306,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         public void Sails_alone_move_a_reference_hull_at_a_believable_drift()
         {
             // Our sail power is WAREBORN TUNING, so this asserts the BAND it was
-            // calibrated for rather than the number: canvas alone should be worth a
-            // few metres per second - supplementary to engines, never a substitute.
+            // calibrated for rather than the number. Two sails on a light reference
+            // hull should now cross the client's 5-knot wind-VFX onset decisively,
+            // while staying below the 70-knot instrument range.
             double best = 0.0;
             for (int degrees = 0; degrees < 360; degrees += 5)
             {
@@ -321,7 +322,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 }
                 if (Math.Abs(v) > best) best = Math.Abs(v);
             }
-            Assert.InRange(best, 1.0, 12.0);
+            Assert.InRange(best, 12.0, 20.0);
         }
     }
 }

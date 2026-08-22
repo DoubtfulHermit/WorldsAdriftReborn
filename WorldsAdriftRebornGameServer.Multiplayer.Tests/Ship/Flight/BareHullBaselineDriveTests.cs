@@ -202,7 +202,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         // ------------------------------------------------------------------
 
         [Fact]
-        public void Hull_then_sails_then_engines_is_a_strictly_increasing_progression()
+        public void Hull_then_canvas_then_a_twin_engine_rig_is_a_strict_progression()
         {
             const double massKg = 595.0;
             double Terminal(double thrustNewtons, double windAlong)
@@ -223,11 +223,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 
             double bare = Terminal(0.0, wind);
             double sailed = Terminal(oneSail, wind);
-            double engined = Terminal(ShipForceModel.DefaultEngineThrustNewtons, wind);
+            double engined = Terminal(2.0 * ShipForceModel.DefaultEngineThrustNewtons, wind);
 
             Assert.True(bare > 0.0, "tier 1: a bare hull moves");
             Assert.True(sailed > bare, "tier 2: canvas beats a bare hull");
-            Assert.True(engined > sailed, "tier 3: an engine beats one sail");
+            Assert.True(engined > sailed, "tier 3: a twin-engine rig beats one sail");
         }
 
         // ------------------------------------------------------------------
