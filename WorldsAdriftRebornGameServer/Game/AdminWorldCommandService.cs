@@ -91,6 +91,18 @@ namespace WorldsAdriftRebornGameServer.Game
                         command.HullEntityId, out message);
                     Complete("delete-ship", command.HullEntityId, success, message);
                     break;
+                case AdminWorldCommandKind.StageShip:
+                    success = WorldsAdriftRebornGameServer.Flight.TryAdminStageOffline(
+                        command.HullEntityId,
+                        FixedPointPosition.FromMetres(command.X, command.Y, command.Z),
+                        out message);
+                    Complete("stage-ship", command.HullEntityId, success, message);
+                    break;
+                case AdminWorldCommandKind.ReleaseStagedShip:
+                    success = WorldsAdriftRebornGameServer.Flight.TryAdminReleaseStaged(
+                        command.HullEntityId, out message);
+                    Complete("release-staged-ship", command.HullEntityId, success, message);
+                    break;
                 default:
                     Complete("unknown", null, false, "Unsupported command kind.");
                     break;

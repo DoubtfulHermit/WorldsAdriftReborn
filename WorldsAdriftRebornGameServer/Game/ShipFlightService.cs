@@ -99,6 +99,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly ShipDomainRegistry _domains;
         private readonly LocalDomainHost? _domainHost;
         private readonly HashSet<long> _activeHullIds = new();
+        private readonly HashSet<long> _adminHeldHullIds = new();
         private readonly Dictionary<long, FixedFlightClock> _fixedClocks = new();
         private readonly Dictionary<long, FixedFlightStepBatch> _fixedClockTelemetry = new();
         private static readonly IReadOnlySet<ulong> NoDomainFrameSenders =
@@ -509,6 +510,7 @@ namespace WorldsAdriftRebornGameServer.Game
             double yaw = domain.Flight.State.YawRadians;
             domain.Flight.DockAt(destination.MetresX, destination.MetresY,
                 destination.MetresZ, yaw);
+            _adminHeldHullIds.Remove(hullEntityId);
             _activeHullIds.Add(hullEntityId);
 
             // Move the authoritative registry/persistence BEFORE asking checkout
@@ -531,6 +533,117 @@ namespace WorldsAdriftRebornGameServer.Game
             Console.WriteLine("[admin-world] hull " + hullEntityId
                 + " recall scheduled a clean domain reconstruction for "
                 + refreshingPeers + " peer(s).");
+            return true;
+        }
+
+        /// <summary>
+        /// Stages an unoccupied, settled ship while the server has no connected
+        /// players. The owner's already-nearby durable logout position is carried
+        /// by the same offset, and the hull is held outside the flight tick until
+        /// an explicit release. This is deliberately narrower than an online
+        /// teleport: checkout cannot make a hull move plus player teleport atomic.
+        /// </summary>
+        internal bool TryAdminStageOffline(long hullEntityId, FixedPointPosition destination,
+            out string message)
+        {
+            if (WorldsAdriftRebornGameServer.Players.All().Any())
+            {
+                message = "Offline staging refused while any player is connected.";
+                return false;
+            }
+            if (!Crafting.BuiltShips.IsBuiltHull(hullEntityId))
+            {
+                message = "Hull " + hullEntityId + " is not a live built ship.";
+                return false;
+            }
+            if (IsPiloted(hullEntityId) || WorldsAdriftRebornGameServer.Aboard.AnyoneAboard(hullEntityId))
+            {
+                message = "Hull " + hullEntityId + " is piloted or occupied; staging refused.";
+                return false;
+            }
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            if (domain == null || !domain.Flight.State.IsAtRest)
+            {
+                message = "Hull " + hullEntityId + " has no settled simulation domain.";
+                return false;
+            }
+            if (!Guid.TryParse(Crafting.BuiltShips.OwnerFor(hullEntityId), out Guid ownerUid))
+            {
+                message = "Hull " + hullEntityId + " has no valid owner character uid.";
+                return false;
+            }
+            FixedPointPosition? stored = PlayerPositionService.StoredFor(ownerUid);
+            FixedPointPosition oldHull = FixedPointPosition.FromMetres(
+                domain.Flight.State.X, domain.Flight.State.Y, domain.Flight.State.Z);
+            if (!stored.HasValue || !AdminShipStagePolicy.TryCarryLogoutPosition(
+                    oldHull, stored.Value, destination, out FixedPointPosition carriedPlayer))
+            {
+                message = "Owner logout position is missing or is more than "
+                    + AdminShipStagePolicy.MaximumOwnerDistanceMetres.ToString("0")
+                    + " m from hull " + hullEntityId + "; staging refused.";
+                return false;
+            }
+
+            double yaw = domain.Flight.State.YawRadians;
+            Crafting.BuiltShipSpawner.UndockDepartingHull(hullEntityId);
+            domain.Flight.DockAt(destination.MetresX, destination.MetresY,
+                destination.MetresZ, yaw);
+            _adminHeldHullIds.Add(hullEntityId);
+            _activeHullIds.Remove(hullEntityId);
+            PersistPoseNow(hullEntityId, domain.Flight.State);
+            if (!PlayerPositionService.Record(ownerUid, carriedPlayer))
+            {
+                domain.Flight.DockAt(oldHull.MetresX, oldHull.MetresY, oldHull.MetresZ, yaw);
+                PersistPoseNow(hullEntityId, domain.Flight.State);
+                _adminHeldHullIds.Remove(hullEntityId);
+                PlayerPositionService.Record(ownerUid, stored.Value);
+                message = "Could not persist the owner's carried logout position; hull rollback completed.";
+                return false;
+            }
+
+            WorldsAdriftRebornGameServer.ShipInterest.RequestRecallRefresh(hullEntityId);
+            message = "Staged hull " + hullEntityId + " at ("
+                + destination.MetresX.ToString("0.###") + ", "
+                + destination.MetresY.ToString("0.###") + ", "
+                + destination.MetresZ.ToString("0.###")
+                + ") m and carried its offline owner's deck-relative logout position; flight is held.";
+            return true;
+        }
+
+        internal bool TryAdminReleaseStaged(long hullEntityId, out string message)
+        {
+            if (!_adminHeldHullIds.Contains(hullEntityId))
+            {
+                message = "Hull " + hullEntityId + " is not held by offline staging.";
+                return false;
+            }
+            if (IsPiloted(hullEntityId))
+            {
+                message = "Hull " + hullEntityId + " has a pilot; staged release refused.";
+                return false;
+            }
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            if (domain == null)
+            {
+                message = "Hull " + hullEntityId + " has no simulation domain.";
+                return false;
+            }
+
+            RefreshDomainMembership(domain);
+            _adminHeldHullIds.Remove(hullEntityId);
+            _activeHullIds.Add(hullEntityId);
+            FlightEmit point = domain.Flight.PrimePlayback(
+                ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
+            FixedPointPosition position = FixedPointPosition.FromMetres(
+                domain.Flight.State.X, domain.Flight.State.Y, domain.Flight.State.Z);
+            ShipPartWakeBundle wakes = ShipPartMotionService.BuildWakeBundle(
+                hullEntityId, position, point.PackedRotation);
+            ShipPublisher.BroadcastDomainMotion(
+                hullEntityId, position, domain.Generation.Value,
+                new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(point.Spec, point.PackedRotation)),
+                wakes.Root, wakes.Members);
+            message = "Released staged hull " + hullEntityId + " into authoritative flight.";
             return true;
         }
 
@@ -561,6 +674,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             RefreshDomainMembership(domain);
             domain.Flight.EmergencyStop();
+            _adminHeldHullIds.Remove(hullEntityId);
             _activeHullIds.Add(hullEntityId);
             FlightEmit point = domain.Flight.PrimePlayback(
                 ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
@@ -741,6 +855,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 _domainHost.RemoveDomain(SimulationDomainId.ForShip(hullEntityId));
             _domains.Remove(hullEntityId);
             _activeHullIds.Remove(hullEntityId);
+            _adminHeldHullIds.Remove(hullEntityId);
             _helmByHull.Remove(hullEntityId);
             _lastEchoed.Remove(hullEntityId);
             _lastWakeAt.Remove(hullEntityId);
@@ -778,6 +893,7 @@ namespace WorldsAdriftRebornGameServer.Game
             long nowMs = ShipHull.NowMillisecondsSinceEpoch();
             foreach (long hullEntityId in _activeHullIds.ToArray())
             {
+                if (_adminHeldHullIds.Contains(hullEntityId)) continue;
                 ShipDomain? domain = _domains.ByHull(hullEntityId);
                 if (domain == null) continue;
                 FlightSession session = domain.Flight;
