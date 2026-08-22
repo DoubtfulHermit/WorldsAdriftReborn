@@ -46,7 +46,6 @@ the current stable in-range interaction target (including helm/sail kind, verb
 and required hold time), timed-interaction activity, helm/control/hull ids,
 integrated throttle/vertical/pitch/yaw/roll values, and the rendered hull pose.
 A half-created `LocalPlayer.Instance` is never reported as `world`.
-
 Prefer the bounded `input.pulse` and `axis.pulse` forms for unattended runs.
 They clear themselves after 0.02-10 seconds even if the caller is interrupted;
 `input.clear` remains the explicit emergency release for all synthetic state.
