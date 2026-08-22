@@ -78,6 +78,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public const double VerticalHardLimitMetres = 1_000.0;
         public const double MaximumPushbackDeltaMpsPerReferenceStep = 50.0;
 
+        /// <summary>
+        /// Defensive ceiling for this cadence-local adapter. Production passes
+        /// 0.24 s (12 slices); accepting up to 1.28 s leaves generous test and
+        /// diagnostic headroom without allowing a corrupt/infinite interval to
+        /// turn the reference loop into an unbounded CPU loop. This is not the
+        /// Phase-1 fixed-clock catch-up policy.
+        /// </summary>
+        public const int MaximumReferenceSubstepsPerAdvance = 64;
+
         public RetailWorldBoundsPolicy(bool enabled,
             double edgeLengthMetres = ReleaseWorldEdgeLengthMetres)
         {
@@ -93,6 +102,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             (EdgeLengthMetres * 0.5) - HorizontalHardInsetMetres;
         public double HorizontalPushbackThresholdMetres =>
             HorizontalHardLimitMetres - HorizontalPushbackBandMetres;
+
+        /// <summary>
+        /// True when retail's FixedUpdate behaviour would need to inspect this
+        /// pose even if the reconstructed session otherwise considers it parked.
+        /// Strict comparisons intentionally match the recovered client.
+        /// </summary>
+        public bool RequiresEvaluation(FlightState state) =>
+            Enabled && (!IsFinite(state)
+                || state.Y > VerticalPushbackMetres
+                || state.X > HorizontalPushbackThresholdMetres
+                || state.X < -HorizontalPushbackThresholdMetres
+                || state.Z > HorizontalPushbackThresholdMetres
+                || state.Z < -HorizontalPushbackThresholdMetres);
+
+        public static bool IsValidCadenceInterval(double stepSeconds) =>
+            double.IsFinite(stepSeconds)
+            && stepSeconds > 0.0
+            && stepSeconds <= ReferenceStepSeconds * MaximumReferenceSubstepsPerAdvance;
 
         public static RetailWorldBoundsPolicy FromEnvironment(Func<string, string?> getenv)
         {

@@ -131,6 +131,9 @@ namespace WorldsAdriftRebornGameServer.Game
         private static readonly TimeSpan PoseSaveInterval = TimeSpan.FromSeconds(2);
         private readonly Dictionary<long, TimeSpan> _nextPoseSaveAt = new Dictionary<long, TimeSpan>();
         private readonly Dictionary<long, long> _departingYardByHull = new Dictionary<long, long>();
+        private readonly HashSet<long> _boundsInterveningHulls = new HashSet<long>();
+        private readonly HashSet<long> _boundsHardClampedHulls = new HashSet<long>();
+        private readonly HashSet<long> _boundsQuarantinedHulls = new HashSet<long>();
 
         /// <summary>
         /// The wake sub-cadence, slightly under the policy's 0.5 s heartbeat so
@@ -682,6 +685,9 @@ namespace WorldsAdriftRebornGameServer.Game
             _lastWakeAt.Remove(hullEntityId);
             _nextPoseSaveAt.Remove(hullEntityId);
             _departingYardByHull.Remove(hullEntityId);
+            _boundsInterveningHulls.Remove(hullEntityId);
+            _boundsHardClampedHulls.Remove(hullEntityId);
+            _boundsQuarantinedHulls.Remove(hullEntityId);
             ShipPublisher.RetireDomain(hullEntityId);
         }
 
@@ -731,6 +737,8 @@ namespace WorldsAdriftRebornGameServer.Game
                     nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility,
                     PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
                     _worldBounds);
+                ObserveWorldBounds(hullEntityId, session.State,
+                    session.LastWorldBoundsTelemetry);
                 CompleteDepartureIfOutside(hullEntityId, session.State);
                 PersistPoseWhenDue(hullEntityId, session.State);
                 if (!emit.Emit)
@@ -1292,6 +1300,56 @@ namespace WorldsAdriftRebornGameServer.Game
                 RetailWorldBoundsPolicy.VerticalPushbackMetres,
                 RetailWorldBoundsPolicy.VerticalHardLimitMetres,
                 telemetry);
+        }
+
+        /// <summary>
+        /// Edge-triggered operator evidence for the disposable-hull acceptance
+        /// run. Continuous pushback can last many cadences, so journal only
+        /// transitions rather than turning a safety feature into a log flood.
+        /// The admin snapshot remains the high-frequency numerical view.
+        /// </summary>
+        private void ObserveWorldBounds(long hullEntityId, FlightState state,
+            RetailWorldBoundsTelemetry telemetry)
+        {
+            if (!telemetry.Enabled) return;
+
+            bool intervening = telemetry.PushbackDeltaVxMps != 0.0
+                || telemetry.PushbackDeltaVyMps != 0.0
+                || telemetry.PushbackDeltaVzMps != 0.0;
+            LogBoundaryTransition(_boundsInterveningHulls, hullEntityId, intervening,
+                "pushback", state, telemetry);
+            LogBoundaryTransition(_boundsHardClampedHulls, hullEntityId,
+                telemetry.HardClamped, "hard-clamp", state, telemetry);
+            LogBoundaryTransition(_boundsQuarantinedHulls, hullEntityId,
+                telemetry.InvalidState, "invalid-state-quarantine", state, telemetry);
+        }
+
+        private static void LogBoundaryTransition(HashSet<long> active, long hullEntityId,
+            bool nowActive, string kind, FlightState state,
+            RetailWorldBoundsTelemetry telemetry)
+        {
+            bool wasActive = active.Contains(hullEntityId);
+            if (nowActive == wasActive) return;
+            if (nowActive) active.Add(hullEntityId);
+            else active.Remove(hullEntityId);
+
+            Console.WriteLine("[flight-bounds] hull=" + hullEntityId
+                + " event=" + kind + (nowActive ? "-entered" : "-cleared")
+                + " position=[" + state.X.ToString("0.###",
+                    System.Globalization.CultureInfo.InvariantCulture)
+                + "," + state.Y.ToString("0.###",
+                    System.Globalization.CultureInfo.InvariantCulture)
+                + "," + state.Z.ToString("0.###",
+                    System.Globalization.CultureInfo.InvariantCulture) + "]"
+                + " distance=" + telemetry.BoundaryDistanceMetres.ToString("0.###",
+                    System.Globalization.CultureInfo.InvariantCulture)
+                + " deltaV=[" + telemetry.PushbackDeltaVxMps.ToString("0.###",
+                    System.Globalization.CultureInfo.InvariantCulture)
+                + "," + telemetry.PushbackDeltaVyMps.ToString("0.###",
+                    System.Globalization.CultureInfo.InvariantCulture)
+                + "," + telemetry.PushbackDeltaVzMps.ToString("0.###",
+                    System.Globalization.CultureInfo.InvariantCulture) + "]"
+                + " substeps=" + telemetry.ReferenceSubsteps + ".");
         }
 
         /// <summary>

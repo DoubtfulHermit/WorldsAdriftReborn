@@ -24,6 +24,61 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Evaluation_wake_uses_strict_retail_thresholds_on_every_enforced_axis()
+        {
+            var policy = new RetailWorldBoundsPolicy(true);
+
+            Assert.False(policy.RequiresEvaluation(State(x: 17_600)));
+            Assert.False(policy.RequiresEvaluation(State(y: 800)));
+            Assert.False(policy.RequiresEvaluation(State(z: -17_600)));
+            Assert.True(policy.RequiresEvaluation(State(x: 17_600.001)));
+            Assert.True(policy.RequiresEvaluation(State(x: -17_600.001)));
+            Assert.True(policy.RequiresEvaluation(State(y: 800.001)));
+            Assert.True(policy.RequiresEvaluation(State(z: 17_600.001)));
+            Assert.True(policy.RequiresEvaluation(State(z: -17_600.001)));
+            Assert.True(policy.RequiresEvaluation(State(x: double.NaN)));
+            Assert.False(new RetailWorldBoundsPolicy(false)
+                .RequiresEvaluation(State(x: 18_000)));
+        }
+
+        [Theory]
+        [InlineData(double.PositiveInfinity)]
+        [InlineData(double.NaN)]
+        [InlineData(1.3)]
+        [InlineData(0.0)]
+        [InlineData(-0.02)]
+        public void Invalid_or_unbounded_cadence_interval_is_rejected_without_moving(double interval)
+        {
+            FlightTuning tuning = FlightTuning.FromEnvironment(_ => null);
+            FlightState initial = State(10, 20, 30, 1, 2, 3);
+            var session = new FlightSession(initial);
+            session.Man();
+
+            session.Advance(1_000, interval, tuning,
+                worldBounds: new RetailWorldBoundsPolicy(true));
+
+            AssertStateEqual(initial, session.State);
+            Assert.True(session.LastWorldBoundsTelemetry.Enabled);
+            Assert.Equal(0, session.LastWorldBoundsTelemetry.ReferenceSubsteps);
+        }
+
+        [Fact]
+        public void Parked_hull_inside_push_band_wakes_and_recovers_inward()
+        {
+            FlightTuning tuning = FlightTuning.FromEnvironment(_ => null);
+            var session = new FlightSession(FlightState.AtRestAt(17_650, 100, 0));
+
+            FlightEmit emit = session.Advance(1_000, 0.24, tuning,
+                worldBounds: new RetailWorldBoundsPolicy(true));
+
+            Assert.True(emit.Emit);
+            Assert.True(session.State.X < 17_650);
+            Assert.True(session.State.VxMps < 0);
+            Assert.Equal(12, session.LastWorldBoundsTelemetry.ReferenceSubsteps);
+            Assert.True(session.LastWorldBoundsTelemetry.PushbackDeltaVxMps < 0);
+        }
+
+        [Fact]
         public void Environment_is_opt_in_and_edge_length_is_configurable_with_safe_fallback()
         {
             RetailWorldBoundsPolicy off = RetailWorldBoundsPolicy.FromEnvironment(_ => null);
