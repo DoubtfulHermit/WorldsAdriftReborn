@@ -57,14 +57,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 fast = Math.Max(fast, speed);
             }
             const double knotsPerMps = 1.94384449;
-            Assert.InRange(slow * knotsPerMps, 2.0, 3.0);
-            Assert.InRange(fast * knotsPerMps, 13.0, 14.0);
+            // The recovered always-on 0.03 m/s^2 residual lowers both ends
+            // slightly versus the old primary-drag-only prediction.
+            Assert.InRange(slow * knotsPerMps, 1.8, 2.0);
+            Assert.InRange(fast * knotsPerMps, 13.0, 13.2);
         }
 
         [Fact]
         public void Every_extra_sail_helps_but_returns_diminish()
         {
-            double heading = Math.Atan2(ShipForceModel.DefaultWindX, ShipForceModel.DefaultWindZ);
+            // Avoid the exactly-downwind trimmed-boom singularity: the retail
+            // `forward*1.01 - windDir` construction leaves only floating-point
+            // dust there, not a useful sail force. Zero radians is a stable,
+            // representative non-degenerate heading.
+            const double heading = 0.0;
             double previous = ShipForceModel.BaselineDriveSpeedMps(800.0);
             double previousGain = double.PositiveInfinity;
             for (int sails = 1; sails <= 4; sails++)

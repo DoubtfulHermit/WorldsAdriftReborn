@@ -3131,9 +3131,10 @@ at all** — `FlightIntegrator`'s legacy branch commands `throttle * MaxSpeedMps
 directly. So a latched lever means a ship cruises **forever, in a straight line,
 through islands** (nothing in `Ship/Flight/` references terrain or altitude
 limits) until someone re-mans it or an admin stops it. Under the force model it
-would coast on retail's own `0.007·v^2.5` plus the 0.03 m/s² settle term: from 9 m/s
-**~123 s and ~203 m**; from 17 m/s **~125 s and ~227 m**; from 20 m/s **~125 s
-and ~231 m**. Retail had both — drag *and* engines that kept burning unmanned —
+would coast on retail's own `0.007·v^2.5` plus the every-step 0.03 m/s² residual:
+from 9 m/s **~75 s and ~131 m**; from 17 m/s **~77 s and ~154 m**; from 20 m/s
+**~77 s and ~159 m**. (The former 123-125 s figures accidentally gated the
+residual below 1 m/s; the complete decompile has no such gate.) Retail had both — drag *and* engines that kept burning unmanned —
 so retail's answer to a runaway was `ShipAbandonedBehaviour` (24 h with no owner
 aboard, and it makes the ship **sink**, not stop), not deceleration.
 

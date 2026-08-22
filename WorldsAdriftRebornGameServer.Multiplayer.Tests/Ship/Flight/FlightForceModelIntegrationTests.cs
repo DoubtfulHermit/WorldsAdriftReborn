@@ -164,15 +164,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void Full_throttle_settles_at_the_drag_limited_top_speed_of_that_ship()
         {
-            // Note the wind term. Equilibrium is thrust/mass = c*(v - w)^2, so the
-            // settled speed is EXACTLY the still-air top speed PLUS the hull's
-            // drift speed - the same additive form a tailwind has in the real
-            // world. EngineTopSpeedMps remains the still-air figure, which is the
-            // honest thing for it to report, so the wind is added here explicitly
-            // rather than buried inside it.
+            // Note the wind and recovered residual-drag terms. EngineTopSpeedMps
+            // intentionally remains the primary power-law figure; the runtime and
+            // inspector use PredictedSettledSpeedMps for the complete GetDrag
+            // equilibrium.
             var ship = new ShipPropulsion(800.0, 1200.0, 0);
             FlightState state = Fly(FullAhead, 600, ship);
-            double expected = ship.EngineTopSpeedMps + ShipForceModel.BaselineDriveSpeedMps(800.0);
+            double expected = ShipForceModel.PredictedSettledSpeedMps(
+                1200.0, 800.0, ShipForceModel.BaselineDriveSpeedMps(800.0));
             Assert.Equal(expected, state.SpeedCmdMps, 2);
         }
 
@@ -339,8 +338,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 3, heading, breezy.SailPowerNewtons,
                 ShipForceModel.DefaultWindX * scale,
                 ShipForceModel.DefaultWindZ * scale);
-            double expected = ShipForceModel.BaselineDriveSpeedMps(massKg, windSpeed)
-                + ShipForceModel.TerminalSpeedMps(sailN, massKg);
+            double expected = ShipForceModel.PredictedSettledSpeedMps(
+                sailN, massKg, ShipForceModel.BaselineDriveSpeedMps(massKg, windSpeed));
 
             Assert.Equal(expected, blowing.SpeedCmdMps, 2);
         }
@@ -391,8 +390,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 
             double sailN = ShipForceModel.SailForwardNewtons(
                 2, heading, Tuning.SailPowerNewtons);
-            double expected = ShipForceModel.BaselineDriveSpeedMps(massKg)
-                + ShipForceModel.TerminalSpeedMps(sailN, massKg);
+            double expected = ShipForceModel.PredictedSettledSpeedMps(
+                sailN, massKg, ShipForceModel.BaselineDriveSpeedMps(massKg));
 
             Assert.Equal(expected, centred.SpeedCmdMps, 2);
         }

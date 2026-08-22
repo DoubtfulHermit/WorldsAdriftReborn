@@ -64,6 +64,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public const double AirResistanceExponent = 2.5;
 
         /// <summary>
+        /// PROVED SHIPPED VALUE - <c>GetDrag</c> leaves the primary power-law
+        /// direction at zero at or below 0.1 m/s. The residual correction remains
+        /// active, so this is not a dead zone and does not prevent exact settling.
+        /// </summary>
+        public const double PrimaryDragDirectionThresholdMps = 0.1;
+
+        /// <summary>
         /// PROVED - <c>ShipConfiguration.ShipThrustMultiplier</c> (decompile
         /// <c>acs/ShipConfiguration.cs:72</c>). The global scalar every engine's
         /// thrust was multiplied by. It shipped at 1.0, i.e. retail shipped this
@@ -85,38 +92,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public const double SailMinEfficiency = 0.3;
 
         /// <summary>
-        /// PROVED magnitude, DELIBERATELY REAIMED - retail's low-speed settling
-        /// term, the second half of <c>WindPhysicsVisualizer.GetDrag</c>. After the
-        /// primary drag term, retail added a correction capped at <c>0.03f * dt</c>
-        /// per step, i.e. an acceleration of at most 0.03 m/s^2, pointing from the
-        /// ship's velocity toward the LOCAL WIND velocity.
+        /// PROVED SHIPPED VALUE - retail's residual drag term, the second half of
+        /// <c>WindPhysicsVisualizer.GetDrag</c>. After the primary drag term,
+        /// retail subtracted that step from the relative-wind vector, then added a
+        /// correction capped at <c>0.03f * dt</c> per step, i.e. an acceleration
+        /// of at most 0.03 m/s^2, toward the LOCAL WIND velocity.
         ///
         /// It exists because power-law drag alone can never stop anything: at
         /// 0.08 m/s the primary term is under 0.000013 m/s^2 and a coasting ship crawls
         /// forever. Retail's term closes that gap.
         ///
-        /// OUR DEPARTURE, stated plainly: retail aimed this term at the wind, so a
-        /// parked retail hull drifted downwind indefinitely at up to the wind speed.
-        /// We aim it at ZERO instead. A world in which every unmanned hull drifts
-        /// forever is a world in which every unmanned hull emits control points
-        /// forever, and unbounded per-hull traffic is the exact congestion class the
-        /// standing multiplayer-safety rule exists to prevent - it has already cost
-        /// this project one reliable-relay spiral. The magnitude is retail's; the
-        /// target is ours. Restoring the true downwind drift is a real fidelity item
-        /// and belongs with weather, where the wind stops being a constant.
+        /// This correction is NOT conditional on low speed or on propulsion being
+        /// absent. The shipped method applies it on every call and clamps only to
+        /// the relative wind left after the primary step. WAReborn previously put
+        /// it behind an invented 1 m/s/undriven gate; that made a 4.11 m/s coast
+        /// take about 115 seconds instead of the recovered curve's 68 seconds.
+        ///
+        /// WAReborn's separate operational departure remains in
+        /// <c>ShipForceEvaluator</c>: ambient wind is withheld from an abandoned
+        /// hull so it can eventually go quiet. Once a relative-wind target is
+        /// supplied here, both the direction and cadence of this term are retail's.
         /// </summary>
         public const double LowSpeedSettleAccelMps2 = 0.03;
-
-        /// <summary>
-        /// WAREBORN TUNING - the speed below which <see cref="LowSpeedSettleAccelMps2"/>
-        /// is applied. At 1 m/s the recovered primary term has fallen to
-        /// 0.007 m/s^2, under a quarter of the settling term, so this is the point where
-        /// drag has stopped doing the job and something else must finish it. A ship
-        /// coasting down from cruise therefore decelerates on the recovered law
-        /// almost the whole way and only picks this up for the last metre per
-        /// second, taking roughly six seconds to come to a true stop.
-        /// </summary>
-        public const double SettleThresholdMps = 1.0;
 
         /// <summary>
         /// PROVED - the client's OWN fallback wind, returned by
@@ -356,9 +353,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         /// <summary>
         /// The signed equilibrium speed for a longitudinal force in moving air.
-        /// RECOVERED equation: <c>F/m = c*sign(v-w)*|v-w|^2.5</c>. This is the exact
+        /// RECOVERED equation: <c>F/m = c*sign(v-w)*|v-w|^2.5 + 0.03</c> in the
+        /// force direction. The final constant is the always-on residual correction
+        /// in <c>WindPhysicsVisualizer.GetDrag</c>, not WAReborn tuning. This is the
         /// prediction used by the operator inspector; keeping it here prevents a
         /// browser or stats writer from growing a second flight model.
+        ///
+        /// Below 0.03 m/s^2 the discrete retail force stack sits inside its final
+        /// one-step correction rather than having a non-zero continuous balance
+        /// point. Reporting the wind target is the honest stable prediction at that
+        /// scale (the 0.24 s integrator can carry a sub-centimetre-per-second ripple).
         /// </summary>
         public static double PredictedSettledSpeedMps(
             double thrustNewtons, double massKg, double windAlongHeadingMps)
@@ -372,8 +376,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             {
                 return windAlongHeadingMps;
             }
+            double balancedPrimaryAccel = Math.Max(
+                0.0, (Math.Abs(thrustNewtons) / massKg) - LowSpeedSettleAccelMps2);
+            if (balancedPrimaryAccel <= 0.0)
+            {
+                return windAlongHeadingMps;
+            }
             return windAlongHeadingMps
-                + (Math.Sign(thrustNewtons) * TerminalSpeedMps(Math.Abs(thrustNewtons), massKg));
+                + (Math.Sign(thrustNewtons) * Math.Pow(
+                    balancedPrimaryAccel / AirResistanceCoefficient,
+                    1.0 / AirResistanceExponent));
         }
 
         /// <summary>
@@ -425,22 +437,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // tenth of a metre per second and never settles, which on the wire
             // means it never goes quiet either. Retail's own answer is the second
             // term of WindPhysicsVisualizer.GetDrag; see LowSpeedSettleAccelMps2
-            // for its magnitude and for the one way we differ from it.
+            // for its recovered magnitude and application order.
             //
-            // It applies ONLY to an UNDRIVEN ship - lever centred, no canvas - and
-            // only below SettleThresholdMps. Both conditions matter. Letting it run
-            // at cruise would shift every ship's top speed for no physical reason
-            // and make TerminalSpeedMps a lie; letting it run against a driven ship
-            // would turn it into STICTION, and retail had none - a sail worth only
-            // nine newtons on an 800 kg hull really did get that hull moving, just
-            // very slowly. A settling term that can veto thrust is a different and
-            // wrong model.
-            // "Undriven" is a tolerance rather than an exact zero on purpose: a
-            // thrust of 1e-12 is numerical dust, but tested exactly it would count
-            // as driven, suppress settling, and leave the hull creeping below the
-            // at-rest threshold forever - which on the wire is a control-point
-            // stream per hull that never goes quiet. Real forces here are either
-            // zero or thousands of times this.
             // RETAIL HAD ONE TERM, NOT TWO. WindPhysicsVisualizer.ApplyWindDrag
             // evaluates the recovered power law on the RELATIVE wind,
             // GetDrag(wind - velocity), so the identical expression is drag when
@@ -452,7 +450,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // aim differs from retail's).
             double relativeWind = windAlongHeadingMps - speedMps;
             double relativeMagnitude = Math.Abs(relativeWind);
-            double accel = DragDecelerationMps2(relativeWind);
+            double primaryAccel = relativeMagnitude > PrimaryDragDirectionThresholdMps
+                ? DragDecelerationMps2(relativeWind)
+                : 0.0;
+
+            // The first of retail's two anti-overshoot clamps. GetDrag clamps the
+            // power-law acceleration to magnitude / deltaTime before calculating
+            // the residual correction. This is normally load-bearing only for a
+            // very coarse step or extreme relative wind, but reproducing the order
+            // makes this a transcription rather than a lookalike.
+            primaryAccel = Math.Min(primaryAccel, relativeMagnitude / dtSeconds);
+            double primaryDelta = primaryAccel * dtSeconds;
 
             // The settling term. It exists because the primary law vanishes
             // faster than the gap it is closing - relative wind decays as
@@ -467,25 +475,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // is what actually lets a bare hull REACH its drift speed instead of
             // asymptotically creeping at it.
             //
-            // Still gated on the ship not being driven by THRUST, which is ours and
-            // deliberate: letting a 0.03 m/s^2 term run against a throttled or
-            // sailed ship would be STICTION, and retail had none.
-            bool undriven = Math.Abs(thrustAccelMps2) < 1e-9;
-            if (undriven && relativeMagnitude < SettleThresholdMps)
-            {
-                accel += LowSpeedSettleAccelMps2;
-            }
+            // Decompiled order, exactly: vector5 is the relative wind LEFT after
+            // vector2's primary step, capped to 0.03*dt. There is no speed threshold
+            // and no throttle/sail gate in WindPhysicsVisualizer.GetDrag.
+            double residualMagnitude = Math.Max(0.0, relativeMagnitude - primaryDelta);
+            double residualDelta = Math.Min(
+                residualMagnitude, LowSpeedSettleAccelMps2 * dtSeconds);
 
             // Never overshoot the relative wind inside one step: retail clamped
             // the same way (number.Clamp(0f, magnitude / deltaTime)) so that drag
             // can bring a ship TO the air's speed but never push it past and
             // oscillate. At our 0.24 s cadence this is the difference between a
             // settled hull and one that hunts around the wind speed for ever.
-            double delta = accel * dtSeconds;
-            if (delta > relativeMagnitude)
-            {
-                delta = relativeMagnitude;
-            }
+            double delta = primaryDelta + residualDelta;
 
             double next = speedMps
                 + (Math.Sign(relativeWind) * delta)

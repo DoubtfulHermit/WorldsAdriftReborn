@@ -135,7 +135,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         public void Speed_converges_on_the_terminal_speed_and_stays_there()
         {
             const double thrustAccel = 3.5;   // approximately the reference ship
-            double expected = ShipForceModel.TerminalSpeedMps(3.5 * 800.0, 800.0);
+            double expected = ShipForceModel.PredictedSettledSpeedMps(
+                3.5 * 800.0, 800.0, 0.0);
 
             double v = 0.0;
             for (int i = 0; i < 2000; i++)
@@ -177,7 +178,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 heavy = ShipForceModel.StepSpeed(heavy, thrustN / 3200.0, 0.24);
             }
             Assert.True(heavy < light);
-            Assert.Equal(Math.Pow(4.0, -0.4), heavy / light, 2);
+            double expectedLight = ShipForceModel.PredictedSettledSpeedMps(
+                thrustN, 800.0, 0.0);
+            double expectedHeavy = ShipForceModel.PredictedSettledSpeedMps(
+                thrustN, 3200.0, 0.0);
+            Assert.Equal(expectedHeavy / expectedLight, heavy / light, 3);
         }
 
         // ------------------------------------------------------------------
