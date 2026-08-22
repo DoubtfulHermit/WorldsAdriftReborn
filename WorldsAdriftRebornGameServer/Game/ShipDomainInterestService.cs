@@ -29,6 +29,72 @@ namespace WorldsAdriftRebornGameServer.Game
             public long AssetRequestedFor;
             public bool ConnectPlanComplete;
             public bool RemoveSupported;
+            public FixedPointPosition? ForcedRestoreCenter;
+            public long ForcedRestoreHull;
+            public readonly HashSet<long> MaterializedEntities = new();
+        }
+
+        internal enum RestoreCheckoutStatus { Unknown, Waiting, Ready }
+
+        /// <summary>
+        /// Preloads the ship nearest an open-sky logout position without lying
+        /// about the player's current resource-interest centre. Ready means the
+        /// client has requested components for the root and every generated deck,
+        /// which is its native proof that those entities materialized.
+        /// </summary>
+        internal RestoreCheckoutStatus RequestRestoreDestination(ENetPeerHandle peer,
+            FixedPointPosition destination, out long hullEntityId)
+        {
+            hullEntityId = 0;
+            double nearestSquared = ShipRestoreReadinessPolicy.MaximumShipDistanceMetres
+                * ShipRestoreReadinessPolicy.MaximumShipDistanceMetres;
+            foreach (ShipDomain domain in _domains.All)
+            {
+                FixedPointPosition pose;
+                if (!WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(
+                        domain.HullEntityId, out pose, out _))
+                    pose = _registry.TransformSeedFor(domain.HullEntityId);
+                double dx = destination.MetresX - pose.MetresX;
+                double dy = destination.MetresY - pose.MetresY;
+                double dz = destination.MetresZ - pose.MetresZ;
+                double squared = dx * dx + dy * dy + dz * dz;
+                if (squared <= nearestSquared)
+                {
+                    nearestSquared = squared;
+                    hullEntityId = domain.HullEntityId;
+                }
+            }
+            if (hullEntityId == 0) return RestoreCheckoutStatus.Unknown;
+
+            PeerState state = StateFor(peer);
+            state.ForcedRestoreCenter = destination;
+            state.ForcedRestoreHull = hullEntityId;
+            state.NextReconcile = TimeSpan.Zero;
+
+            IReadOnlyList<long> restoreDecks = BuiltShips.DecksForHull(hullEntityId);
+            bool checkoutPresent = WorldsAdriftRebornGameServer.SentEntities
+                .WasSent(peer, hullEntityId)
+                && restoreDecks.All(deck => WorldsAdriftRebornGameServer.SentEntities
+                    .WasSent(peer, deck));
+            return checkoutPresent && ShipRestoreReadinessPolicy.IsReady(hullEntityId,
+                restoreDecks, state.MaterializedEntities)
+                    ? RestoreCheckoutStatus.Ready
+                    : RestoreCheckoutStatus.Waiting;
+        }
+
+        internal void NoteComponentInterest(ENetPeerHandle peer, long entityId)
+        {
+            PeerState state = StateFor(peer);
+            state.MaterializedEntities.Add(entityId);
+        }
+
+        internal void CompleteRestoreDestination(ENetPeerHandle peer, long hullEntityId)
+        {
+            if (!_peers.TryGetValue(peer, out PeerState? state)
+                || state.ForcedRestoreHull != hullEntityId) return;
+            state.ForcedRestoreCenter = null;
+            state.ForcedRestoreHull = 0;
+            state.NextReconcile = TimeSpan.Zero;
         }
 
         private static readonly TimeSpan ReconcileInterval = TimeSpan.FromMilliseconds(500);
@@ -167,7 +233,8 @@ namespace WorldsAdriftRebornGameServer.Game
             state.Pending.Clear();
             ulong peerId = PeerIdentity.IdOf(peer);
             long playerEntityId = WorldsAdriftRebornGameServer.Players.EntityOf(peerId) ?? 0;
-            FixedPointPosition center = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
+            FixedPointPosition center = state.ForcedRestoreCenter
+                ?? WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
 
             // A member detached while its former ship was checked out must return
             // to this peer as a normal loose world entity. Without this ownership
@@ -307,6 +374,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     if (action.WasMountedMember)
                         state.RemovedMountedParts.Add(action.EntityId);
                     PeerCheckoutCleanup.RemoveEntity(peer, action.EntityId);
+                    state.MaterializedEntities.Remove(action.EntityId);
                     Console.WriteLine("[ship-interest] removed entity " + action.EntityId
                         + " of hull " + action.HullEntityId + " from peer "
                         + peer.DangerousGetHandle() + ".");

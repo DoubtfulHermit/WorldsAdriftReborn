@@ -71,6 +71,8 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         private readonly Dictionary<long, string> _reasonByEntity = new Dictionary<long, string>();
         private readonly Dictionary<long, TeleportDestination> _destinationByEntity = new();
+        private readonly Dictionary<long, (ulong PeerId, long HullEntityId)> _shipRestoreByEntity
+            = new();
 
         private sealed class PendingTerrainTeleport
         {
@@ -89,6 +91,7 @@ namespace WorldsAdriftRebornGameServer.Game
             /// both of its endings say something different from an operator's.
             /// </summary>
             public bool IsRestore;
+            public long RequiredShipHullId;
         }
 
         private readonly Dictionary<long, PendingTerrainTeleport> _pendingTerrain = new();
@@ -376,6 +379,45 @@ namespace WorldsAdriftRebornGameServer.Game
             foreach ((long entityId, PendingTerrainTeleport pending) in _pendingTerrain.ToArray())
             {
                 ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)pending.PeerId));
+                if (pending.RequiredShipHullId > 0)
+                {
+                    bool shipExpired = _terrainWaitClock.Elapsed >= pending.Deadline;
+                    long resolvedHull = 0;
+                    ShipDomainInterestService.RestoreCheckoutStatus shipStatus = peer == null
+                        ? ShipDomainInterestService.RestoreCheckoutStatus.Unknown
+                        : WorldsAdriftRebornGameServer.ShipInterest.RequestRestoreDestination(
+                            peer, pending.Destination.Position, out resolvedHull);
+                    bool sameHull = peer != null
+                        && shipStatus != ShipDomainInterestService.RestoreCheckoutStatus.Unknown
+                        && resolvedHull == pending.RequiredShipHullId;
+                    if (sameHull && shipStatus == ShipDomainInterestService.RestoreCheckoutStatus.Ready)
+                    {
+                        _pendingTerrain.Remove(entityId);
+                        bool sent = Send(pending.PeerId, entityId, pending.Destination, pending.Reason);
+                        if (sent)
+                            _shipRestoreByEntity[entityId] = (pending.PeerId,
+                                pending.RequiredShipHullId);
+                        else
+                            WorldsAdriftRebornGameServer.ShipInterest.CompleteRestoreDestination(
+                                peer!, pending.RequiredShipHullId);
+                        ReleaseSpawnHoldFor(pending, sent
+                            ? "destination ship root and decks materialized and the restore was sent"
+                            : "destination ship was ready but the restore send failed");
+                    }
+                    else if (peer == null || shipExpired)
+                    {
+                        _pendingTerrain.Remove(entityId);
+                        if (peer != null)
+                            WorldsAdriftRebornGameServer.ShipInterest.CompleteRestoreDestination(
+                                peer, pending.RequiredShipHullId);
+                        Console.WriteLine("[warning] " + pending.Reason + ": safely refused entity "
+                            + entityId + " -> open-sky ship " + pending.RequiredShipHullId
+                            + "; its root/deck materialization did not complete in time.");
+                        ReleaseSpawnHoldFor(pending,
+                            "the destination ship never became ready");
+                    }
+                    continue;
+                }
                 IslandDefinition? island = pending.Destination.RequiredWorldEntityKey == null
                     ? null
                     : WorldsAdriftRebornGameServer.IslandTopology.ByWorldEntityKey(
@@ -579,6 +621,50 @@ namespace WorldsAdriftRebornGameServer.Game
                 // the player's confirmed ground, so the streamer cannot unload it.
                 requiredWorldEntityKey: registered?.WorldEntityKey);
 
+            // Open sky is safe only when it is actually a ship. Preload that
+            // domain around the stored coordinate and wait for the client's own
+            // component-interest requests for the root and every deck. Sending
+            // first creates a circular dependency: resource interest moves only
+            // after landing, while the collider is needed before landing.
+            if (location.Kind == IslandLocationKind.OpenSky && peer != null)
+            {
+                ShipDomainInterestService.RestoreCheckoutStatus shipStatus =
+                    WorldsAdriftRebornGameServer.ShipInterest.RequestRestoreDestination(
+                        peer, stored!.Value, out long restoreHull);
+                if (shipStatus == ShipDomainInterestService.RestoreCheckoutStatus.Unknown)
+                {
+                    Console.WriteLine("[warning] " + LogoutRestoreReason + ": entity " + entityId
+                        + " stays at " + TeleportPolicy.SafeDestination.Name
+                        + "; its open-sky logout position is not within 40 m of a live ship.");
+                    return false;
+                }
+                if (shipStatus == ShipDomainInterestService.RestoreCheckoutStatus.Ready)
+                {
+                    bool sent = Send(peerId.Value, entityId, home, LogoutRestoreReason);
+                    if (sent)
+                        _shipRestoreByEntity[entityId] = (peerId.Value, restoreHull);
+                    else
+                        WorldsAdriftRebornGameServer.ShipInterest.CompleteRestoreDestination(
+                            peer, restoreHull);
+                    return sent;
+                }
+
+                _pendingTerrain[entityId] = new PendingTerrainTeleport
+                {
+                    PeerId = peerId.Value,
+                    EntityId = entityId,
+                    Destination = home,
+                    Deadline = _terrainWaitClock.Elapsed + TimeSpan.FromSeconds(35),
+                    Reason = LogoutRestoreReason,
+                    IsRestore = true,
+                    RequiredShipHullId = restoreHull,
+                };
+                Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
+                    + " held at " + TeleportPolicy.SafeDestination.Name + " while ship "
+                    + restoreHull + " root/deck colliders materialize (up to 35 s).");
+                return true;
+            }
+
             if (outcome.Decision == SpawnRestoreDecision.Place)
             {
                 Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
@@ -739,6 +825,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 {
                     WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
                         peer, landed.Position, "teleport landing '" + landed.Name + "'");
+                    CompleteShipRestoreInterest(entityId, peer);
                     ObserveTerrainLanding(peer, landed, landed.Position);
                 }
                 Console.WriteLine("[success] " + reason + ": entity " + entityId
@@ -797,6 +884,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
                 peer, position, "teleport transform confirmation '" + landed.Name + "'");
+            CompleteShipRestoreInterest(entityId, peer);
             ObserveTerrainLanding(peer, landed, position);
             Console.WriteLine("[success] " + reason + ": entity " + entityId
                 + " transform-confirmed request " + completedRequest.Value + " near "
@@ -828,6 +916,14 @@ namespace WorldsAdriftRebornGameServer.Game
             _reasonByEntity.Remove(entityId);
             _destinationByEntity.Remove(entityId);
             _pendingTerrain.Remove(entityId);
+            _shipRestoreByEntity.Remove(entityId);
+        }
+
+        private void CompleteShipRestoreInterest(long entityId, ENetPeerHandle peer)
+        {
+            if (!_shipRestoreByEntity.Remove(entityId, out var restore)) return;
+            WorldsAdriftRebornGameServer.ShipInterest.CompleteRestoreDestination(
+                peer, restore.HullEntityId);
         }
     }
 }

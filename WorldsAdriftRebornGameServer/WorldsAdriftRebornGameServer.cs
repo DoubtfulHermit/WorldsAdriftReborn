@@ -4200,6 +4200,7 @@ namespace WorldsAdriftRebornGameServer
                     if (EnetLayer.PB_EXP_SendComponentInterest_Deserialize(packet->Data, (int)packet->DataLength, &entityId, &interests, &interestCount))
                     {
                         Console.WriteLine("[info] game requests components for entity id: " + entityId);
+                        ShipInterest.NoteComponentInterest(sender, entityId);
 
                         // The first-time setup (component injection + AUTHORITY grant)
                         // must only ever run against the sender's OWN player entity.
