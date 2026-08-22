@@ -110,5 +110,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         {
             Assert.Same(ShipDockRegistry.Shared, ShipDockRegistry.Shared);
         }
+
+        [Fact]
+        public void Try_claim_never_overwrites_a_competing_live_claim()
+        {
+            var docks = new ShipDockRegistry();
+
+            Assert.Equal(ShipDockClaimResult.Claimed, docks.TryClaim(100, 200));
+            Assert.Equal(ShipDockClaimResult.AlreadyClaimed, docks.TryClaim(100, 200));
+            Assert.Equal(ShipDockClaimResult.RejectedYardOccupied, docks.TryClaim(100, 201));
+            Assert.Equal(ShipDockClaimResult.RejectedHullLinked, docks.TryClaim(101, 200));
+            Assert.Equal(200, docks.DockedShipFor(100));
+            Assert.Equal(100, docks.ShipyardForHull(200));
+        }
     }
 }

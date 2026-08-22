@@ -2,6 +2,15 @@ using System.Collections.Generic;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 {
+    public enum ShipDockClaimResult
+    {
+        Claimed,
+        AlreadyClaimed,
+        RejectedInvalidEntity,
+        RejectedYardOccupied,
+        RejectedHullLinked
+    }
+
     /// <summary>
     /// The PURE, engine-free record of which built ship is docked at which shipyard,
     /// as a BIDIRECTIONAL one-to-one association. A shipyard's <c>1205
@@ -41,6 +50,52 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
         private readonly Dictionary<long, long> _hullByShipyard = new Dictionary<long, long>();
         private readonly Dictionary<long, long> _shipyardByHull = new Dictionary<long, long>();
+
+        /// <summary>
+        /// Atomically reserves a one-to-one dock relationship without evicting an
+        /// existing hull or yard. Unlike the legacy <see cref="SetDocked"/> repair/
+        /// restore operation, this is suitable for competing live approach requests:
+        /// the first claimant wins and retries by that same pair are idempotent.
+        /// </summary>
+        public ShipDockClaimResult TryClaim(long shipyardEntityId, long hullEntityId)
+        {
+            if (shipyardEntityId <= 0 || hullEntityId <= 0)
+                return ShipDockClaimResult.RejectedInvalidEntity;
+
+            if (_hullByShipyard.TryGetValue(shipyardEntityId, out long yardHull))
+            {
+                return yardHull == hullEntityId
+                    ? ShipDockClaimResult.AlreadyClaimed
+                    : ShipDockClaimResult.RejectedYardOccupied;
+            }
+            if (_shipyardByHull.TryGetValue(hullEntityId, out long hullYard))
+            {
+                return hullYard == shipyardEntityId
+                    ? ShipDockClaimResult.AlreadyClaimed
+                    : ShipDockClaimResult.RejectedHullLinked;
+            }
+
+            _hullByShipyard.Add(shipyardEntityId, hullEntityId);
+            _shipyardByHull.Add(hullEntityId, shipyardEntityId);
+            return ShipDockClaimResult.Claimed;
+        }
+
+        /// <summary>
+        /// Releases exactly one expected pair. A stale cleanup cannot clear a newer
+        /// claimant that now occupies the yard.
+        /// </summary>
+        public bool Release(long shipyardEntityId, long hullEntityId)
+        {
+            if (!_hullByShipyard.TryGetValue(shipyardEntityId, out long currentHull)
+                || currentHull != hullEntityId
+                || !_shipyardByHull.TryGetValue(hullEntityId, out long currentYard)
+                || currentYard != shipyardEntityId)
+                return false;
+
+            _hullByShipyard.Remove(shipyardEntityId);
+            _shipyardByHull.Remove(hullEntityId);
+            return true;
+        }
 
         /// <summary>
         /// Records that <paramref name="hullEntityId"/> is now the ship docked at
