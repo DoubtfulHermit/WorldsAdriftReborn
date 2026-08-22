@@ -78,7 +78,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Helm_and_sail_interactions_use_server_side_physical_eligibility()
+        public void Helm_and_sail_interactions_use_server_side_semantic_eligibility()
         {
             string flight = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
             string parts = Source("WorldsAdriftRebornGameServer", "Game", "PartInteractionService.cs");

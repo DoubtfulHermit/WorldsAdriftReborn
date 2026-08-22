@@ -78,13 +78,12 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 Console.WriteLine("[warning] part-interact: Activate on sail " + targetEntityId
                     + " rejected for entity " + playerEntityId
-                    + ": target was not checked out, player position was unavailable, or distance "
+                    + ": ownership/checkout/position was invalid, or distance "
                     + (double.IsFinite(distanceMetres)
                         ? distanceMetres.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " m"
                         : "was unavailable")
-                    + " exceeded the "
-                    + Multiplayer.Ship.PartInteractionPolicy.ActivateRadius.ToString("0.##",
-                        System.Globalization.CultureInfo.InvariantCulture) + " m Activate radius.");
+                    + " exceeded the recovered client completion envelope for hull "
+                    + (mounted.HasValue ? mounted.Value.HullEntityId.ToString() : "unknown") + ".");
                 return true;
             }
 

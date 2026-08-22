@@ -250,12 +250,12 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 Console.WriteLine("[warning] flight: Man on helm " + targetEntityId
                     + " rejected for entity " + playerEntityId
-                    + ": target was not checked out, player position was unavailable, or distance "
+                    + ": ownership/checkout/position was invalid, or distance "
                     + (double.IsFinite(distanceMetres)
                         ? distanceMetres.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " m"
                         : "was unavailable")
-                    + " exceeded the " + Multiplayer.Helm.ManRadius.ToString("0.##",
-                        System.Globalization.CultureInfo.InvariantCulture) + " m Man radius.");
+                    + " exceeded the recovered client completion envelope for hull "
+                    + mount.Value.HullEntityId + ".");
                 return true;
             }
 
