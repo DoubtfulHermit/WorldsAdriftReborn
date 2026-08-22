@@ -4,6 +4,10 @@ Status: production acceptance plan, written 2026-08-22. This is the operator and
 player-facing companion to `elastic-runtime-phases.md` and
 `retail-flight-program-final-integration.md`.
 
+The exact non-technical instructions given to the player are maintained in
+`flight-elastic-runtime-player-test-script.md`. That script defines the go/stop
+messages and actions; this document remains the engineering acceptance contract.
+
 The purpose of this plan is not to switch everything on. It is to change one
 observable authority behavior at a time, prove it in the real client, preserve
 evidence, and retain a tested rollback after every step. The numbered checks are
