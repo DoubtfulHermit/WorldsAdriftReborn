@@ -51,6 +51,9 @@ resolved by assigning exactly one owner to each level:
   stops at the corrupt step.
 - Direct `AdvanceFixed` callers could request an unbounded loop despite the service
   clock's cap. The session now rejects counts outside 0..25.
+- A default zero quaternion and an out-of-range part-kind enum could enter the pure
+  vector model as identity/sail geometry despite the discovery record's fail-closed
+  claim. Propulsors now require a normalized quaternion and a defined kind.
 
 ## State, compatibility and client review
 

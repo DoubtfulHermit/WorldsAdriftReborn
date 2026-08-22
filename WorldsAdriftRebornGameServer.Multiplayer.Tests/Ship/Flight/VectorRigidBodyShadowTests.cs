@@ -206,6 +206,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Default_zero_quaternion_and_unknown_part_kind_fail_closed()
+        {
+            var zeroRotation = new[]
+            {
+                new ShadowPropulsor(ShadowPartKind.Engine, ShadowVector3.Zero,
+                    default, 100.0, 1.0)
+            };
+            var unknownKind = new[]
+            {
+                new ShadowPropulsor((ShadowPartKind)99, ShadowVector3.Zero,
+                    ShadowQuaternion.Identity, 100.0, 1.0)
+            };
+
+            Assert.False(VectorRigidBodyShadow.TryEvaluate(
+                800.0, HullHalfExtents, zeroRotation, 1.0, ShadowVector3.Zero, out _));
+            Assert.False(VectorRigidBodyShadow.TryEvaluate(
+                800.0, HullHalfExtents, unknownKind, 1.0, ShadowVector3.Zero, out _));
+        }
+
+        [Fact]
         public void PartCountCapIsEnforcedBeforeIteration()
         {
             var parts = new List<ShadowPropulsor>();

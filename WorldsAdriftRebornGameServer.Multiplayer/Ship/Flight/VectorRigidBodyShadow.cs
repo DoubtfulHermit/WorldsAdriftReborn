@@ -81,6 +81,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public double X { get; }
         public double Y { get; }
         public double Z { get; }
+        public bool IsValid
+        {
+            get
+            {
+                double squared = W * W + X * X + Y * Y + Z * Z;
+                return double.IsFinite(squared) && Math.Abs(squared - 1.0) <= 1e-12;
+            }
+        }
 
         public static bool TryNormalized(double w, double x, double y, double z, out ShadowQuaternion value)
         {
@@ -164,7 +172,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public double MassKg { get; }
         public bool Torqueless { get; }
 
-        public bool IsValid => LocalPosition.IsFinite
+        public bool IsValid => (Kind == ShadowPartKind.Engine || Kind == ShadowPartKind.Sail)
+            && LocalRotation.IsValid
+            && LocalPosition.IsFinite
             && LocalPosition.Magnitude <= VectorRigidBodyShadowPolicy.MaxMountOffsetMetres
             && double.IsFinite(Power) && Power >= 0.0
             && Power <= VectorRigidBodyShadowPolicy.MaxForceNewtons
