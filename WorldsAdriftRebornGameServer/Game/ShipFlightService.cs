@@ -874,9 +874,9 @@ namespace WorldsAdriftRebornGameServer.Game
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// One call per main-loop turn. Cheap when off or idle (an env check and a
-        /// Stopwatch compare); when due, advances every session and publishes what
-        /// they decided to emit.
+        /// One call per main-loop turn. The optional fixed clock consumes elapsed
+        /// 20 ms physics steps on this cadence; the independent stock timer only
+        /// decides when a 1130 control point may be published.
         /// </summary>
         public IReadOnlySet<ulong> Tick()
         {
@@ -884,7 +884,8 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 return NoDomainFrameSenders;
             }
-            if (!_cadence.Due(_clock.Elapsed))
+            bool publicationDue = _cadence.Due(_clock.Elapsed);
+            if (!FixedStepEnabled && !publicationDue)
             {
                 return NoDomainFrameSenders;
             }
@@ -897,15 +898,37 @@ namespace WorldsAdriftRebornGameServer.Game
                 ShipDomain? domain = _domains.ByHull(hullEntityId);
                 if (domain == null) continue;
                 FlightSession session = domain.Flight;
-                RefreshDomainMembership(domain);
-                TryCaptureAtEmptyShipyard(hullEntityId, session);
+
+                FixedFlightStepBatch fixedBatch = default;
+                if (FixedStepEnabled)
+                {
+                    if (!_fixedClocks.TryGetValue(hullEntityId, out FixedFlightClock? fixedClock))
+                    {
+                        fixedClock = new FixedFlightClock();
+                        _fixedClocks[hullEntityId] = fixedClock;
+                    }
+                    fixedBatch = fixedClock.Advance(_clock.Elapsed);
+                    _fixedClockTelemetry[hullEntityId] = fixedBatch;
+                    if (fixedBatch.Steps == 0 && !publicationDue)
+                    {
+                        continue;
+                    }
+                }
+
+                // Membership, docking capture and helm echo remain publication-
+                // paced. They do not affect integration and need not turn a 50 Hz
+                // clock into a 50 Hz world scan.
+                if (publicationDue)
+                {
+                    RefreshDomainMembership(domain);
+                    TryCaptureAtEmptyShipyard(hullEntityId, session);
+                    EchoHelmFeedback(hullEntityId, session);
+                }
 
                 // HELM FEEDBACK first, motion second: the echo is a pure
                 // input-changed compare (usually a no-op) and runs even on
                 // no-emit ticks, so a wheel wiggle inside the deadzone still
                 // animates the helm of a parked ship.
-                EchoHelmFeedback(hullEntityId, session);
-
                 int unfurledSails = WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId);
                 // HOW HEAVY THIS PARTICULAR SHIP IS. A hull built from cedar handles
                 // like a skiff; one built from tungsten wallows. 1.0 - no change at
@@ -915,29 +938,22 @@ namespace WorldsAdriftRebornGameServer.Game
                 FlightEmit emit;
                 if (FixedStepEnabled)
                 {
-                    if (!_fixedClocks.TryGetValue(hullEntityId, out FixedFlightClock? fixedClock))
-                    {
-                        fixedClock = new FixedFlightClock();
-                        _fixedClocks[hullEntityId] = fixedClock;
-                    }
-                    FixedFlightStepBatch batch = fixedClock.Advance(_clock.Elapsed);
-                    _fixedClockTelemetry[hullEntityId] = batch;
                     double lastStepTime = Math.Floor(
                         _clock.Elapsed.TotalSeconds / FixedFlightClock.StepSeconds)
                         * FixedFlightClock.StepSeconds;
                     double firstStepTime = lastStepTime
-                        - Math.Max(0, batch.Steps - 1) * FixedFlightClock.StepSeconds;
+                        - Math.Max(0, fixedBatch.Steps - 1) * FixedFlightClock.StepSeconds;
                     emit = session.AdvanceFixed(
                         nowMs, ShipMotionPolicy.SendIntervalSeconds,
-                        batch.Steps, firstStepTime, _tuning, unfurledSails, agility,
+                        fixedBatch.Steps, firstStepTime, _tuning, unfurledSails, agility,
                         PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
-                        _worldBounds);
-                    if (batch.UnderPressure)
+                        _worldBounds, emitDue: publicationDue);
+                    if (fixedBatch.UnderPressure)
                     {
                         Console.WriteLine("[warning] flight fixed-clock pressure: hull " + hullEntityId
-                            + " ran " + batch.Steps + " catch-up step(s), dropped "
-                            + batch.DroppedSteps + " step(s); total dropped "
-                            + batch.TotalDroppedSteps + " across " + batch.PressureEvents
+                            + " ran " + fixedBatch.Steps + " catch-up step(s), dropped "
+                            + fixedBatch.DroppedSteps + " step(s); total dropped "
+                            + fixedBatch.TotalDroppedSteps + " across " + fixedBatch.PressureEvents
                             + " pressure event(s).");
                     }
                 }

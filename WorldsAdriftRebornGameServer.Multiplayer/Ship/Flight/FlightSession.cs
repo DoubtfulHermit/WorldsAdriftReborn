@@ -219,7 +219,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             ShipPropulsion? propulsion = null,
             IReadOnlyList<WeatherWallSegment>? walls = null,
             RetailWorldBoundsPolicy? worldBounds = null,
-            double fixedStepSeconds = FixedFlightClock.StepSeconds)
+            double fixedStepSeconds = FixedFlightClock.StepSeconds,
+            bool emitDue = true)
         {
             if (fixedStepCount < 0 || fixedStepCount > FixedFlightClock.DefaultMaxCatchUpSteps)
                 throw new ArgumentOutOfRangeException(nameof(fixedStepCount));
@@ -277,6 +278,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                         boundsHardClamped, boundsInvalid, boundsSubsteps);
                 }
 
+                // The fixed simulation clock runs independently of the stock
+                // 240 ms wire cadence. Intermediate 20 ms calls must advance
+                // authoritative state without manufacturing a network point or
+                // consuming the rest-repeat budget. Otherwise the service has to
+                // batch all elapsed physics behind the publication timer, which
+                // retroactively applies the newest control input to time that
+                // elapsed before that input arrived.
+                if (!emitDue)
+                {
+                    return FlightEmit.Nothing;
+                }
+
                 if (_state.IsAtRest && !_manned)
                 {
                     // Settled this tick; fall through into the rest-repeat phase
@@ -316,6 +329,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             }
 
             // At rest, unmanned.
+            if (!emitDue)
+            {
+                return FlightEmit.Nothing;
+            }
             if (_restEmitted <= RestRepeats)
             {
                 _restEmitted++;

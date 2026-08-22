@@ -128,6 +128,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 service, StringComparison.Ordinal);
             Assert.Contains("session.AdvanceFixed(", service, StringComparison.Ordinal);
             Assert.Contains("FixedFlightClock.DefaultMaxCatchUpSteps", service, StringComparison.Ordinal);
+            Assert.Contains("bool publicationDue = _cadence.Due(_clock.Elapsed)", service,
+                StringComparison.Ordinal);
+            Assert.Contains("if (!FixedStepEnabled && !publicationDue)", service,
+                StringComparison.Ordinal);
+            Assert.Contains("emitDue: publicationDue", service, StringComparison.Ordinal);
+            Assert.DoesNotContain("if (!_cadence.Due(_clock.Elapsed))", service,
+                StringComparison.Ordinal);
         }
 
         [Fact]

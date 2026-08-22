@@ -112,3 +112,33 @@ Non-production restart acceptance procedure:
 8. Restore the backup or disable `WAREBORN_FLIGHT_FIXED_STEP` for immediate rollback.
 
 Production activation is intentionally not part of this changeset.
+
+## First production acceptance failure and correction — 2026-08-22
+
+The first Pack C activation failed its initial helm sweep on hull 3639. The
+player observed discrete forward/reverse corrections and a vibrating, blurred
+helm while changing throttle and yaw. Server evidence ruled out overload:
+`droppedSteps=0`, `pressureEvents=0`, finite state, normal RTT, and coherent
+domain membership.
+
+The failure was the clock boundary itself. `ShipFlightService.Tick` returned
+behind the 240 ms publication timer before calling `FixedFlightClock.Advance`.
+Consequently the nominal 50 Hz clock executed about twelve 20 ms integrations
+as one batch every 240 ms, using whichever control input was newest at the end
+of that interval. An input change halfway through a publication window was
+therefore applied retroactively to physics time that elapsed before the change.
+
+The corrected service samples `FixedFlightClock` on every poll-loop turn and
+advances any completed 20 ms steps immediately. `FlightSession.AdvanceFixed`
+now accepts a separate `emitDue` decision: intermediate calls update only
+authoritative state, while the independent stock timer still limits 1130 and
+whole-domain publication to 240 ms. Membership refresh, docking capture and
+helm echo remain publication-paced, so this correction does not turn the fixed
+clock into a 50 Hz world scan.
+
+Regression coverage pins both sides of the seam: intermediate steps move state
+without emitting, and a forward-to-reverse input change inside one 240 ms
+window produces a different state from the rejected retroactive twelve-step
+batch. Production was rolled back to `WAREBORN_FLIGHT_FIXED_STEP=0` immediately
+after the failed observation; reactivation requires the full test/build gates
+and a repeat of C0 before any restart acceptance.

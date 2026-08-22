@@ -60,6 +60,57 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Intermediate_fixed_steps_advance_state_without_publishing()
+        {
+            var session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            session.Man();
+            session.SetInput(new FlightControlInput(1, 0, 0, 0, 0));
+
+            FlightEmit intermediate = session.AdvanceFixed(
+                1_000_020, 0.24, 1, 0.02, new FlightTuning(), emitDue: false);
+
+            Assert.False(intermediate.Emit);
+            Assert.True(session.State.Z > 0,
+                "the 20 ms simulation step must not wait behind the wire timer");
+
+            FlightEmit publication = session.AdvanceFixed(
+                1_000_240, 0.24, 0, 0.24, new FlightTuning(), emitDue: true);
+            Assert.True(publication.Emit);
+            Assert.Equal(session.State.Z, publication.Spec.Z, 12);
+        }
+
+        [Fact]
+        public void Mid_window_input_change_is_not_applied_retroactively_to_elapsed_steps()
+        {
+            var continuous = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            continuous.Man();
+            continuous.SetInput(new FlightControlInput(1, 0, 0, 0, 0));
+            for (int step = 1; step <= 6; step++)
+            {
+                continuous.AdvanceFixed(1_000_000 + (step * 20), 0.24, 1,
+                    step * 0.02, new FlightTuning(), emitDue: false);
+            }
+            continuous.SetInput(new FlightControlInput(-1, 0, 0, 0, 0));
+            for (int step = 7; step <= 12; step++)
+            {
+                continuous.AdvanceFixed(1_000_000 + (step * 20), 0.24, 1,
+                    step * 0.02, new FlightTuning(), emitDue: step == 12);
+            }
+
+            // This is the failed production behavior: waiting 240 ms, then
+            // applying the newest input to all twelve elapsed physics steps.
+            var retroactive = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            retroactive.Man();
+            retroactive.SetInput(new FlightControlInput(-1, 0, 0, 0, 0));
+            retroactive.AdvanceFixed(1_000_240, 0.24, 12, 0.02,
+                new FlightTuning());
+
+            Assert.True(continuous.State.Z > retroactive.State.Z,
+                "forward elapsed time must remain forward after the input reverses");
+            Assert.NotEqual(Hash(continuous.State), Hash(retroactive.State));
+        }
+
+        [Fact]
         public void Zero_step_clock_initialization_does_not_consume_sail_wake()
         {
             var session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
