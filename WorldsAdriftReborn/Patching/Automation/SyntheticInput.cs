@@ -19,12 +19,19 @@ namespace WorldsAdriftReborn.Patching.Automation
             internal bool DownPending;
             internal bool UpPending;
             internal int AutoReleaseFrame = -1;
+            internal float AutoReleaseRealtime = -1f;
+        }
+
+        private sealed class AxisState
+        {
+            internal float Value;
+            internal float AutoReleaseRealtime = -1f;
         }
 
         private static readonly Dictionary<InputButtons, ButtonState> Buttons =
             new Dictionary<InputButtons, ButtonState>();
-        private static readonly Dictionary<InputAxes, float> Axes =
-            new Dictionary<InputAxes, float>();
+        private static readonly Dictionary<InputAxes, AxisState> Axes =
+            new Dictionary<InputAxes, AxisState>();
         private static bool _enabled;
 
         internal static void Enable()
@@ -46,22 +53,51 @@ namespace WorldsAdriftReborn.Patching.Automation
             state.DownPending = true;
             state.UpPending = false;
             state.AutoReleaseFrame = Time.frameCount + 2;
+            state.AutoReleaseRealtime = -1f;
+        }
+
+        internal static void Pulse(InputButtons button, float seconds)
+        {
+            ButtonState state = StateFor(button);
+            state.Held = true;
+            state.DownPending = true;
+            state.UpPending = false;
+            state.AutoReleaseFrame = -1;
+            state.AutoReleaseRealtime = Time.realtimeSinceStartup + seconds;
         }
 
         internal static void Hold(InputButtons button, bool held)
         {
             ButtonState state = StateFor(button);
             if (state.Held == held)
+            {
+                // An explicit hold supersedes a prior auto-expiring pulse.
+                if (held)
+                {
+                    state.AutoReleaseFrame = -1;
+                    state.AutoReleaseRealtime = -1f;
+                }
                 return;
+            }
             state.Held = held;
             state.DownPending = held;
             state.UpPending = !held;
             state.AutoReleaseFrame = -1;
+            state.AutoReleaseRealtime = -1f;
         }
 
         internal static void SetAxis(InputAxes axis, float value)
         {
-            Axes[axis] = Mathf.Clamp(value, -1f, 1f);
+            AxisState state = AxisFor(axis);
+            state.Value = Mathf.Clamp(value, -1f, 1f);
+            state.AutoReleaseRealtime = -1f;
+        }
+
+        internal static void PulseAxis(InputAxes axis, float value, float seconds)
+        {
+            AxisState state = AxisFor(axis);
+            state.Value = Mathf.Clamp(value, -1f, 1f);
+            state.AutoReleaseRealtime = Time.realtimeSinceStartup + seconds;
         }
 
         internal static void ClearAxis(InputAxes axis)
@@ -80,13 +116,33 @@ namespace WorldsAdriftReborn.Patching.Automation
             foreach (KeyValuePair<InputButtons, ButtonState> pair in Buttons)
             {
                 ButtonState state = pair.Value;
-                if (state.Held && state.AutoReleaseFrame >= 0
-                    && Time.frameCount >= state.AutoReleaseFrame)
+                bool frameExpired = state.AutoReleaseFrame >= 0
+                    && Time.frameCount >= state.AutoReleaseFrame;
+                bool timeExpired = state.AutoReleaseRealtime >= 0f
+                    && Time.realtimeSinceStartup >= state.AutoReleaseRealtime;
+                if (state.Held && (frameExpired || timeExpired))
                 {
                     state.Held = false;
                     state.UpPending = true;
                     state.AutoReleaseFrame = -1;
+                    state.AutoReleaseRealtime = -1f;
                 }
+            }
+
+            List<InputAxes> expiredAxes = null;
+            foreach (KeyValuePair<InputAxes, AxisState> pair in Axes)
+            {
+                if (pair.Value.AutoReleaseRealtime < 0f
+                    || Time.realtimeSinceStartup < pair.Value.AutoReleaseRealtime)
+                    continue;
+                if (expiredAxes == null)
+                    expiredAxes = new List<InputAxes>();
+                expiredAxes.Add(pair.Key);
+            }
+            if (expiredAxes != null)
+            {
+                for (int i = 0; i < expiredAxes.Count; i++)
+                    Axes.Remove(expiredAxes[i]);
             }
         }
 
@@ -136,7 +192,11 @@ namespace WorldsAdriftReborn.Patching.Automation
         internal static bool TryAxis(InputSink sink, InputAxes axis, out float value)
         {
             value = 0f;
-            return _enabled && sink.CanReceive(axis) && Axes.TryGetValue(axis, out value);
+            AxisState state;
+            if (!_enabled || !sink.CanReceive(axis) || !Axes.TryGetValue(axis, out state))
+                return false;
+            value = state.Value;
+            return true;
         }
 
         private static ButtonState StateFor(InputButtons button)
@@ -146,6 +206,17 @@ namespace WorldsAdriftReborn.Patching.Automation
             {
                 state = new ButtonState();
                 Buttons.Add(button, state);
+            }
+            return state;
+        }
+
+        private static AxisState AxisFor(InputAxes axis)
+        {
+            AxisState state;
+            if (!Axes.TryGetValue(axis, out state))
+            {
+                state = new AxisState();
+                Axes.Add(axis, state);
             }
             return state;
         }

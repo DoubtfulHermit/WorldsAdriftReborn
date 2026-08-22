@@ -47,6 +47,9 @@ public sealed class LocalTestBridgeWiringTests
         Assert.Contains("private const int MaxCommandsPerFrame = 8", bridge,
             StringComparison.Ordinal);
         Assert.Contains("FixedTimeEquals", bridge, StringComparison.Ordinal);
+        Assert.Contains("ReadBoundedLine(reader, MaxLineLength", bridge,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("reader.ReadLine()", bridge, StringComparison.Ordinal);
         Assert.Contains("command.Cancelled = true", bridge, StringComparison.Ordinal);
         Assert.Contains("if (command.Cancelled)", bridge, StringComparison.Ordinal);
     }
@@ -62,6 +65,10 @@ public sealed class LocalTestBridgeWiringTests
         Assert.Contains("SpatialOS.IsConnected", bridge, StringComparison.Ordinal);
         Assert.Contains("pilot.DrivingEntityId", bridge, StringComparison.Ordinal);
         Assert.Contains("ShipControlsBehaviour.Throttle", bridge, StringComparison.Ordinal);
+        Assert.Contains("InteractionTargetJson()", bridge, StringComparison.Ordinal);
+        Assert.Contains("timedInteractionController", bridge, StringComparison.Ordinal);
+        Assert.Contains("renderedHullPose", bridge, StringComparison.Ordinal);
+        Assert.Contains("controlAxes", bridge, StringComparison.Ordinal);
         Assert.DoesNotContain("LocalPlayer.Instance != null ? \"world\"", bridge,
             StringComparison.Ordinal);
     }
@@ -75,7 +82,7 @@ public sealed class LocalTestBridgeWiringTests
             "LocalTestBridge.cs");
 
         Assert.Contains("private static bool _enabled", input, StringComparison.Ordinal);
-        Assert.Contains("return _enabled && sink.CanReceive(axis)", input,
+        Assert.Contains("if (!_enabled || !sink.CanReceive(axis)", input,
             StringComparison.Ordinal);
         Assert.Contains("SyntheticInput.Enable()", bridge, StringComparison.Ordinal);
         Assert.Contains("SyntheticInput.Disable()", bridge, StringComparison.Ordinal);
@@ -90,10 +97,28 @@ public sealed class LocalTestBridgeWiringTests
         foreach (string command in new[]
                  {
                      "menu.continue", "menu.play", "menu.enter-world",
-                     "input.tap", "input.hold", "axis.set", "axis.clear", "input.clear"
+                     "input.tap", "input.hold", "input.pulse", "axis.set", "axis.pulse",
+                     "axis.clear", "input.clear"
                  })
         {
             Assert.Contains(command, bridge, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void Unattended_controls_have_bounded_auto_release()
+    {
+        string bridge = Source("WorldsAdriftReborn", "Patching", "Automation",
+            "LocalTestBridge.cs");
+        string input = Source("WorldsAdriftReborn", "Patching", "Automation",
+            "SyntheticInput.cs");
+
+        Assert.Contains("private const float MaxPulseSeconds = 10f", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("seconds >= 0.02f && seconds <= MaxPulseSeconds", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("AutoReleaseRealtime", input, StringComparison.Ordinal);
+        Assert.Contains("PulseAxis", input, StringComparison.Ordinal);
+        Assert.Contains("Axes.Remove(expiredAxes[i])", input, StringComparison.Ordinal);
     }
 }

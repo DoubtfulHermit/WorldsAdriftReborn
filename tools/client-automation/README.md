@@ -29,22 +29,30 @@ Initial commands:
 - `menu.enter-world`
 - `input.tap Interact`
 - `input.hold Interact true|false`
+- `input.pulse Interact 2.0`
 - `axis.set ShipThrottle 1`
+- `axis.pulse ShipYaw -1 0.5`
 - `axis.clear ShipThrottle`
 - `input.clear`
 
 `state` reports the active menu/world phase, SpatialOS connection state,
 whether the fully initialized `LocalPlayer` exists, global player position,
-helm attachment and hull id, and the client's current throttle/vertical lever
-values. A half-created `LocalPlayer.Instance` is never reported as `world`.
+the current stable in-range interaction target (including helm/sail kind, verb
+and required hold time), timed-interaction activity, helm/control/hull ids,
+integrated throttle/vertical/pitch/yaw/roll values, and the rendered hull pose.
+A half-created `LocalPlayer.Instance` is never reported as `world`.
+
+Prefer the bounded `input.pulse` and `axis.pulse` forms for unattended runs.
+They clear themselves after 0.02-10 seconds even if the caller is interrupted;
+`input.clear` remains the explicit emergency release for all synthetic state.
 
 The bridge deliberately has no username/password commands. Authenticate once
 through the normal landing screen after each fresh client process; subsequent
 Play, character selection, movement, interaction and helm acceptance steps can
 then be driven semantically without desktop mouse-coordinate injection.
 
-The bridge binds only `127.0.0.1`, accepts one line per connection, caps line
-length and commands per frame, requires a constant-time token match, and times
+The bridge binds only `127.0.0.1`, accepts one allocation-bounded line per
+connection, caps line length and commands per frame, requires a constant-time token match, and times
 out if Unity's main thread does not answer. Timed-out work is cancelled before
 execution. The Harmony input overlay is explicitly disabled unless the bridge
 successfully starts, and it falls through to the original physical-input path

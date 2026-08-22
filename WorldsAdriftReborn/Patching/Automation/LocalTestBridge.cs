@@ -4,9 +4,13 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
+using Assets.Scripts.Visualisers.Ship;
+using Assets.Visualizers;
 using Bossa.Travellers.Controls;
+using Bossa.Travellers.Interact;
 using HarmonyLib;
 using Improbable;
 using Improbable.Unity.Core;
@@ -29,6 +33,16 @@ namespace WorldsAdriftReborn.Patching.Automation
         private const int DefaultPort = 47631;
         private const int MaxLineLength = 512;
         private const int MaxCommandsPerFrame = 8;
+        private const float MaxPulseSeconds = 10f;
+
+        private static readonly Type PlayerLookingAtType =
+            AccessTools.TypeByName("Assets.Scripts.Player.PlayerLookingAt");
+        private static readonly PropertyInfo PlayerLookingAtInstance =
+            PlayerLookingAtType == null ? null : AccessTools.Property(PlayerLookingAtType, "Instance");
+        private static readonly PropertyInfo LookingAtInteractive =
+            PlayerLookingAtType == null ? null : AccessTools.Property(PlayerLookingAtType, "LookingAtInteractive");
+        private static readonly PropertyInfo LookingAtCollider =
+            PlayerLookingAtType == null ? null : AccessTools.Property(PlayerLookingAtType, "LookingAtCollider");
 
         private readonly Queue<PendingCommand> _pending = new Queue<PendingCommand>();
         private TcpListener _listener;
@@ -134,6 +148,17 @@ namespace WorldsAdriftReborn.Patching.Automation
                 SyntheticInput.Hold(button, held);
                 return Ok(command);
             }
+            if (parts[0] == "input.pulse" && parts.Length == 3)
+            {
+                InputButtons button;
+                float seconds;
+                if (!TryParseEnum(parts[1], out button))
+                    return Error("bad_button", parts[1]);
+                if (!TryParsePulseSeconds(parts[2], out seconds))
+                    return Error("bad_duration", parts[2]);
+                SyntheticInput.Pulse(button, seconds);
+                return Ok(command);
+            }
             if (parts[0] == "axis.set" && parts.Length == 3)
             {
                 InputAxes axis;
@@ -144,6 +169,20 @@ namespace WorldsAdriftReborn.Patching.Automation
                     || float.IsNaN(value) || float.IsInfinity(value) || value < -1f || value > 1f)
                     return Error("bad_value", parts[2]);
                 SyntheticInput.SetAxis(axis, value);
+                return Ok(command);
+            }
+            if (parts[0] == "axis.pulse" && parts.Length == 4)
+            {
+                InputAxes axis;
+                float value;
+                float seconds;
+                if (!TryParseEnum(parts[1], out axis))
+                    return Error("bad_axis", parts[1]);
+                if (!TryParseUnitValue(parts[2], out value))
+                    return Error("bad_value", parts[2]);
+                if (!TryParsePulseSeconds(parts[3], out seconds))
+                    return Error("bad_duration", parts[3]);
+                SyntheticInput.PulseAxis(axis, value, seconds);
                 return Ok(command);
             }
             if (parts[0] == "axis.clear" && parts.Length == 2)
@@ -216,44 +255,122 @@ namespace WorldsAdriftReborn.Patching.Automation
                         : localPlayer ? "world" : connected ? "connected-transition" : "transition";
 
             string playerFields = string.Empty;
+            bool timedInteraction = false;
             if (localPlayer)
             {
                 Improbable.Math.Vector3d position = LocalPlayer.GlobalPosition;
-                playerFields = ",\"playerPosition\":{"
-                    + "\"x\":" + JsonNumber(position.X)
+                playerFields = ",\"playerPosition\":{\"x\":" + JsonNumber(position.X)
                     + ",\"y\":" + JsonNumber(position.Y)
                     + ",\"z\":" + JsonNumber(position.Z) + "}";
+                TimedInteractionController interaction = LocalPlayer.Instance.timedInteractionController;
+                timedInteraction = interaction != null && interaction.IsInteracting();
             }
 
             bool helmAttached = false;
+            bool helmStateAvailable = false;
             long hullEntityId = 0;
+            long controlEntityId = 0;
             float throttle = 0f;
             float vertical = 0f;
+            Vector3 controlAxes = Vector3.zero;
+            string hullPoseFields = string.Empty;
             ShipControlsBehaviour controls = ShipControlsBehaviour.Instance;
             if (controls != null && Patching.Flight.LocalHelmFeedback_Patch.PilotField != null)
             {
-                PilotStateReader pilot = Patching.Flight.LocalHelmFeedback_Patch.PilotField
-                    .GetValue(controls) as PilotStateReader;
-                helmAttached = pilot != null && EntityId.IsValidEntityId(pilot.DrivingEntityId);
-                if (helmAttached)
+                try
                 {
-                    hullEntityId = pilot.DrivingEntityId.Id;
-                    throttle = ShipControlsBehaviour.Throttle;
-                    vertical = ShipControlsBehaviour.Vertical;
+                    PilotStateReader pilot = Patching.Flight.LocalHelmFeedback_Patch.PilotField
+                        .GetValue(controls) as PilotStateReader;
+                    helmStateAvailable = pilot != null;
+                    helmAttached = pilot != null && EntityId.IsValidEntityId(pilot.DrivingEntityId);
+                    if (helmAttached)
+                    {
+                        hullEntityId = pilot.DrivingEntityId.Id;
+                        controlEntityId = EntityId.IsValidEntityId(pilot.ControlEntityId)
+                            ? pilot.ControlEntityId.Id : 0;
+                        throttle = ShipControlsBehaviour.Throttle;
+                        vertical = ShipControlsBehaviour.Vertical;
+                        if (Patching.Flight.LocalHelmFeedback_Patch.AxesField != null)
+                            controlAxes = (Vector3)Patching.Flight.LocalHelmFeedback_Patch.AxesField
+                                .GetValue(controls);
+
+                        var hull = global::Improbable.Unity.Core.SpatialOS.Universe
+                            .Get(pilot.DrivingEntityId);
+                        if (hull != null && hull.UnderlyingGameObject != null)
+                        {
+                            Transform hullTransform = hull.UnderlyingGameObject.transform;
+                            hullPoseFields = ",\"renderedHullPose\":{\"position\":"
+                                + JsonVector(hullTransform.position)
+                                + ",\"euler\":" + JsonVector(hullTransform.rotation.eulerAngles)
+                                + "}";
+                        }
+                    }
+                }
+                catch
+                {
+                    helmStateAvailable = false;
                 }
             }
+            string interactionTarget = InteractionTargetJson();
             return "{\"ok\":true,\"phase\":\"" + JsonEscape(phase)
                 + "\",\"scene\":\"" + JsonEscape(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name)
                 + "\",\"connected\":" + JsonBool(connected)
                 + ",\"localPlayer\":" + JsonBool(localPlayer)
                 + playerFields
+                + ",\"timedInteraction\":" + JsonBool(timedInteraction)
+                + ",\"interactionTarget\":" + interactionTarget
+                + ",\"helmStateAvailable\":" + JsonBool(helmStateAvailable)
                 + ",\"helmAttached\":" + JsonBool(helmAttached)
                 + ",\"hullEntityId\":" + hullEntityId.ToString(CultureInfo.InvariantCulture)
+                + ",\"controlEntityId\":" + controlEntityId.ToString(CultureInfo.InvariantCulture)
                 + ",\"throttle\":" + JsonNumber(throttle)
                 + ",\"vertical\":" + JsonNumber(vertical)
+                + ",\"controlAxes\":" + JsonVector(controlAxes)
+                + hullPoseFields
                 + ",\"frame\":" + Time.frameCount.ToString(CultureInfo.InvariantCulture)
                 + ",\"realtime\":" + Time.realtimeSinceStartup.ToString("0.000", CultureInfo.InvariantCulture)
                 + "}";
+        }
+
+        private static string InteractionTargetJson()
+        {
+            try
+            {
+                if (PlayerLookingAtInstance == null || LookingAtInteractive == null)
+                    return "null";
+                object lookingAt = PlayerLookingAtInstance.GetValue(null, null);
+                if (lookingAt == null)
+                    return "null";
+                InteractiveObjectVisualizer interactive =
+                    LookingAtInteractive.GetValue(lookingAt, null) as InteractiveObjectVisualizer;
+                if (interactive == null)
+                    return "null";
+
+                Collider collider = LookingAtCollider == null ? null
+                    : LookingAtCollider.GetValue(lookingAt, null) as Collider;
+                InteractVerb verb = interactive.GetVerb(collider);
+                SailVisualizer sail = interactive.GetComponent<SailVisualizer>();
+                string kind = interactive.GetComponent<HelmVisualizer>() != null
+                    ? "helm" : sail != null ? "sail" : "interactive";
+                string sailField = sail == null ? string.Empty
+                    : ",\"sailUnfurled\":" + JsonBool(sail.Unfurled);
+                return "{\"entityId\":"
+                    + interactive.EntityId.Id.ToString(CultureInfo.InvariantCulture)
+                    + ",\"name\":\"" + JsonEscape(interactive.gameObject.name) + "\""
+                    + ",\"kind\":\"" + kind + "\""
+                    + ",\"verb\":\"" + JsonEscape(verb.ToString()) + "\""
+                    + ",\"enabled\":" + JsonBool(interactive.InteractionEnabled)
+                    + ",\"range\":" + JsonNumber(interactive.InteractRange)
+                    + ",\"holdSeconds\":" + JsonNumber(interactive.GetInteractTime(collider))
+                    + sailField + "}";
+            }
+            catch
+            {
+                // Looking-at state changes during fixed/update boundaries. A
+                // transient destroyed object must not make the whole state
+                // command fail; null truthfully means no stable target sample.
+                return "null";
+            }
         }
 
         private static T FindActive<T>() where T : Component
@@ -305,8 +422,9 @@ namespace WorldsAdriftReborn.Patching.Automation
             using (StreamWriter writer = new StreamWriter(stream, new UTF8Encoding(false), 512))
             {
                 writer.AutoFlush = true;
-                string line = reader.ReadLine();
-                if (line == null || line.Length > MaxLineLength)
+                bool tooLong;
+                string line = ReadBoundedLine(reader, MaxLineLength, out tooLong);
+                if (line == null || tooLong)
                 {
                     writer.WriteLine(Error("bad_request", "one bounded command line required"));
                     return;
@@ -339,10 +457,41 @@ namespace WorldsAdriftReborn.Patching.Automation
             if (actual == null || expected == null)
                 return false;
             int difference = actual.Length ^ expected.Length;
-            int length = Math.Min(actual.Length, expected.Length);
+            int length = Math.Max(actual.Length, expected.Length);
             for (int i = 0; i < length; i++)
-                difference |= actual[i] ^ expected[i];
+            {
+                char actualChar = i < actual.Length ? actual[i] : (char)0;
+                char expectedChar = i < expected.Length ? expected[i] : (char)0;
+                difference |= actualChar ^ expectedChar;
+            }
             return difference == 0;
+        }
+
+        private static string ReadBoundedLine(TextReader reader, int maximumLength,
+            out bool tooLong)
+        {
+            tooLong = false;
+            StringBuilder builder = new StringBuilder(Math.Min(maximumLength, 128));
+            while (true)
+            {
+                int next = reader.Read();
+                if (next < 0)
+                    return builder.Length == 0 ? null : builder.ToString();
+                if (next == '\n')
+                    return builder.ToString();
+                if (next == '\r')
+                {
+                    if (reader.Peek() == '\n')
+                        reader.Read();
+                    return builder.ToString();
+                }
+                if (builder.Length >= maximumLength)
+                {
+                    tooLong = true;
+                    return null;
+                }
+                builder.Append((char)next);
+            }
         }
 
         private static int ParsePort(string text)
@@ -371,6 +520,21 @@ namespace WorldsAdriftReborn.Patching.Automation
             }
         }
 
+        private static bool TryParseUnitValue(string text, out float value)
+        {
+            return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+                && !float.IsNaN(value) && !float.IsInfinity(value)
+                && value >= -1f && value <= 1f;
+        }
+
+        private static bool TryParsePulseSeconds(string text, out float seconds)
+        {
+            return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture,
+                    out seconds)
+                && !float.IsNaN(seconds) && !float.IsInfinity(seconds)
+                && seconds >= 0.02f && seconds <= MaxPulseSeconds;
+        }
+
         private static string Ok(string action)
         {
             return "{\"ok\":true,\"action\":\"" + JsonEscape(action) + "\"}";
@@ -390,6 +554,13 @@ namespace WorldsAdriftReborn.Patching.Automation
         private static string JsonNumber(double value)
         {
             return value.ToString("0.######", CultureInfo.InvariantCulture);
+        }
+
+        private static string JsonVector(Vector3 value)
+        {
+            return "{\"x\":" + JsonNumber(value.x)
+                + ",\"y\":" + JsonNumber(value.y)
+                + ",\"z\":" + JsonNumber(value.z) + "}";
         }
 
         private static string JsonEscape(string value)
