@@ -1,8 +1,9 @@
 # Flight program consolidation: waves 1 and 2
 
-Status: complete locally on `integ/flight-program-consolidation`; waiting for the
-reviewed Wave 3 head. Nothing in this worktree has been pushed, merged to main,
-deployed, enabled, restarted, or added to a client manifest.
+Status: historical Wave 1+2 hold point on `integ/flight-program-consolidation`.
+The reviewed Wave 3 head was subsequently integrated and is recorded in
+`retail-flight-program-final-integration.md`. Nothing in this worktree has been
+pushed, merged to main, deployed, enabled, restarted, or added to a client manifest.
 
 ## Dependency base and replay
 
@@ -58,9 +59,9 @@ damage, or docking authoritative.
 The unreadable-JSON messages printed by the test runner are expected corruption
 recovery fixtures; those tests passed and moved only their temporary fixture files.
 
-## Hold point
+## Hold point (satisfied later)
 
 Do not push, merge, deploy, restart services, change production switches, or cut a
-client manifest. Wave 3 must be integrated only after its reviewed final head is
-provided, followed by another patch-equivalence review and the combined acceptance
-gates.
+client manifest. Wave 3 was integrated only after its reviewed final head was
+provided, followed by patch-equivalence review and the combined acceptance gates
+recorded in the final integration report.
