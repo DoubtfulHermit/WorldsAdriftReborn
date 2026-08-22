@@ -157,6 +157,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     player, WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(player));
             }
 
+            long? restoreShip = WorldsAdriftRebornGameServer.Aboard
+                .ShipOf(PeerIdentity.IdOf(player));
+            if (restoreShip.HasValue)
+                WorldsAdriftRebornGameServer.Teleports.OnShipBoarded(
+                    player, entityId, restoreShip.Value);
+
             // Carry echo. The client-side ship carry
             // (ClientAuthoritativePlayerMovement.RepositionRelativeToGroundedObject)
             // arms only when RelativePathFollower != null, which is set ONLY by

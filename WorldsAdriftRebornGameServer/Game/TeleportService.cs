@@ -897,6 +897,27 @@ namespace WorldsAdriftRebornGameServer.Game
                 + "; this client did not publish the 1073 ack, so world interest advanced from its authoritative 190602.");
         }
 
+        /// <summary>
+        /// A ship-relative 1073 naming the exact preloaded restore hull is stronger
+        /// landing evidence than the ordinary unparented position fallback. Retail
+        /// clients that omit lastExecutedRequest switch to this frame immediately
+        /// on deck contact, so finish the request and release the speculative pin.
+        /// </summary>
+        public void OnShipBoarded(ENetPeerHandle peer, long entityId, long hullEntityId)
+        {
+            if (!_shipRestoreByEntity.TryGetValue(entityId, out var restore)
+                || restore.HullEntityId != hullEntityId) return;
+
+            int? request = _requests.ConfirmOutstanding(entityId);
+            _arrivals.Cancel(entityId);
+            _destinationByEntity.Remove(entityId);
+            CompleteShipRestoreInterest(entityId, peer);
+            Console.WriteLine("[success] " + LogoutRestoreReason + ": entity " + entityId
+                + " boarded destination ship " + hullEntityId
+                + (request.HasValue ? " for request " + request.Value : string.Empty)
+                + "; ship-relative 1073 confirmed the landing and released its preload pin.");
+        }
+
         private static void ObserveTerrainLanding(
             ENetPeerHandle peer,
             TeleportDestination landed,
