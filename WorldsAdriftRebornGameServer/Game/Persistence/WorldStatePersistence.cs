@@ -348,7 +348,8 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// </summary>
         internal static bool UpdateGeneratorFuel(string? partUid, GeneratorFuelSnapshot fuel)
         {
-            if (string.IsNullOrEmpty(partUid) || fuel == null) return false;
+            if (!ShipFuelService.HullDemandLifecycleEnabled
+                || string.IsNullOrEmpty(partUid) || fuel == null) return false;
             return UpdateGeneratorFuel(new Dictionary<string, GeneratorFuelSnapshot>
             {
                 [partUid] = fuel,
@@ -359,7 +360,8 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         internal static int UpdateGeneratorFuel(
             IReadOnlyDictionary<string, GeneratorFuelSnapshot> fuelByPartUid)
         {
-            if (fuelByPartUid == null || fuelByPartUid.Count == 0) return 0;
+            if (!ShipFuelService.HullDemandLifecycleEnabled
+                || fuelByPartUid == null || fuelByPartUid.Count == 0) return 0;
             WorldStateSnapshot snapshot = Snapshot();
             int changed = 0;
             foreach (MountedPartRecord record in snapshot.MountedParts)

@@ -27,6 +27,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         }
 
         [Fact]
+        public void LegacyOffPathRetainsOneShipLevelBurnRatherThanPerEngineDemand()
+        {
+            var legacy = new ShipFuelLedger();
+            legacy.Register(Generator, Hull, 100);
+            legacy.SetThrottle(Hull, 0.5);
+
+            var track7 = new ShipFuelLedger();
+            track7.Register(Generator, Hull, 100);
+            track7.SetDemand(Hull, new HullPropulsionDemand(0.5, 2));
+
+            legacy.Burn(10, 1);
+            track7.Burn(10, 1);
+
+            Assert.Equal(95, legacy.Read(Hull).Level);
+            Assert.Equal(90, track7.Read(Hull).Level);
+        }
+
+        [Fact]
         public void Remanning_without_a_throttle_delta_does_not_change_demand()
         {
             var ledger = new ShipFuelLedger();
@@ -111,6 +129,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
                 "{\"PartUid\":\"legacy\",\"ItemType\":\"powerGenerator\"}")!;
 
             Assert.Null(restored.GeneratorFuel);
+        }
+
+        [Fact]
+        public void DisabledLifecycleWritesNoNewNullFuelProperty()
+        {
+            var mounted = new MountedPartRecord
+            {
+                PartUid = "legacy",
+                ItemType = "powerGenerator",
+                GeneratorFuel = null,
+            };
+            var loose = new LoosePartRecord
+            {
+                PartUid = "legacy-loose",
+                ItemType = "powerGenerator",
+                GeneratorFuel = null,
+            };
+
+            Assert.DoesNotContain("GeneratorFuel", JsonSerializer.Serialize(mounted));
+            Assert.DoesNotContain("GeneratorFuel", JsonSerializer.Serialize(loose));
         }
 
         [Fact]

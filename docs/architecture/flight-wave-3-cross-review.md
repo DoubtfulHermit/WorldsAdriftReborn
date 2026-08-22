@@ -48,13 +48,18 @@ failover is claimed.
 
 ## Independent review corrections
 
-1. Worker idempotency originally treated the same command id and payload digest at
+1. Track 7 originally reused the historically default-ON fuel switch, which would
+   have activated new hull-demand, per-engine burn, engine-only gating and durable
+   tank writes immediately on merge. `WAREBORN_FUEL_HULL_DEMAND` now gates only
+   that new lifecycle and defaults OFF. OFF preserves the old input mirror,
+   ship-level burn, dry-throttle clamp and JSON shape; persistence fails closed.
+2. Worker idempotency originally treated the same command id and payload digest at
    a different sequence as a duplicate. An exact retry now requires command id,
    sequence and digest to agree; changed sequence or digest is a conflict.
-2. Wall ship/target IDs were bounded but allowed control characters and ambiguous
+3. Wall ship/target IDs were bounded but allowed control characters and ambiguous
    path delimiters into deterministic intent IDs. They now accept only printable
    alphanumeric identifiers plus `.`, `_`, `:`, and `-`.
-3. `LocalDomainHost.Synchronize` silently removed duplicate live members before
+4. `LocalDomainHost.Synchronize` silently removed duplicate live members before
    validation. It now rejects the malformed domain before changing either the
    forward or reverse ownership index.
 
@@ -93,9 +98,10 @@ Three mutations were applied separately and restored before the clean run:
 
 ## Residual risk and verdict
 
-- Fuel and fixed-step authority remain operational feature switches. Their first
-  combined live restart acceptance still requires a disposable unoccupied hull and
-  a world-state backup.
+- Fuel's existing subsystem/thrust switches keep their historical defaults, while
+  Track 7's new lifecycle and fixed-step authority are separate operational
+  switches that remain OFF. Their first combined live restart acceptance still
+  requires a disposable unoccupied hull and a world-state backup.
 - Wall magnitudes and damage remain lost retail data. The current policy is safe
   precisely because it has no live wiring and default tuning is inert.
 - Worker contracts have no transport authentication, canonical serializer,

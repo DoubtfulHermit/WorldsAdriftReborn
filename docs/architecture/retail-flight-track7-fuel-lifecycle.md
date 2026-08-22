@@ -3,6 +3,11 @@
 Status: implementation branch `feat/flight-track7-fuel`; no push, merge, deploy,
 restart or client-manifest change.
 
+Consolidation rollout note: the reviewed lifecycle is additionally gated by
+`WAREBORN_FUEL_HULL_DEMAND=1`. This new switch is explicit opt-in and defaults
+OFF. It does not change the historical defaults of `WAREBORN_FUEL` or
+`WAREBORN_FUEL_GATES_THRUST`.
+
 ## Discovery
 
 The live propulsion command already belongs to `FlightSession.Input`. A clean
@@ -26,6 +31,10 @@ legacy and corrupt JSON; and a capacity configuration change.
 
 ## Coding
 
+- With `WAREBORN_FUEL_HULL_DEMAND` unset, false, or invalid, the game retains the
+  pre-Track-7 pilot-input mirror, one ship-level burn rate, legacy dry-throttle
+  clamp, full-on-restore tanks, and emits no new null generator-fuel properties.
+  Track 7 persistence writers fail closed in this mode.
 - `HullPropulsionDemand` is the single combustion demand: authoritative session
   throttle plus live mounted-engine count. Sails and lift are deliberately absent.
 - Burn is proportional to absolute throttle, time and engine count. No engine
@@ -76,3 +85,8 @@ additive `GeneratorFuel` properties beside Track 2's
 `BuiltShipRecord.FlightSnapshot` changes. Track 3 has no direct dependency; its
 shadow evaluator should consume the same engine-powered decision when it
 graduates to live authority.
+
+The rollout switch is not yet projected into the bounded stats contract. Until a
+schema-reviewed configuration block exists, operators must verify the effective
+systemd environment and startup record before any acceptance run. Enabling it is
+NO-GO without a world-state backup and a disposable unoccupied hull restart test.

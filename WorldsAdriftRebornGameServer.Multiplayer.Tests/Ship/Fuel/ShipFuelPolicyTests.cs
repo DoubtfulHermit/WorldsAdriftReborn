@@ -137,6 +137,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
             Assert.True(ShipFuelPolicy.GatesThrustFrom(null));
         }
 
+        [Fact]
+        public void Track7HullDemandLifecycleIsExplicitOptInWithoutChangingExistingDefaults()
+        {
+            Assert.True(ShipFuelPolicy.EnabledFrom(null));
+            Assert.True(ShipFuelPolicy.GatesThrustFrom(null));
+
+            Assert.False(ShipFuelPolicy.HullDemandLifecycleEnabledFrom(null));
+            Assert.False(ShipFuelPolicy.HullDemandLifecycleEnabledFrom(""));
+            Assert.False(ShipFuelPolicy.HullDemandLifecycleEnabledFrom("garbage"));
+            Assert.False(ShipFuelPolicy.HullDemandLifecycleEnabledFrom("0"));
+            Assert.True(ShipFuelPolicy.HullDemandLifecycleEnabledFrom("1"));
+            Assert.True(ShipFuelPolicy.HullDemandLifecycleEnabledFrom(" true "));
+            Assert.True(ShipFuelPolicy.HullDemandLifecycleEnabledFrom("ON"));
+            Assert.True(ShipFuelPolicy.HullDemandLifecycleEnabledFrom("yes"));
+        }
+
+        [Fact]
+        public void CurrentProductionFuelConfigKeepsTrack7Off()
+        {
+            // Production deliberately disables the pre-existing thrust gate and does
+            // not yet set the new rollout variable. Merging Track 7 must therefore
+            // retain legacy burn/input/persistence behavior.
+            Assert.True(ShipFuelPolicy.EnabledFrom(null));
+            Assert.False(ShipFuelPolicy.GatesThrustFrom("0"));
+            Assert.False(ShipFuelPolicy.HullDemandLifecycleEnabledFrom(null));
+        }
+
         [Theory]
         [InlineData("0")]
         [InlineData("false")]

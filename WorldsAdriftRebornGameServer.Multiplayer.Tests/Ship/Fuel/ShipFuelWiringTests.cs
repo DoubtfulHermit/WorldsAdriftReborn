@@ -268,19 +268,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         }
 
         /// <summary>
-        /// Fuel must own no per-player control state. Disconnect/abandon semantics
-        /// belong to FlightSession; a second dictionary is the defect this track fixes.
+        /// Track 7 must own no per-player state when enabled, but the default-OFF
+        /// rollback path deliberately preserves the exact pre-Track-7 input mirror.
         /// </summary>
         [Fact]
-        public void FuelHasNoPerPlayerThrottleToLeakAcrossDisconnect()
+        public void HullDemandRolloutSeparatesTheNewAuthorityFromTheLegacyMirror()
         {
             string fuel = Source("WorldsAdriftRebornGameServer", "Game", "ShipFuelService.cs");
 
-            Assert.False(fuel.Contains("Dictionary<long, FlightControlInput>", StringComparison.Ordinal),
-                "Fuel must read the hull session; a per-player input mirror can disagree on clean dismount, "
-                + "disconnect and re-man without a delta.");
-            Contains(fuel, "internal void ForgetPlayer(long playerEntityId) { }",
-                "The existing disconnect call remains binary/source compatible but owns no state.");
+            Contains(fuel, "if (!HullDemandLifecycleEnabled)",
+                "The reviewed Track 7 path must not replace production fuel unless explicitly enabled.");
+            Contains(fuel, "_legacyInputs[playerEntityId] = held.Merge(",
+                "OFF mode must retain the pre-Track-7 diff-suppressed player mirror.");
+            Contains(fuel, "Flight.PropulsionDemandFor(hullEntityId)",
+                "ON mode must read the authoritative hull session instead of the legacy mirror.");
+            Contains(fuel, "if (!HullDemandLifecycleEnabled) _legacyInputs.Remove(playerEntityId);",
+                "The legacy mirror must still be retired at the existing disconnect seam.");
+        }
+
+        [Fact]
+        public void Track7PersistenceAndEngineOnlyGateAreExplicitlyRolloutGated()
+        {
+            string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFuelService.cs");
+            string persistence = Source("WorldsAdriftRebornGameServer", "Game", "Persistence",
+                "WorldStatePersistence.cs");
+            string policy = Source("WorldsAdriftRebornGameServer.Multiplayer", "Ship", "Fuel",
+                "ShipFuelPolicy.cs");
+
+            Contains(policy, "WAREBORN_FUEL_HULL_DEMAND",
+                "The rollout switch must be stable and operator-visible in source/documentation.");
+            Contains(service, "HullDemandLifecycleEnabled ? _ledger.CaptureGenerator(generatorEntityId) : null",
+                "OFF mode must not introduce generator fuel fields into newly persisted part records.");
+            Contains(service, "!HullDemandLifecycleEnabled || !Enabled || !GatesThrust",
+                "OFF mode must not apply Track 7's engine-only dry-force gate.");
+            Contains(service, "if (HullDemandLifecycleEnabled && now >= _nextPersistenceAt)",
+                "The periodic durable tank writer must remain inert until rollout.");
+            Contains(persistence, "if (!ShipFuelService.HullDemandLifecycleEnabled",
+                "The persistence seam itself must fail closed if a future caller bypasses service gating.");
         }
 
         /// <summary>

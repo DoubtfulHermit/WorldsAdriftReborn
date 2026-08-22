@@ -32,6 +32,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
     /// </summary>
     public static class ShipFuelPolicy
     {
+        /// <summary>
+        /// Explicit rollout gate for Track 7's hull-authored demand and durable
+        /// per-generator tank lifecycle. The existing fuel and thrust-gate switches
+        /// keep their historical defaults; this new behavior requires an affirmative
+        /// value so merging the reconstruction cannot change production flight.
+        /// </summary>
+        public const string HullDemandLifecycleEnvVar = "WAREBORN_FUEL_HULL_DEMAND";
+
         // ------------------------------------------------------------------
         // Capacity
         // ------------------------------------------------------------------
@@ -224,6 +232,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         /// and that must be revertible without a rebuild.
         /// </summary>
         public static bool GatesThrustFrom(string? env) => !IsOff(env);
+
+        /// <summary>
+        /// Track 7 is DEFAULT OFF. Only an explicit 1/true/on/yes enables the new
+        /// authoritative hull-demand source, per-engine burn, engine-only dry gate,
+        /// and per-generator persistence. Unknown values fail closed to legacy fuel.
+        /// </summary>
+        public static bool HullDemandLifecycleEnabledFrom(string? env)
+        {
+            if (string.IsNullOrWhiteSpace(env)) return false;
+            string value = env.Trim().ToLowerInvariant();
+            return value == "1" || value == "true" || value == "on" || value == "yes";
+        }
 
         private static bool IsOff(string? env)
         {

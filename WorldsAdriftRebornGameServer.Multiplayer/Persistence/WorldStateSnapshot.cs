@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel;
@@ -330,6 +331,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// POWER GENERATOR ONLY: versioned tank state. Null is a legacy/fresh part
         /// and therefore starts full on first mount; an explicit zero remains empty.
         /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public GeneratorFuelSnapshot? GeneratorFuel { get; set; }
 
         /// <summary>The spawn position as a <see cref="FixedPointPosition"/>.</summary>
@@ -415,6 +417,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// PartUid. Fuel therefore follows the generator across restart and transfer.
         /// Null preserves the legacy full-on-first-registration behavior.
         /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public GeneratorFuelSnapshot? GeneratorFuel { get; set; }
 
         /// <summary>The hull-local mount offset as a <see cref="FixedPointPosition"/>.</summary>
