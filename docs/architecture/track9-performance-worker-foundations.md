@@ -120,8 +120,9 @@ Review findings and dispositions:
 - **Dual authority:** old stamps are rejected after promotion. The model depends
   on one authoritative coordinator; real deployment is blocked on a lease or
   consensus decision. Open, deployment-blocking.
-- **Idempotency:** exact retries within the bounded window are duplicates;
-  changed-payload retries conflict. Retries older than the window are rejected as
+- **Idempotency:** exact command-id, sequence and payload-digest retries within
+  the bounded window are duplicates; changing either sequence or payload under
+  the same command id conflicts. Retries older than the window are rejected as
   out of order. A production gateway must durably cache outcomes or declare its
   retry horizon. Open design choice.
 - **Ordering:** only the next sequence is admitted; a transfer must restore a
@@ -148,9 +149,11 @@ Review findings and dispositions:
 Automated coverage includes:
 
 - inverse-index synchronize, move, unassign and domain removal;
+- duplicate live-domain membership rejection before forward/reverse mutation;
 - 5/20/50/100 deterministic load-tier estimates;
 - bounded telemetry overwrite, summary, over-budget and hostile values;
-- ordered admission, duplicate retry, idempotency conflict, sequence gaps,
+- ordered admission, exact duplicate retry, changed-sequence/digest idempotency
+  conflict, sequence gaps,
   bounded replay eviction, wrong worker and stale authority;
 - snapshot defensive copy, digest, 8 MiB cap and conflicting same-sequence state;
 - pure kill/partition, revoke, restore, candidate readiness, takeover, healed-old-

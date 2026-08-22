@@ -193,5 +193,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Domains
             for (long id = 51; id <= 100; id++) Assert.Equal(trades.Id, host.OwnerOf(id));
             Assert.False(host.RemoveDomain(haven.Id));
         }
+
+        [Fact]
+        public void Synchronize_rejects_duplicate_live_members_before_mutating_either_index()
+        {
+            var domain = new MutableDomain(new SimulationDomainId("ship:900"), 900, 901);
+            var host = new LocalDomainHost();
+            host.Register(domain);
+            domain.Set(900, 901, 901);
+
+            Assert.Throws<ArgumentException>(() => host.Synchronize(domain));
+            Assert.Equal(domain.Id, host.OwnerOf(900));
+            Assert.Equal(domain.Id, host.OwnerOf(901));
+        }
+
+        private sealed class MutableDomain : ILocalSimulationDomain
+        {
+            private long[] _ids;
+
+            internal MutableDomain(SimulationDomainId id, params long[] ids)
+            {
+                Id = id;
+                _ids = ids;
+            }
+
+            public SimulationDomainId Id { get; }
+            public SimulationDomainKind Kind => SimulationDomainKind.Ship;
+            public IReadOnlyList<long> EntityIds => _ids;
+            internal void Set(params long[] ids) => _ids = ids;
+        }
     }
 }

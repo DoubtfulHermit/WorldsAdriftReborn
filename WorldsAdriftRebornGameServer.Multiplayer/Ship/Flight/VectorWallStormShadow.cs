@@ -33,6 +33,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public const double VisualDistanceMetres = 800.0;
         public const double GustDurationSeconds = 0.5;
         public const double MassAttenuationSaturationKg = 4000.0;
+
+        /// <summary>
+        /// IDs become part of deterministic intent keys and may eventually cross a
+        /// worker/log boundary. Keep them printable and delimiter-safe now, even
+        /// while the evaluator is shadow-only, so a later wiring cannot inherit a
+        /// log-forging or ambiguous-key seam.
+        /// </summary>
+        public static bool IsSafeIdentifier(string? value) =>
+            !string.IsNullOrWhiteSpace(value)
+            && value.Length <= MaxIdLength
+            && value.All(character =>
+                (character >= 'a' && character <= 'z')
+                || (character >= 'A' && character <= 'Z')
+                || (character >= '0' && character <= '9')
+                || character == '.' || character == '_' || character == ':' || character == '-');
     }
 
     public enum VectorWallType
@@ -206,8 +221,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         VectorWallDamageTargetKind Kind,
         bool LightningStrikable = true)
     {
-        public bool IsValid => !string.IsNullOrWhiteSpace(EntityId)
-            && EntityId.Length <= VectorWallStormShadowLimits.MaxIdLength
+        public bool IsValid => VectorWallStormShadowLimits.IsSafeIdentifier(EntityId)
             && Enum.IsDefined(typeof(VectorWallDamageTargetKind), Kind);
     }
 
@@ -245,8 +259,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         double FixedStepSeconds,
         ShadowVector3 CurrentScalarWallForceLocal)
     {
-        public bool IsValid => !string.IsNullOrWhiteSpace(ShipId)
-            && ShipId.Length <= VectorWallStormShadowLimits.MaxIdLength
+        public bool IsValid => VectorWallStormShadowLimits.IsSafeIdentifier(ShipId)
             && WorldPosition.IsFinite && WorldVelocity.IsFinite && WorldForward.IsFinite
             && AmbientWindWorld.IsFinite && CentreOfMassLocal.IsFinite
             && CurrentScalarWallForceLocal.IsFinite

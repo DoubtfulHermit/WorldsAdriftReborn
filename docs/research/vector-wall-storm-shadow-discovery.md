@@ -123,8 +123,9 @@ makes replay hashes possible.
   drag is capped to Track 3's shadow-force safety limit.
 - **Double damage:** at most one intent per nearest type per interval, stable IDs
   include wall/type/ship/bucket/target, and duplicate target IDs are removed.
-- **Spoofing:** target identities are explicit server-owned inputs; malformed IDs
-  are rejected. No client packet or target report is consumed here.
+- **Spoofing:** target identities are explicit server-owned inputs; malformed,
+  control-character and delimiter-unsafe IDs are rejected before deterministic
+  intent-key construction. No client packet or target report is consumed here.
 - **Visual truth:** every sample exposes visual and physics intensity separately;
   a visible-only wall cannot be reported as mechanically selected.
 

@@ -102,6 +102,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(1, result.RejectedPulses);
         }
 
+        [Fact]
+        public void Intent_identifiers_reject_control_characters_and_ambiguous_delimiters()
+        {
+            Assert.False((Input() with { ShipId = "ship-8\nforged" }).IsValid);
+            Assert.False(new VectorWallDamageTarget("part/../../other",
+                VectorWallDamageTargetKind.Engine).IsValid);
+            Assert.True(new VectorWallDamageTarget("ship:8.part-12_engine",
+                VectorWallDamageTargetKind.Engine).IsValid);
+        }
+
         [Theory]
         [InlineData(VectorWallType.WindRift, 100.0, 0.0, 0.0, 1)]
         [InlineData(VectorWallType.WindRift, -100.0, 0.0, 0.0, -1)]

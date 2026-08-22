@@ -53,7 +53,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
                 || !ReferenceEquals(hosted, domain))
                 throw new InvalidOperationException("domain '" + domain.Id + "' is not this host's instance");
 
-            long[] desired = domain.EntityIds.Distinct().ToArray();
+            // Do not silently normalize a malformed live domain. Duplicate entity
+            // IDs are an ownership-integrity failure and must be rejected before
+            // either side of the forward/reverse index is mutated.
+            long[] desired = domain.EntityIds.ToArray();
             ValidateAssignments(domain.Id, desired);
             HashSet<long> indexed = _membersByDomain[domain.Id];
             foreach (long current in indexed)

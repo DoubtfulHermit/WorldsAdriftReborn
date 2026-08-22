@@ -114,7 +114,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
         public const int MaxReplayWindow = 16_384;
 
         private readonly int _capacity;
-        private readonly Dictionary<string, string> _accepted = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, (long Sequence, string Digest)> _accepted =
+            new(StringComparer.Ordinal);
         private readonly Queue<string> _order = new();
         private DomainAuthorityStamp _authority;
         private long _lastSequence;
@@ -144,15 +145,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
             if (command.Authority.WorkerId != _authority.WorkerId)
                 return DomainCommandDisposition.WrongWorker;
 
-            if (_accepted.TryGetValue(command.CommandId, out string? digest))
-                return string.Equals(digest, command.PayloadSha256, StringComparison.OrdinalIgnoreCase)
+            if (_accepted.TryGetValue(command.CommandId,
+                    out (long Sequence, string Digest) accepted))
+                return accepted.Sequence == command.Sequence
+                    && string.Equals(accepted.Digest, command.PayloadSha256,
+                        StringComparison.OrdinalIgnoreCase)
                     ? DomainCommandDisposition.Duplicate
                     : DomainCommandDisposition.IdempotencyConflict;
             if (command.Sequence != _lastSequence + 1)
                 return DomainCommandDisposition.OutOfOrder;
 
             _lastSequence = command.Sequence;
-            _accepted.Add(command.CommandId, command.PayloadSha256.ToUpperInvariant());
+            _accepted.Add(command.CommandId,
+                (command.Sequence, command.PayloadSha256.ToUpperInvariant()));
             _order.Enqueue(command.CommandId);
             while (_order.Count > _capacity)
                 _accepted.Remove(_order.Dequeue());

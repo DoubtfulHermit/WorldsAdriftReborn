@@ -48,8 +48,10 @@ legacy and corrupt JSON; and a capacity configuration change.
   range in deterministic mount order.
 - Invalid fuel: negative, non-finite, unknown-version and over-capacity values
   cannot grant fuel. Current configured capacity wins and saved level clamps.
-- Disconnect/restart: abandon neutralisation remains flight-owned. Durable
-  unmanned throttle after a process restart depends on Track 2's flight snapshot.
+- Disconnect/restart: abandon neutralisation remains flight-owned. Track 2 stores
+  the pre-restart lever as evidence but deliberately restores neutral input while
+  retaining momentum and advancing authority. Generator fuel survives unchanged;
+  no unmanned combustion demand is resurrected after a process restart.
 - Transfer/duplication: fuel follows generator entity in memory and `PartUid` on
   disk; duplicate stable identities restore once.
 - Detach/ownership/security: the existing checked-out, distance, ownership and
@@ -67,8 +69,10 @@ duplicate identity rejection. Full suite/build evidence is recorded with the
 branch handoff.
 
 Track 2 integration is required for process-restart continuation: retain
-`PropulsionDemandFor(hull)` after applying `53d3b56`, backed by its restored
-`ShipDomain.Flight.Input`. Reapply the two additive `GeneratorFuel` properties
-beside Track 2's `BuiltShipRecord.FlightSnapshot` changes. Track 3 has no direct
-dependency; its shadow evaluator should consume the same engine-powered decision
-when it graduates to live authority.
+`PropulsionDemandFor(hull)` after applying `53d3b56`, backed by the current
+`ShipDomain.Flight.Input`. Track 2 intentionally neutralises that input at a
+process boundary; only momentum and per-generator fuel resume. Reapply the two
+additive `GeneratorFuel` properties beside Track 2's
+`BuiltShipRecord.FlightSnapshot` changes. Track 3 has no direct dependency; its
+shadow evaluator should consume the same engine-powered decision when it
+graduates to live authority.

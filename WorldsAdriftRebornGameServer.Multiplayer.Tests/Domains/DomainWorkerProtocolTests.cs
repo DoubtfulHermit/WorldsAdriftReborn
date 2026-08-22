@@ -30,6 +30,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Domains
         }
 
         [Fact]
+        public void Same_command_id_at_a_different_sequence_is_not_an_exact_retry()
+        {
+            var stamp = new DomainAuthorityStamp(Domain, WorkerA, AuthorityGeneration.Initial);
+            var gate = new DomainCommandGate(stamp);
+            Assert.Equal(DomainCommandDisposition.Accepted,
+                gate.Admit(new DomainCommand("cmd-1", stamp, 1, DigestA)));
+
+            Assert.Equal(DomainCommandDisposition.IdempotencyConflict,
+                gate.Admit(new DomainCommand("cmd-1", stamp, 2, DigestA)));
+            Assert.Equal(1, gate.LastSequence);
+        }
+
+        [Fact]
         public void Replay_memory_is_bounded()
         {
             var stamp = new DomainAuthorityStamp(Domain, WorkerA, AuthorityGeneration.Initial);
