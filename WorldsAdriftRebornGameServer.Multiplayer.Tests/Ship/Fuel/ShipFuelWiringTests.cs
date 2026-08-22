@@ -164,21 +164,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         }
 
         /// <summary>
-        /// The 1111 mirror. The client DIFF-SUPPRESSES this stream, so a held stick
-        /// is silent - if fuel does not see the deltas, a pilot who sets the throttle
-        /// once flies for free forever.
+        /// Fuel must read flight's hull session, not mirror the current pilot. The
+        /// session owns both diff-suppressed input and the latched unmanned lever.
         /// </summary>
         [Fact]
-        public void TheThrottleStreamPassesThroughFuel()
+        public void FuelReadsTheAuthoritativeHullCommandAndGatesOnlyEngines()
         {
-            string handler = Source("WorldsAdriftRebornGameServer", "Game", "Components", "Update",
-                "Handlers", "ShipControlInput_Handler.cs");
+            string fuel = Source("WorldsAdriftRebornGameServer", "Game", "ShipFuelService.cs");
+            string flight = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
 
-            Contains(handler, "ShipFuel.OnControlInput(",
-                "Fuel must mirror the 1111 delta, because a held throttle sends no packet at all.");
-            Contains(handler, "Flight.OnControlInput(\n                entityId,\n                throttle,",
-                "Flight must be given the throttle FUEL returned, not the raw one - that return value is "
-                + "the thrust gate for a dry ship.");
+            Contains(fuel, "Flight.PropulsionDemandFor(hullEntityId)",
+                "A cleanly dismounted hull retains latched thrust, so fuel must read that same session command.");
+            Contains(flight, "ShipFuel.EnginesPowered(hullEntityId)",
+                "The dry gate belongs at engine-force construction, where it cannot suppress sails or lift.");
+            Contains(flight, "enginesPowered ? engines * _tuning.EngineThrustNewtons : 0.0",
+                "Dry fuel must zero combustion force only, not the physical throttle shared by other systems.");
+        }
+
+        [Fact]
+        public void GeneratorFuelFollowsStablePartIdentityAcrossEveryPersistenceSeam()
+        {
+            string snapshot = Source("WorldsAdriftRebornGameServer.Multiplayer", "Persistence",
+                "WorldStateSnapshot.cs");
+            string spawner = Source("WorldsAdriftRebornGameServer", "Game", "Crafting",
+                "LoosePartSpawner.cs");
+            string mount = Source("WorldsAdriftRebornGameServer", "Game", "PartMountService.cs");
+
+            Contains(snapshot, "GeneratorFuelSnapshot? GeneratorFuel",
+                "An explicit empty tank must differ from a legacy record that starts full.");
+            Contains(spawner, "record.GeneratorFuel",
+                "Both loose and mounted boot restores must rehydrate the generator tank.");
+            Contains(mount, "ShipFuel.CaptureGenerator(partEntityId)",
+                "Mount persistence must carry the current tank instead of refilling on restart.");
         }
 
         /// <summary>
@@ -251,21 +268,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         }
 
         /// <summary>
-        /// Fuel mirrors flight's 1111 stream, so it must forget a player wherever
-        /// flight forgets one. Two opinions of a stick nobody is touching, and the
-        /// one that burns fuel is the wrong one to leave stale.
+        /// Fuel must own no per-player control state. Disconnect/abandon semantics
+        /// belong to FlightSession; a second dictionary is the defect this track fixes.
         /// </summary>
         [Fact]
-        public void ADisconnectingPlayerIsForgottenByFuelToo()
+        public void FuelHasNoPerPlayerThrottleToLeakAcrossDisconnect()
         {
-            string server = Source("WorldsAdriftRebornGameServer", "WorldsAdriftRebornGameServer.cs");
+            string fuel = Source("WorldsAdriftRebornGameServer", "Game", "ShipFuelService.cs");
 
-            Contains(server, "Flight.OnPlayerGone(ownEntity.Value);",
-                "The anchor: fuel's cleanup must sit with flight's, not somewhere else that a later "
-                + "refactor can separate them.");
-            Contains(server, "ShipFuel.ForgetPlayer(ownEntity.Value);",
-                "A disconnected pilot's mirrored throttle would otherwise keep burning fuel for a ship "
-                + "flight has already settled to rest.");
+            Assert.False(fuel.Contains("Dictionary<long, FlightControlInput>", StringComparison.Ordinal),
+                "Fuel must read the hull session; a per-player input mirror can disagree on clean dismount, "
+                + "disconnect and re-man without a delta.");
+            Contains(fuel, "internal void ForgetPlayer(long playerEntityId) { }",
+                "The existing disconnect call remains binary/source compatible but owns no state.");
         }
 
         /// <summary>
@@ -282,8 +297,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
                 "A lifted generator takes the tank AND the refuel door with it; the hull must stop "
                 + "burning, or it can run dry with no way left to fill it.");
             Contains(Source("WorldsAdriftRebornGameServer", "Game", "Crafting", "MountedPartSalvageService.cs"),
-                "ShipFuel.OnPartUnmounted(",
-                "Salvaging the generator is the same loss by another route.");
+                "ShipFuel.OnPartRemoved(",
+                "Salvaging must release the hull and discard the destroyed generator's dormant tank.");
 
             // ...and the service must actually RELEASE it. Both handlers can call in
             // correctly while the ledger keeps the generator on the hull, which is the

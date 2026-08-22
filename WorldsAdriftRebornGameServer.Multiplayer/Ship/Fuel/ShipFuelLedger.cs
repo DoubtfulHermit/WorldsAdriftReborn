@@ -118,8 +118,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         /// </summary>
         private readonly Dictionary<long, List<long>> _byHull = new Dictionary<long, List<long>>();
 
-        /// <summary>Last commanded throttle per hull, -1..1. Absent input = unchanged.</summary>
-        private readonly Dictionary<long, double> _throttleByHull = new Dictionary<long, double>();
+        /// <summary>
+        /// Current combustion demand per hull, copied from flight's authoritative
+        /// hull session. It survives an empty pilot seat when the physical lever is
+        /// latched; it becomes neutral when flight abandons the helm.
+        /// </summary>
+        private readonly Dictionary<long, HullPropulsionDemand> _demandByHull = new();
 
         /// <summary>
         /// Declares that a generator is bolted to a hull, FULL if this server has
@@ -182,6 +186,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         }
 
         /// <summary>
+        /// Restores a loose generator before it is mounted. It contributes to no hull
+        /// and burns nothing, but retains its fuel so a later mount cannot refill it.
+        /// Invalid durable data fails closed at empty.
+        /// </summary>
+        public bool RestoreDetached(long generatorEntityId, GeneratorFuelSnapshot snapshot,
+            double configuredCapacity)
+        {
+            if (_byGenerator.ContainsKey(generatorEntityId))
+            {
+                return false;
+            }
+            snapshot ??= new GeneratorFuelSnapshot { Version = -1 };
+            snapshot.TryRestore(configuredCapacity, out FuelReading restored);
+            _byGenerator[generatorEntityId] = new Generator
+            {
+                Hull = 0,
+                Capacity = restored.Capacity,
+                Level = restored.Level,
+                Active = false,
+            };
+            return true;
+        }
+
+        /// <summary>
         /// The generator was lifted off, salvaged or destroyed. It leaves the hull's
         /// pool immediately - a ship that just lost its last generator is unmetered
         /// from this instant, so it can never be stranded - but its fuel is REMEMBERED
@@ -219,7 +247,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         {
             if (!_byHull.TryGetValue(hullEntityId, out List<long>? generators))
             {
-                _throttleByHull.Remove(hullEntityId);
+                _demandByHull.Remove(hullEntityId);
                 return 0;
             }
 
@@ -229,7 +257,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
                 _byGenerator.Remove(generatorEntityId);
             }
             _byHull.Remove(hullEntityId);
-            _throttleByHull.Remove(hullEntityId);
+            _demandByHull.Remove(hullEntityId);
             return doomed.Length;
         }
 
@@ -302,25 +330,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         }
 
         /// <summary>
-        /// Records the pilot's commanded throttle for a hull. Unmetered hulls are
-        /// ignored - there is nothing to burn.
+        /// Records flight's authoritative hull propulsion demand. Unmetered hulls
+        /// are ignored - there is nothing to burn.
         /// </summary>
-        public void SetThrottle(long hullEntityId, double throttle)
+        public void SetDemand(long hullEntityId, HullPropulsionDemand demand)
         {
             if (Pool(hullEntityId) == null)
             {
                 return;
             }
-            _throttleByHull[hullEntityId] = double.IsNaN(throttle) || double.IsInfinity(throttle)
-                ? 0.0
-                : Clamp(throttle, -1.0, 1.0);
+            _demandByHull[hullEntityId] = demand;
         }
+
+        /// <summary>Compatibility helper for callers that model one engine.</summary>
+        public void SetThrottle(long hullEntityId, double throttle) =>
+            SetDemand(hullEntityId, new HullPropulsionDemand(throttle, 1));
 
         /// <summary>The throttle this ledger last saw for a hull. 0 for an unmetered hull.</summary>
         public double ThrottleOf(long hullEntityId) =>
-            Pool(hullEntityId) != null && _throttleByHull.TryGetValue(hullEntityId, out double throttle)
-                ? throttle
+            Pool(hullEntityId) != null && _demandByHull.TryGetValue(hullEntityId, out HullPropulsionDemand demand)
+                ? demand.Throttle
                 : 0.0;
+
+        public HullPropulsionDemand DemandOf(long hullEntityId) =>
+            Pool(hullEntityId) != null && _demandByHull.TryGetValue(hullEntityId, out HullPropulsionDemand demand)
+                ? demand
+                : HullPropulsionDemand.None;
 
         /// <summary>
         /// Moves up to <paramref name="offered"/> whole units of fuel into a hull's
@@ -401,7 +436,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         /// <summary>
         /// Burns <paramref name="seconds"/> of flight on every hull under power and
         /// returns the hulls that ran DRY on this tick - the transition, exactly once,
-        /// so the caller cuts the throttle there and nowhere else. A hull already at
+        /// so the caller gates engine force there and nowhere else. A hull already at
         /// zero is not reported again.
         ///
         /// The draw is spread across the hull's generators in mount order, so the
@@ -421,12 +456,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
                 {
                     continue;
                 }
-                if (!_throttleByHull.TryGetValue(entry.Key, out double throttle))
+                if (!_demandByHull.TryGetValue(entry.Key, out HullPropulsionDemand demand))
                 {
                     continue;
                 }
 
-                double burnt = ShipFuelPolicy.BurnFor(throttle, seconds, burnPerSecond);
+                double burnt = ShipFuelPolicy.BurnFor(
+                    demand.Throttle, seconds, burnPerSecond, demand.EngineCount);
                 if (burnt <= 0.0)
                 {
                     continue;
@@ -480,6 +516,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
                 return ids;
             }
         }
+
+        /// <summary>Stable mount-order generator ids on a hull; empty when unmetered.</summary>
+        public IReadOnlyList<long> GeneratorEntityIdsOn(long hullEntityId) =>
+            Pool(hullEntityId)?.ToArray() ?? System.Array.Empty<long>();
+
+        /// <summary>Durable state for one known generator, mounted or loose.</summary>
+        public GeneratorFuelSnapshot? CaptureGenerator(long generatorEntityId) =>
+            _byGenerator.TryGetValue(generatorEntityId, out Generator? generator)
+                ? GeneratorFuelSnapshot.Capture(new FuelReading(generator.Capacity, generator.Level))
+                : null;
 
         /// <summary>
         /// Whether ANY metered hull is empty. The cheap gate in front of the 1111 hot
@@ -575,7 +621,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
                 // The hull has no fuel system any more, so it must not keep a stale
                 // throttle that a later generator would inherit as "full ahead".
                 _byHull.Remove(generator.Hull);
-                _throttleByHull.Remove(generator.Hull);
+                _demandByHull.Remove(generator.Hull);
             }
         }
 

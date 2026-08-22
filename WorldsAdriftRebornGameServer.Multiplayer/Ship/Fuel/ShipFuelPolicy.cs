@@ -77,10 +77,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Fuel burnt per second at FULL throttle, for the whole ship. One generator
-        /// is then 400 s - about six and a half minutes of continuous full throttle -
-        /// and one canister is worth about 100 s of flight. Bolt on a second
-        /// generator and the range doubles, which is the point of pooling.
+        /// Fuel burnt per second at FULL throttle, PER MOUNTED ENGINE. A one-engine
+        /// hull drains one generator in 400 s; two engines consume twice as quickly
+        /// because retail carried consumption on each 1116 ShipEngineState. Bolt on
+        /// a second generator and range doubles; bolt on a second engine and power
+        /// and consumption both increase.
         /// WAREBORN TUNING: retail's burn rate lived on the GSim and is gone.
         /// </summary>
         public const double DefaultBurnPerSecond = 0.25;
@@ -125,7 +126,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Fuel burnt by holding <paramref name="throttle"/> for
+        /// Fuel burnt by <paramref name="engineCount"/> engines holding
+        /// <paramref name="throttle"/> for
         /// <paramref name="seconds"/>, at <paramref name="burnPerSecond"/> for full
         /// throttle.
         ///
@@ -134,13 +136,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         /// throttle arrives from client input, which is never trusted, and a bad
         /// value must cost nothing rather than refund fuel or take the server down.
         /// </summary>
-        public static double BurnFor(double throttle, double seconds, double burnPerSecond)
+        public static double BurnFor(double throttle, double seconds, double burnPerSecond,
+            int engineCount = 1)
         {
             if (!IsFinite(throttle) || !IsFinite(seconds) || !IsFinite(burnPerSecond))
             {
                 return 0.0;
             }
-            if (seconds <= 0.0 || burnPerSecond <= 0.0)
+            if (seconds <= 0.0 || burnPerSecond <= 0.0 || engineCount <= 0)
             {
                 return 0.0;
             }
@@ -155,7 +158,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
                 magnitude = 1.0;
             }
 
-            return magnitude * seconds * burnPerSecond;
+            return magnitude * seconds * burnPerSecond * engineCount;
         }
 
         /// <summary>

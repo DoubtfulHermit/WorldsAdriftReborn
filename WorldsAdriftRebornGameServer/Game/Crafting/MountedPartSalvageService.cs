@@ -72,11 +72,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             WorldsAdriftRebornGameServer.Sails.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Lamps.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Horns.Unregister(partEntityId);
-            if (mount.HasValue)
-            {
-                WorldsAdriftRebornGameServer.ShipFuel.OnPartUnmounted(
-                    mount.Value.ItemType, partEntityId, mount.Value.HullEntityId);
-            }
+            WorldsAdriftRebornGameServer.ShipFuel.OnPartRemoved(
+                definition.ItemType, partEntityId, mount?.HullEntityId ?? 0);
             LooseParts.Unregister(partEntityId);
             // A salvaged container is EMPTY - the policy above refused the shot
             // otherwise - so dropping its binding loses nothing and stops an entity

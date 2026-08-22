@@ -5,6 +5,7 @@ using WorldsAdriftRebornGameServer.Game.Crafting;
 using WorldsAdriftRebornGameServer.Game.Placement;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Persistence;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel;
 
 namespace WorldsAdriftRebornGameServer.Game.Persistence
 {
@@ -340,6 +341,56 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         }
 
         /// <summary>
+        /// Persists one generator tank against its stable PartUid whether the part is
+        /// mounted or loose. Exactly one of those records may exist; updating both if a
+        /// corrupt/transitioning snapshot contains duplicates is conservative and does
+        /// not create another identity. No-op if the level is unchanged.
+        /// </summary>
+        internal static bool UpdateGeneratorFuel(string? partUid, GeneratorFuelSnapshot fuel)
+        {
+            if (string.IsNullOrEmpty(partUid) || fuel == null) return false;
+            return UpdateGeneratorFuel(new Dictionary<string, GeneratorFuelSnapshot>
+            {
+                [partUid] = fuel,
+            }) > 0;
+        }
+
+        /// <summary>Batch form: one atomic world-state write for every powered hull.</summary>
+        internal static int UpdateGeneratorFuel(
+            IReadOnlyDictionary<string, GeneratorFuelSnapshot> fuelByPartUid)
+        {
+            if (fuelByPartUid == null || fuelByPartUid.Count == 0) return 0;
+            WorldStateSnapshot snapshot = Snapshot();
+            int changed = 0;
+            foreach (MountedPartRecord record in snapshot.MountedParts)
+            {
+                if (fuelByPartUid.TryGetValue(record.PartUid, out GeneratorFuelSnapshot? fuel)
+                    && FuelDiffers(record.GeneratorFuel, fuel))
+                {
+                    record.GeneratorFuel = GeneratorFuelSnapshot.Capture(
+                        new FuelReading(fuel.Capacity, fuel.Level));
+                    changed++;
+                }
+            }
+            foreach (LoosePartRecord record in snapshot.LooseParts)
+            {
+                if (fuelByPartUid.TryGetValue(record.PartUid, out GeneratorFuelSnapshot? fuel)
+                    && FuelDiffers(record.GeneratorFuel, fuel))
+                {
+                    record.GeneratorFuel = GeneratorFuelSnapshot.Capture(
+                        new FuelReading(fuel.Capacity, fuel.Level));
+                    changed++;
+                }
+            }
+            if (changed > 0) Save();
+            return changed;
+        }
+
+        private static bool FuelDiffers(GeneratorFuelSnapshot? current, GeneratorFuelSnapshot next) =>
+            current == null || current.Version != next.Version
+                || current.Capacity != next.Capacity || current.Level != next.Level;
+
+        /// <summary>
         /// Drops a mounted part's record by its stable <c>PartUid</c> - called when it is
         /// LIFTED OFF a ship and becomes loose again (re-expressed as a
         /// <see cref="LoosePartRecord"/>). A no-op when no such record exists.
@@ -491,6 +542,7 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             // 3. MOUNTED PARTS - re-spawned ALREADY ATTACHED to their restored ship's fresh
             //    hull id, BEFORE loose parts so the spawn plan orders hull -> mounted part.
             int mounts = 0;
+            var restoredPartUids = new PartRestoreIdentityGate();
             foreach (MountedPartRecord record in snapshot.MountedParts)
             {
                 if (record.BuiltShipIndex < 0 || record.BuiltShipIndex >= hullByIndex.Length)
@@ -498,6 +550,12 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                     Console.WriteLine("[warning] world persistence: mounted part '" + record.PartUid
                         + "' references built-ship index " + record.BuiltShipIndex
                         + " which no longer exists; skipping its restore.");
+                    continue;
+                }
+                if (!restoredPartUids.TryAccept(record.PartUid))
+                {
+                    Console.WriteLine("[warning] world persistence: duplicate mounted PartUid '"
+                        + record.PartUid + "' skipped; one stable part may restore only once.");
                     continue;
                 }
 
@@ -527,6 +585,12 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             int separatedLooseParts = 0;
             foreach (LoosePartRecord record in snapshot.LooseParts)
             {
+                if (!restoredPartUids.TryAccept(record.PartUid))
+                {
+                    Console.WriteLine("[warning] world persistence: duplicate loose PartUid '"
+                        + record.PartUid + "' skipped; mounted identity wins.");
+                    continue;
+                }
                 FixedPointPosition original = record.Position();
                 FixedPointPosition separated = Multiplayer.Ship.LoosePartPlacement.FirstAvailableFrom(
                     original, occupiedLoosePositions);

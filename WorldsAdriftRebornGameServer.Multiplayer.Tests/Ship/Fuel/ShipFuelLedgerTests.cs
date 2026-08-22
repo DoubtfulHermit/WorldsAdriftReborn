@@ -460,8 +460,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         public void AHullThatLosesEveryGeneratorForgetsItsThrottle()
         {
             // Otherwise a ship parked at full ahead, stripped of its generators and
-            // later given a new one would start burning for thrust nobody commanded -
-            // the same invisible-per-life-state leak the flight mirror documents.
+            // later given a new one would inherit stale demand from a physically
+            // different propulsion installation.
             ShipFuelLedger ledger = Registered();
             ledger.SetThrottle(Hull, 1.0);
             ledger.Unregister(Gen);

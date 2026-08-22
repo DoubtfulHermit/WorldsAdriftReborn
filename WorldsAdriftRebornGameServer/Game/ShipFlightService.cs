@@ -6,6 +6,7 @@ using Improbable.Math;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains;
 using WorldsAdriftRebornGameServer.Multiplayer.Domains;
 using WorldsAdriftRebornGameServer.Multiplayer.Walls;
@@ -453,6 +454,20 @@ namespace WorldsAdriftRebornGameServer.Game
 
         internal long? PilotEntityOf(long hullEntityId) =>
             _seats.PilotOf(hullEntityId)?.PlayerEntityId;
+
+        /// <summary>
+        /// The single hull-level combustion command consumed by fuel. It reads the
+        /// flight session's physical lever, not the current pilot's packet mirror, so
+        /// a clean dismount keeps burning while latched unmanned thrust continues.
+        /// Disconnect/abandon already neutralises the session before this is read.
+        /// </summary>
+        internal HullPropulsionDemand PropulsionDemandFor(long hullEntityId)
+        {
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            return domain == null
+                ? HullPropulsionDemand.None
+                : new HullPropulsionDemand(domain.Flight.Input.Throttle, CountEngines(hullEntityId));
+        }
 
         internal bool IsPilotOf(long playerEntityId, long hullEntityId)
         {
@@ -1287,12 +1302,29 @@ namespace WorldsAdriftRebornGameServer.Game
                 return null;
             }
 
-            int engines = 0;
+            int engines = CountEngines(hullEntityId);
             int mountedParts = 0;
             foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry
                 in Crafting.MountedParts.OnHull(hullEntityId))
             {
                 mountedParts++;
+            }
+
+            bool enginesPowered = WorldsAdriftRebornGameServer.ShipFuel.EnginesPowered(hullEntityId);
+            return new ShipPropulsion(
+                Multiplayer.Materials.ShipTotalMass.TotalFlightMassKg(
+                    DerivedHullMassKgFor(hullEntityId), mountedParts,
+                    Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS")),
+                enginesPowered ? engines * _tuning.EngineThrustNewtons : 0.0,
+                unfurledSails);
+        }
+
+        private static int CountEngines(long hullEntityId)
+        {
+            int engines = 0;
+            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry
+                in Crafting.MountedParts.OnHull(hullEntityId))
+            {
                 Crafting.MountedParts.Mount mount = entry.Value;
                 if (Multiplayer.Ship.ShipPartKinds.Classify(
                         mount.ItemType, mount.PrefabName, mount.AttachmentType)
@@ -1301,13 +1333,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     engines++;
                 }
             }
-
-            return new ShipPropulsion(
-                Multiplayer.Materials.ShipTotalMass.TotalFlightMassKg(
-                    DerivedHullMassKgFor(hullEntityId), mountedParts,
-                    Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS")),
-                engines * _tuning.EngineThrustNewtons,
-                unfurledSails);
+            return engines;
         }
 
         /// <summary>

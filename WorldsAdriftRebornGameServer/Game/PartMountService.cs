@@ -505,6 +505,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     LocalZ = localOffset.Z,
                     PackedRotation = packedShipLocalRotation,
                     OwnerCharacterUid = ownerCharacterUid ?? "",
+                    GeneratorFuel = WorldsAdriftRebornGameServer.ShipFuel.CaptureGenerator(partEntityId),
                 });
                 Persistence.WorldStatePersistence.RemoveLoosePart(partUid!);
             }

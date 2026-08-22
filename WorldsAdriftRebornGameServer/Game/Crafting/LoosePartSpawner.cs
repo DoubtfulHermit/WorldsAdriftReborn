@@ -174,6 +174,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             long partEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(registration);
 
             LooseParts.Register(partEntityId, part, record.PartUid);
+            WorldsAdriftRebornGameServer.ShipFuel.OnLoosePartRestored(
+                part.ItemType, partEntityId, record.GeneratorFuel);
 
             Console.WriteLine("[info] loose-part spawn: RESTORED loose '" + part.ItemType + "' (prefab '"
                 + part.PrefabName + "') as part entity " + partEntityId + " at " + record.Position()
@@ -234,6 +236,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 Z = position.Z,
                 PackedRotation = packedRotation,
                 OwnerCharacterUid = ownerCharacterUid ?? "",
+                GeneratorFuel = WorldsAdriftRebornGameServer.ShipFuel.CaptureGenerator(partEntityId),
             };
         }
 
@@ -294,10 +297,11 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                     break;
             }
 
-            // Restore the hull's FUEL SYSTEM if this part is its sky core. The level
-            // itself is not persisted yet (roadmap phase F3, isolated on purpose), so
-            // a restored ship comes back with a full tank.
-            WorldsAdriftRebornGameServer.ShipFuel.OnPartMounted(part.ItemType, partEntityId, hullEntityId);
+            // Restore the hull's FUEL SYSTEM if this part is a generator. An explicit
+            // durable level (including zero) follows its stable PartUid; a legacy null
+            // snapshot retains the compatibility rule that first registration is full.
+            WorldsAdriftRebornGameServer.ShipFuel.OnPartMounted(
+                part.ItemType, partEntityId, hullEntityId, record.GeneratorFuel);
 
             Console.WriteLine("[info] loose-part spawn: RESTORED MOUNTED '" + part.ItemType + "' (prefab '"
                 + part.PrefabName + "') as part entity " + partEntityId + " attached to hull " + hullEntityId

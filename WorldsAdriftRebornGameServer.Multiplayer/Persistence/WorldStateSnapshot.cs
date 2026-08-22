@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
 {
@@ -325,6 +326,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// <summary>The character uid of the player who crafted it.</summary>
         public string OwnerCharacterUid { get; set; } = "";
 
+        /// <summary>
+        /// POWER GENERATOR ONLY: versioned tank state. Null is a legacy/fresh part
+        /// and therefore starts full on first mount; an explicit zero remains empty.
+        /// </summary>
+        public GeneratorFuelSnapshot? GeneratorFuel { get; set; }
+
         /// <summary>The spawn position as a <see cref="FixedPointPosition"/>.</summary>
         public FixedPointPosition Position() => new FixedPointPosition(X, Y, Z);
 
@@ -402,6 +409,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// field restores an old save's lamps exactly as they always were.
         /// </summary>
         public bool LampOff { get; set; }
+
+        /// <summary>
+        /// POWER GENERATOR ONLY: versioned tank state keyed by this record's stable
+        /// PartUid. Fuel therefore follows the generator across restart and transfer.
+        /// Null preserves the legacy full-on-first-registration behavior.
+        /// </summary>
+        public GeneratorFuelSnapshot? GeneratorFuel { get; set; }
 
         /// <summary>The hull-local mount offset as a <see cref="FixedPointPosition"/>.</summary>
         public FixedPointPosition LocalOffset() => new FixedPointPosition(LocalX, LocalY, LocalZ);

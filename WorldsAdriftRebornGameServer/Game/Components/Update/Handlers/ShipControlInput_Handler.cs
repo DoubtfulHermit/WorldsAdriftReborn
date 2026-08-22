@@ -58,11 +58,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // that shape to the service - the merge semantics live in one place
             // (FlightControlInput.Merge) where they are unit-tested.
             //
-            // FUEL sits between the two: it mirrors the same delta (a held stick is
-            // SILENT on this wire, so burning on packet arrival would let a pilot fly
-            // for free), and returns the throttle flight should actually be given -
-            // zero while the hull this player pilots is dry. It never touches the
-            // flight service's own state; see Game.ShipFuelService for the seam.
+            // FUEL's authoritative burn source is the resulting HULL session, not a
+            // second copy of this player delta. This pass-through remains only for the
+            // legacy kinematic rollback mode's coarse dry clamp; the force model gates
+            // engine thrust downstream without touching sails or lift.
             float? throttle = WorldsAdriftRebornGameServer.ShipFuel.OnControlInput(
                 entityId,
                 clientComponentUpdate.throttle.HasValue ? clientComponentUpdate.throttle.Value : (float?)null,

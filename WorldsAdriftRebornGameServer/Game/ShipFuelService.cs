@@ -4,8 +4,8 @@ using WorldsAdriftRebornGameServer.Game.Inventory;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Crafting;
 using WorldsAdriftRebornGameServer.Multiplayer.Inventory;
-using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel;
+using WorldsAdriftRebornGameServer.Game.Persistence;
 
 namespace WorldsAdriftRebornGameServer.Game
 {
@@ -38,8 +38,9 @@ namespace WorldsAdriftRebornGameServer.Game
     ///     the refuel door are now the SAME PART, so a metered hull is always
     ///     refuellable by hand. The old "a hull with a core and no container cannot
     ///     be refuelled" hazard is gone with the bunker.
-    ///   * burning happens here on a 0.5 s cadence, proportional to the pilot's
-    ///     commanded throttle.
+    ///   * burning happens here on a 0.5 s cadence, proportional to the hull
+    ///     session's physical throttle and mounted engine count. A cleanly
+    ///     dismounted lever remains latched and therefore keeps burning.
     ///   * the gauge is 1105 <c>FuelGaugeState</c> broadcast to every mounted
     ///     <c>fuelGauge</c> on that hull, gated by
     ///     <see cref="FuelGaugePushTracker"/>.
@@ -55,27 +56,13 @@ namespace WorldsAdriftRebornGameServer.Game
     /// inert since this server started. 1105 on the gauge remains the only fuel
     /// component this server serves.
     ///
-    /// THE FLIGHT SEAM, and why no flight file is touched. Fuel and flight meet at
-    /// the engine, and flight physics belongs to another branch. So this service
-    /// reads and writes flight only through its EXISTING public/internal surface:
-    /// it mirrors the 1111 throttle deltas that <c>ShipControlInput_Handler</c>
-    /// already decodes (using flight's own <see cref="FlightControlInput.Merge"/>,
-    /// so there is no second copy of the merge semantics), resolves the pilot of a
-    /// hull with <c>ShipFlightService.PilotEntityOf</c>, and cuts a dry ship's engines
-    /// with one ordinary <c>OnControlInput(throttle: 0)</c>. Nothing in
-    /// <c>ShipFlightService</c>, <c>FlightIntegrator</c>, <c>FlightSession</c>,
-    /// <c>FlightTuning</c> or <c>HullMassCalculator</c> is modified.
-    ///
-    /// THE MIRROR IS NECESSARY, not lazy: the client DIFF-SUPPRESSES 1111, so a
-    /// held throttle sends nothing at all. "No packet" means unchanged, never
-    /// released. Burning on packet arrival would let a pilot fly for free by not
-    /// touching the stick.
-    ///
-    /// KNOWN INACCURACY, stated rather than hidden: cutting the throttle removes
-    /// SAIL propulsion too, because the flight integrator derives everything from
-    /// one throttle. Retail separated them - sails are wind, engines are fuel.
-    /// docs/plans/feature-roadmap.md 13.7 records exactly what this branch wants
-    /// from feat/ship-flight to fix it.
+    /// THE FLIGHT SEAM is one-way and hull-level. Fuel reads
+    /// <see cref="ShipFlightService.PropulsionDemandFor"/>, whose throttle is the
+    /// authoritative <c>FlightSession.Input</c> already responsible for 1111 delta
+    /// suppression, clean-dismount latching and abandon neutralisation. Fuel never
+    /// grows a second input ledger. Flight asks <see cref="EnginesPowered"/> while
+    /// constructing <c>ShipPropulsion</c>; a dry tank makes engine force zero while
+    /// sails, wind, lift and the physical lever remain untouched.
     ///
     /// MULTIPLAYER SAFETY: the only new wire traffic is the 1105 broadcast, and it
     /// is quantised (>=1 fuel unit) and rate-floored (>=1 s) against a needle the
@@ -103,22 +90,8 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly FuelGaugePushTracker _gauges = new FuelGaugePushTracker();
         private readonly CadenceTimer _cadence;
 
-        /// <summary>The mirrored 1111 stream, per PLAYER. Merged, never replaced.</summary>
-        private readonly Dictionary<long, FlightControlInput> _inputs =
-            new Dictionary<long, FlightControlInput>();
-
-        /// <summary>
-        /// Who was last at each hull's helm. Exists to close a staleness hole this
-        /// service cannot fix at the source: <c>ShipFlightService</c> clears its own
-        /// held input when a pilot DISMOUNTS, inside a file this branch does not
-        /// modify. Without this, a pilot who parks with the throttle forward, gets
-        /// off, and later re-mans would find flight starting from neutral while
-        /// fuel's mirror still read "full ahead" - and fuel would burn for thrust
-        /// nobody is getting.
-        /// </summary>
-        private readonly Dictionary<long, long> _lastPilotByHull = new Dictionary<long, long>();
-
         private TimeSpan _lastBurnAt;
+        private TimeSpan _nextPersistenceAt;
         private bool _started;
 
         internal ShipFuelService(IClock clock)
@@ -153,18 +126,50 @@ namespace WorldsAdriftRebornGameServer.Game
         /// else is two string compares. Idempotent, so every mount/restore/late-join
         /// walk can call it, and a re-mounted generator does NOT refill.
         /// </summary>
-        internal void OnPartMounted(string? itemType, long partEntityId, long hullEntityId)
+        internal void OnPartMounted(string? itemType, long partEntityId, long hullEntityId,
+            GeneratorFuelSnapshot? restored = null)
         {
             if (!Enabled || !IsGenerator(itemType))
             {
                 return;
             }
 
-            if (_ledger.Register(partEntityId, hullEntityId, Capacity))
+            bool registered;
+            if (restored == null)
+            {
+                registered = _ledger.Register(partEntityId, hullEntityId, Capacity);
+            }
+            else
+            {
+                bool valid = restored.TryRestore(Capacity, out FuelReading reading);
+                registered = _ledger.RegisterAt(
+                    partEntityId, hullEntityId, reading.Capacity, reading.Level);
+                if (!valid)
+                {
+                    Console.WriteLine("[warning] fuel: generator " + partEntityId
+                        + " had invalid durable fuel data; restored safely at " + reading + ".");
+                }
+            }
+
+            if (registered)
             {
                 Console.WriteLine("[fuel] hull " + hullEntityId + " gained generator " + partEntityId
                     + " (" + _ledger.GeneratorsOn(hullEntityId) + " pooled); tank "
                     + _ledger.Read(hullEntityId) + ".");
+            }
+        }
+
+        /// <summary>Restores a loose generator's tank without attaching it to a hull.</summary>
+        internal void OnLoosePartRestored(string? itemType, long partEntityId,
+            GeneratorFuelSnapshot? restored)
+        {
+            if (!Enabled || !IsGenerator(itemType) || restored == null) return;
+            bool valid = restored.TryRestore(Capacity, out FuelReading reading);
+            _ledger.RestoreDetached(partEntityId, restored, Capacity);
+            if (!valid)
+            {
+                Console.WriteLine("[warning] fuel: loose generator " + partEntityId
+                    + " had invalid durable fuel data; restored safely at " + reading + ".");
             }
         }
 
@@ -187,6 +192,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
 
+            PersistGenerator(partEntityId);
             if (_ledger.Unregister(partEntityId))
             {
                 Console.WriteLine("[fuel] hull " + hullEntityId + " lost generator " + partEntityId
@@ -196,13 +202,25 @@ namespace WorldsAdriftRebornGameServer.Game
             }
         }
 
+        /// <summary>A part entity was permanently destroyed; discard any dormant tank too.</summary>
+        internal void OnPartRemoved(string? itemType, long partEntityId, long hullEntityId)
+        {
+            if (itemType == GaugeItemType)
+            {
+                _gauges.Forget(partEntityId);
+                return;
+            }
+            if (!IsGenerator(itemType)) return;
+            if (_ledger.Forget(partEntityId))
+            {
+                Console.WriteLine("[fuel] removed destroyed generator " + partEntityId
+                    + " from hull " + hullEntityId + ".");
+            }
+        }
+
         /// <summary>The ship itself is gone. Drop every generator on it.</summary>
         internal void OnHullRemoved(long hullEntityId)
         {
-            if (_lastPilotByHull.Remove(hullEntityId, out long pilot))
-            {
-                _inputs.Remove(pilot);
-            }
             _ledger.ForgetHull(hullEntityId);
         }
 
@@ -285,6 +303,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             InventoryPush.Push(playerEntityId, "refuelled ship " + hullEntityId);
             PushGauges(hullEntityId, force: true);
+            PersistHullFuel(hullEntityId);
 
             Console.WriteLine("[fuel] entity " + playerEntityId + " refuelled hull " + hullEntityId
                 + " at generator " + generatorEntityId + ": +" + moved + " fuel, tank now "
@@ -293,60 +312,41 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         // ------------------------------------------------------------------
-        // The 1111 mirror and the thrust gate
+        // Input compatibility and the engine-only thrust gate
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// One decoded 1111 delta, mirrored with flight's OWN merge semantics
-        /// (absent = unchanged). Returns the throttle the flight service should
-        /// actually be given: unchanged normally, forced to zero while the hull this
-        /// player pilots is dry.
+        /// Compatibility pass-through for one decoded 1111 delta. The force model
+        /// does not alter this value: its dry gate removes engine force downstream.
+        /// The rollback kinematic model cannot distinguish engine, sail and baseline
+        /// propulsion, so fuel gating is deliberately unavailable there.
         /// </summary>
         internal float? OnControlInput(long playerEntityId, float? throttle, float? vertical,
             float? axisPitch, float? axisYaw, float? axisRoll)
         {
-            if (!Enabled)
-            {
-                return throttle;
-            }
-
-            _inputs.TryGetValue(playerEntityId, out FlightControlInput held);
-            _inputs[playerEntityId] = held.Merge(throttle, vertical, axisPitch, axisYaw, axisRoll);
-
-            if (!GatesThrust || !throttle.HasValue || throttle.Value == 0f)
-            {
-                return throttle;
-            }
-
-            // AnyDry first: this runs on up to 20 packets a second per pilot, and
-            // almost always no ship in the world is empty.
-            return _ledger.AnyDry && PilotsADryHull(playerEntityId) ? 0f : throttle;
+            // Never mutate the shared physical lever here. The force model gates
+            // ENGINE force at PropulsionFor, leaving sails, wind and lift untouched.
+            // Legacy kinematic flight has no separable combustion term, so fuel gating
+            // is intentionally unavailable in that rollback model rather than lying by
+            // suppressing canvas along with engines.
+            return throttle;
         }
 
         /// <summary>
-        /// A pilot is gone - disconnected, released the helm, or their ship retired.
-        /// Drops the mirrored input.
-        ///
-        /// MUST be called wherever <c>ShipFlightService</c> clears its own
-        /// <c>_inputs</c>, or the two hold different opinions of a stick nobody is
-        /// touching and fuel's opinion is the one that burns. That is the same
-        /// invisible-per-life-state leak the flight service's own OnPlayerGone
-        /// comment warns about.
+        /// Retained as a no-op compatibility seam for existing disconnect wiring.
+        /// Fuel owns no per-player input; flight's hull session is the only command.
         /// </summary>
-        internal void ForgetPlayer(long playerEntityId) => _inputs.Remove(playerEntityId);
+        internal void ForgetPlayer(long playerEntityId) { }
 
-        private bool PilotsADryHull(long playerEntityId)
-        {
-            foreach (long hullEntityId in _ledger.HullEntityIds)
-            {
-                if (_ledger.IsDry(hullEntityId)
-                    && WorldsAdriftRebornGameServer.Flight.IsPilotOf(playerEntityId, hullEntityId))
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
+        /// <summary>
+        /// The force evaluator's engine gate. Empty fuel never changes throttle,
+        /// sails, ambient wind or sky-core lift; it only removes combustion thrust.
+        /// </summary>
+        internal bool EnginesPowered(long hullEntityId) =>
+            !Enabled || !GatesThrust || !_ledger.IsMetered(hullEntityId) || !_ledger.IsDry(hullEntityId);
+
+        internal GeneratorFuelSnapshot? CaptureGenerator(long generatorEntityId) =>
+            _ledger.CaptureGenerator(generatorEntityId);
 
         // ------------------------------------------------------------------
         // The heartbeat
@@ -376,35 +376,14 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
 
-            // Pull each metered hull's commanded throttle off the mirror. A hull with
-            // nobody at the helm coasts on zero and costs nothing.
+            // Pull each metered hull's command from the FLIGHT SESSION. This is the
+            // physical lever state, not a player mirror: a clean dismount retains its
+            // latched throttle and therefore retains both engine thrust AND burn.
             IReadOnlyList<long> hulls = _ledger.HullEntityIds;
             foreach (long hullEntityId in hulls)
             {
-                long? pilot = WorldsAdriftRebornGameServer.Flight.PilotEntityOf(hullEntityId);
-
-                // Whoever was here before and is not here now has left the helm, and
-                // flight has already dropped their held input. Drop ours in the same
-                // breath, so a re-man starts both sides from neutral.
-                if (_lastPilotByHull.TryGetValue(hullEntityId, out long previous)
-                    && previous != (pilot ?? 0L))
-                {
-                    _inputs.Remove(previous);
-                }
-                if (pilot.HasValue)
-                {
-                    _lastPilotByHull[hullEntityId] = pilot.Value;
-                }
-                else
-                {
-                    _lastPilotByHull.Remove(hullEntityId);
-                }
-
-                double throttle = pilot.HasValue
-                    && _inputs.TryGetValue(pilot.Value, out FlightControlInput input)
-                        ? input.Throttle
-                        : 0.0;
-                _ledger.SetThrottle(hullEntityId, throttle);
+                _ledger.SetDemand(hullEntityId,
+                    WorldsAdriftRebornGameServer.Flight.PropulsionDemandFor(hullEntityId));
             }
 
             IReadOnlyList<long> wentDry = _ledger.Burn(seconds, BurnRate);
@@ -427,6 +406,20 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 CutEngines(hullEntityId);
             }
+
+            if (now >= _nextPersistenceAt)
+            {
+                _nextPersistenceAt = now + TimeSpan.FromSeconds(2);
+                var poweredHulls = new List<long>();
+                foreach (long hullEntityId in hulls)
+                {
+                    if (_ledger.DemandOf(hullEntityId).IsPowered)
+                    {
+                        poweredHulls.Add(hullEntityId);
+                    }
+                }
+                PersistHullsFuel(poweredHulls);
+            }
         }
 
         /// <summary>
@@ -439,24 +432,49 @@ namespace WorldsAdriftRebornGameServer.Game
         {
             PushGauges(hullEntityId, force: true);
 
-            long? pilot = WorldsAdriftRebornGameServer.Flight.PilotEntityOf(hullEntityId);
-            if (!GatesThrust || !pilot.HasValue)
+            PersistHullFuel(hullEntityId);
+            if (!GatesThrust)
             {
                 Console.WriteLine("[fuel] hull " + hullEntityId + " is OUT OF FUEL"
-                    + (GatesThrust ? "." : " (thrust gate disabled)."));
+                    + " (thrust gate disabled).");
                 return;
             }
+            Console.WriteLine("[fuel] hull " + hullEntityId
+                + " is OUT OF FUEL; combustion engine force is disabled. The physical throttle, sails,"
+                + " ambient wind and sky-core lift are unchanged.");
+        }
 
-            // Zero the mirror too, or the next tick would think the stick is still
-            // forward and the handler's clamp would be arguing with a stale value.
-            if (_inputs.TryGetValue(pilot.Value, out FlightControlInput held))
+        private void PersistHullFuel(long hullEntityId)
+        {
+            PersistHullsFuel(new[] { hullEntityId });
+        }
+
+        private void PersistHullsFuel(IEnumerable<long> hullEntityIds)
+        {
+            var snapshots = new Dictionary<string, GeneratorFuelSnapshot>(StringComparer.Ordinal);
+            foreach (long hullEntityId in hullEntityIds)
             {
-                _inputs[pilot.Value] = held.Merge(0f, null, null, null, null);
+                foreach (long generatorEntityId in _ledger.GeneratorEntityIdsOn(hullEntityId))
+                {
+                    string? partUid = Crafting.LooseParts.PartUidFor(generatorEntityId);
+                    GeneratorFuelSnapshot? snapshot = _ledger.CaptureGenerator(generatorEntityId);
+                    if (!string.IsNullOrEmpty(partUid) && snapshot != null)
+                    {
+                        snapshots[partUid] = snapshot;
+                    }
+                }
             }
+            WorldStatePersistence.UpdateGeneratorFuel(snapshots);
+        }
 
-            WorldsAdriftRebornGameServer.Flight.OnControlInput(pilot.Value, 0f, null, null, null, null);
-            Console.WriteLine("[fuel] hull " + hullEntityId + " is OUT OF FUEL; engines cut for pilot "
-                + pilot.Value + " (the ship keeps its altitude and coasts to a stop).");
+        private void PersistGenerator(long generatorEntityId)
+        {
+            string? partUid = Crafting.LooseParts.PartUidFor(generatorEntityId);
+            GeneratorFuelSnapshot? snapshot = _ledger.CaptureGenerator(generatorEntityId);
+            if (!string.IsNullOrEmpty(partUid) && snapshot != null)
+            {
+                WorldStatePersistence.UpdateGeneratorFuel(partUid, snapshot);
+            }
         }
 
         // ------------------------------------------------------------------
