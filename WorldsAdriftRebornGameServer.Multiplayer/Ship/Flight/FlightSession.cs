@@ -203,8 +203,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             int unfurledSails = 0, double agilityScale = 1.0,
             ShipPropulsion? propulsion = null,
             IReadOnlyList<WeatherWallSegment>? walls = null,
-            RetailWorldBoundsPolicy? worldBounds = null)
+            RetailWorldBoundsPolicy? worldBounds = null) =>
+            AdvanceFixed(nowMs, stepSeconds, 1, nowMs / 1000.0, tuning,
+                unfurledSails, agilityScale, propulsion, walls, worldBounds,
+                fixedStepSeconds: stepSeconds);
+
+        /// <summary>
+        /// Advances authoritative physics through zero or more deterministic
+        /// fixed steps, then makes exactly one network-emission decision. Physics
+        /// cadence and the stock 1130 cadence are intentionally independent.
+        /// </summary>
+        public FlightEmit AdvanceFixed(long nowMs, double emitStepSeconds,
+            int fixedStepCount, double firstFixedStepTimeSeconds, FlightTuning tuning,
+            int unfurledSails = 0, double agilityScale = 1.0,
+            ShipPropulsion? propulsion = null,
+            IReadOnlyList<WeatherWallSegment>? walls = null,
+            RetailWorldBoundsPolicy? worldBounds = null,
+            double fixedStepSeconds = FixedFlightClock.StepSeconds)
         {
+            if (fixedStepCount < 0) throw new ArgumentOutOfRangeException(nameof(fixedStepCount));
             // A latched non-zero throttle is live even if the pilot released the
             // helm before the first integration tick, while the hull is technically
             // still at rest. Without this term that perfectly valid command would
@@ -221,90 +238,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
             if (live)
             {
-                _canvasWakeRequested = false;
-                // The wind field's clock is the server's own millisecond clock, so
-                // every hull in the world samples the SAME wind at the same moment
-                // - two ships side by side must not disagree about the weather.
-                if (worldBounds?.Enabled == true)
+                // A newly-created fixed clock legitimately yields zero steps on
+                // its first observation. Preserve the one-shot sail wake until a
+                // physics step actually consumes it, or sail-only departure would
+                // be lost at activation.
+                if (fixedStepCount > 0) _canvasWakeRequested = false;
+                for (int fixedStep = 0; fixedStep < fixedStepCount; fixedStep++)
                 {
-                    // Retail WorldEdgePushback was a Unity FixedUpdate behaviour.
-                    // The reconstructed flight cadence is 240 ms, so run the
-                    // existing integrator and the recovered edge rule together in
-                    // deterministic 20 ms reference slices. This is deliberately
-                    // local to the opt-in boundary feature; OFF remains the exact
-                    // historical one-call path below.
-                    if (!RetailWorldBoundsPolicy.IsValidCadenceInterval(stepSeconds))
-                    {
-                        // This duration is service-owned rather than player input,
-                        // but fail closed if a future scheduler passes NaN,
-                        // infinity or an unbounded catch-up interval. Do not loop,
-                        // move or pretend a reference slice ran. A corrupt state is
-                        // still quarantined because leaving NaN live is less safe
-                        // than rejecting the malformed duration.
-                        if (!RetailWorldBoundsPolicy.IsFinite(_state))
-                        {
-                            RetailWorldBoundsStep quarantined = worldBounds.Apply(_state, _state);
-                            _state = quarantined.State;
-                            LastWorldBoundsTelemetry = quarantined.Telemetry;
-                        }
-                        else
-                        {
-                            LastWorldBoundsTelemetry = new RetailWorldBoundsTelemetry(
-                                true, worldBounds.DistanceToBoundary(_state),
-                                0, 0, 0, false, false, 0);
-                        }
-                        LastForceEvaluation = ShipForceEvaluation.Unavailable;
-                    }
-                    else
-                    {
-                        double remaining = stepSeconds;
-                        double elapsed = 0.0;
-                        int substeps = 0;
-                        double dvx = 0.0, dvy = 0.0, dvz = 0.0;
-                        bool hardClamped = false, invalidState = false;
-                        double distance = worldBounds.DistanceToBoundary(_state);
-                        ShipForceEvaluation evaluation = ShipForceEvaluation.Unavailable;
-                        while (remaining > 1e-12)
-                        {
-                            double dt = Math.Min(RetailWorldBoundsPolicy.ReferenceStepSeconds, remaining);
-                            FlightState previous = _state;
-                            FlightState candidate = FlightIntegrator.StepEvaluated(
-                                previous, _input, dt, tuning, out evaluation,
-                                unfurledSails, agilityScale, propulsion,
-                                (nowMs / 1000.0) - stepSeconds + elapsed + dt, walls);
-                            RetailWorldBoundsStep bounded = worldBounds.Apply(previous, candidate);
-                            _state = bounded.State;
-                            RetailWorldBoundsTelemetry sample = bounded.Telemetry;
-                            dvx += sample.PushbackDeltaVxMps;
-                            dvy += sample.PushbackDeltaVyMps;
-                            dvz += sample.PushbackDeltaVzMps;
-                            hardClamped |= sample.HardClamped;
-                            invalidState |= sample.InvalidState;
-                            distance = sample.BoundaryDistanceMetres;
-                            substeps++;
-                            elapsed += dt;
-                            remaining -= dt;
-                            // Quarantine means reject the entire cadence candidate,
-                            // not "stop for 20 ms and resume from origin". A later
-                            // authoritative tick may move again from the finite rest
-                            // state, but this corrupt interval ends here.
-                            if (sample.InvalidState)
-                                break;
-                        }
-                        LastForceEvaluation = evaluation;
-                        LastWorldBoundsTelemetry = new RetailWorldBoundsTelemetry(
-                            true, distance, dvx, dvy, dvz,
-                            hardClamped, invalidState, substeps);
-                    }
-                }
-                else
-                {
-                    _state = FlightIntegrator.StepEvaluated(
-                        _state, _input, stepSeconds, tuning, out ShipForceEvaluation evaluation,
-                        unfurledSails, agilityScale, propulsion,
-                        nowMs / 1000.0, walls);
-                    LastForceEvaluation = evaluation;
-                    LastWorldBoundsTelemetry = RetailWorldBoundsTelemetry.Off;
+                    IntegrateForDuration(fixedStepSeconds,
+                        firstFixedStepTimeSeconds + (fixedStep * fixedStepSeconds),
+                        tuning, unfurledSails, agilityScale, propulsion, walls, worldBounds);
                 }
 
                 if (_state.IsAtRest && !_manned)
@@ -324,7 +267,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     // step, invisible at the default 0).
                     if (tuning.IdleBobMetres > 0.0)
                     {
-                        return EmitBobbedAt(nowMs, stepSeconds, tuning);
+                        return EmitBobbedAt(nowMs, emitStepSeconds, tuning);
                     }
 
                     // Keep the 1130 playback buffer continuously populated while
@@ -342,22 +285,95 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     _restEmitted = 0;
                 }
 
-                return EmitAt(nowMs, stepSeconds);
+                return EmitAt(nowMs, emitStepSeconds);
             }
 
             // At rest, unmanned.
             if (_restEmitted <= RestRepeats)
             {
                 _restEmitted++;
-                return EmitAt(nowMs, stepSeconds);
+                return EmitAt(nowMs, emitStepSeconds);
             }
 
             if (KeepaliveDue(nowMs, tuning))
             {
-                return EmitAt(nowMs, stepSeconds);
+                return EmitAt(nowMs, emitStepSeconds);
             }
 
             return FlightEmit.Nothing;
+        }
+
+        private void IntegrateForDuration(double durationSeconds, double endTimeSeconds,
+            FlightTuning tuning, int unfurledSails, double agilityScale,
+            ShipPropulsion? propulsion, IReadOnlyList<WeatherWallSegment>? walls,
+            RetailWorldBoundsPolicy? worldBounds)
+        {
+            // The wind field's time is the deterministic simulation-step time,
+            // never the incidental instant at which the poll loop happened to run.
+            if (worldBounds?.Enabled != true)
+            {
+                _state = FlightIntegrator.StepEvaluated(
+                    _state, _input, durationSeconds, tuning, out ShipForceEvaluation evaluation,
+                    unfurledSails, agilityScale, propulsion, endTimeSeconds, walls);
+                LastForceEvaluation = evaluation;
+                LastWorldBoundsTelemetry = RetailWorldBoundsTelemetry.Off;
+                return;
+            }
+
+            // Track 2 owns the outer fixed-step accumulator. This validation is
+            // Track 1's defensive cadence ceiling for the legacy 240 ms adapter
+            // and direct callers; it must never become a second catch-up clock.
+            if (!RetailWorldBoundsPolicy.IsValidCadenceInterval(durationSeconds))
+            {
+                if (!RetailWorldBoundsPolicy.IsFinite(_state))
+                {
+                    RetailWorldBoundsStep quarantined = worldBounds.Apply(_state, _state);
+                    _state = quarantined.State;
+                    LastWorldBoundsTelemetry = quarantined.Telemetry;
+                }
+                else
+                {
+                    LastWorldBoundsTelemetry = new RetailWorldBoundsTelemetry(
+                        true, worldBounds.DistanceToBoundary(_state),
+                        0, 0, 0, false, false, 0);
+                }
+                LastForceEvaluation = ShipForceEvaluation.Unavailable;
+                return;
+            }
+
+            double remaining = durationSeconds;
+            double elapsed = 0.0;
+            int substeps = 0;
+            double dvx = 0.0, dvy = 0.0, dvz = 0.0;
+            bool hardClamped = false, invalidState = false;
+            double distance = worldBounds.DistanceToBoundary(_state);
+            ShipForceEvaluation finalEvaluation = ShipForceEvaluation.Unavailable;
+            while (remaining > 1e-12)
+            {
+                double dt = Math.Min(RetailWorldBoundsPolicy.ReferenceStepSeconds, remaining);
+                FlightState previous = _state;
+                FlightState candidate = FlightIntegrator.StepEvaluated(
+                    previous, _input, dt, tuning, out finalEvaluation,
+                    unfurledSails, agilityScale, propulsion,
+                    endTimeSeconds - durationSeconds + elapsed + dt, walls);
+                RetailWorldBoundsStep bounded = worldBounds.Apply(previous, candidate);
+                _state = bounded.State;
+                RetailWorldBoundsTelemetry sample = bounded.Telemetry;
+                dvx += sample.PushbackDeltaVxMps;
+                dvy += sample.PushbackDeltaVyMps;
+                dvz += sample.PushbackDeltaVzMps;
+                hardClamped |= sample.HardClamped;
+                invalidState |= sample.InvalidState;
+                distance = sample.BoundaryDistanceMetres;
+                substeps++;
+                elapsed += dt;
+                remaining -= dt;
+                if (sample.InvalidState) break;
+            }
+            LastForceEvaluation = finalEvaluation;
+            LastWorldBoundsTelemetry = new RetailWorldBoundsTelemetry(
+                true, distance, dvx, dvy, dvz,
+                hardClamped, invalidState, substeps);
         }
 
         private bool KeepaliveDue(long nowMs, FlightTuning tuning)

@@ -101,8 +101,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             JObject root = JObject.Parse(json);
             JObject section = (JObject)root["worldInspector"]!;
 
-            Assert.Equal(17, StatsSnapshot.SchemaVersion);
-            Assert.Equal(17, (int)root["schemaVersion"]!);
+            Assert.Equal(18, StatsSnapshot.SchemaVersion);
+            Assert.Equal(18, (int)root["schemaVersion"]!);
             Assert.True((bool)section["present"]!);
             Assert.Equal(WorldInspectorRuntimeStat.ContractVersion,
                 (int)section["contractVersion"]!);

@@ -203,6 +203,22 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             Save();
         }
 
+        /// <summary>
+        /// Persists pose and the additive versioned flight checkpoint in one atomic
+        /// document replacement. Legacy readers continue to use the pose fields.
+        /// </summary>
+        internal static void UpdateBuiltShipFlight(int persistentIndex,
+            FixedPointPosition position, double yawRadians,
+            DurableShipFlightSnapshot flight)
+        {
+            WorldStateSnapshot snapshot = Snapshot();
+            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count) return;
+            BuiltShipRecord record = snapshot.BuiltShips[persistentIndex];
+            record.UpdatePose(position, yawRadians);
+            record.FlightSnapshot = flight;
+            Save();
+        }
+
         /// <summary>Atomically persists a captured pose and its empty-yard dock link.</summary>
         internal static void DockBuiltShip(int persistentIndex, FixedPointPosition hullPosition,
             double yawRadians, FixedPointPosition shipyardPosition)
@@ -441,7 +457,8 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                     BuiltShips.SetPersistentIndex(hullEntityId.Value, i);
                     WorldsAdriftRebornGameServer.Flight.RegisterHull(
                         hullEntityId.Value, i, snapshot.BuiltShips[i].HullPosition(),
-                        snapshot.BuiltShips[i].HullYawRadians);
+                        snapshot.BuiltShips[i].HullYawRadians,
+                        snapshot.BuiltShips[i].FlightSnapshot);
                     ships++;
 
                     // RE-DOCK: link this restored hull back to the shipyard it was built

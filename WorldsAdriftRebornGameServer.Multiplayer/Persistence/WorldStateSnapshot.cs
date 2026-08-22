@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
 {
@@ -71,6 +72,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
 
         /// <summary>Level heading at the last authoritative flight save, radians.</summary>
         public double HullYawRadians { get; set; }
+
+        /// <summary>
+        /// Additive v1 authoritative flight checkpoint. Null is the exact legacy
+        /// pose-only format. A newer server validates this before use; an older
+        /// server ignores it and continues loading HullX/Y/Z/HullYawRadians.
+        /// </summary>
+        public DurableShipFlightSnapshot? FlightSnapshot { get; set; }
 
         /// <summary>The hull geometry blob the 1209 CustomShipHullState serves (base64 in JSON).</summary>
         public byte[] HullBytes { get; set; } = System.Array.Empty<byte>();
@@ -182,6 +190,82 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
             ShipyardY = 0;
             ShipyardZ = 0;
         }
+    }
+
+    /// <summary>
+    /// JSON-friendly durable subset of a ship flight domain. Pilot identity and
+    /// aboard peer ids are intentionally not resumable capabilities: both belong
+    /// to dead connections after a process restart. WasManned/AboardCount remain
+    /// evidence for operators while restore increments the epoch and starts with
+    /// no pilot and neutral controls.
+    /// </summary>
+    public sealed class DurableShipFlightSnapshot
+    {
+        public const int CurrentVersion = 1;
+        public int Version { get; set; } = CurrentVersion;
+        public long AuthorityGeneration { get; set; } = 1;
+        public bool WasManned { get; set; }
+        public int AboardCount { get; set; }
+        public bool WasDocked { get; set; }
+        public int UnfurledSailCount { get; set; }
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+        public double YawRadians { get; set; }
+        public double YawRateRadPerSec { get; set; }
+        public double RollRadians { get; set; }
+        public double PitchRadians { get; set; }
+        public double SpeedCmdMps { get; set; }
+        public double VxMps { get; set; }
+        public double VyMps { get; set; }
+        public double VzMps { get; set; }
+        public float Throttle { get; set; }
+        public float Vertical { get; set; }
+        public float AxisPitch { get; set; }
+        public float AxisYaw { get; set; }
+        public float AxisRoll { get; set; }
+
+        public bool TryRead(out FlightState state, out FlightControlInput input)
+        {
+            state = default;
+            input = default;
+            if (Version != CurrentVersion || AuthorityGeneration <= 0
+                || AuthorityGeneration == long.MaxValue || AboardCount < 0
+                || UnfurledSailCount < 0
+                || !Finite(X) || !Finite(Y) || !Finite(Z) || !Finite(YawRadians)
+                || !Finite(YawRateRadPerSec) || !Finite(RollRadians) || !Finite(PitchRadians)
+                || !Finite(SpeedCmdMps) || !Finite(VxMps) || !Finite(VyMps) || !Finite(VzMps)
+                || !float.IsFinite(Throttle) || !float.IsFinite(Vertical)
+                || !float.IsFinite(AxisPitch) || !float.IsFinite(AxisYaw)
+                || !float.IsFinite(AxisRoll))
+                return false;
+            state = new FlightState(X, Y, Z, YawRadians, YawRateRadPerSec,
+                RollRadians, PitchRadians, SpeedCmdMps, VxMps, VyMps, VzMps);
+            input = new FlightControlInput(Throttle, Vertical, AxisPitch, AxisYaw, AxisRoll);
+            return true;
+        }
+
+        public static DurableShipFlightSnapshot Capture(FlightState state,
+            FlightControlInput input, long authorityGeneration, bool wasManned,
+            int aboardCount, bool wasDocked, int unfurledSailCount) => new DurableShipFlightSnapshot
+        {
+            AuthorityGeneration = authorityGeneration,
+            WasManned = wasManned,
+            AboardCount = System.Math.Max(0, aboardCount),
+            WasDocked = wasDocked,
+            UnfurledSailCount = System.Math.Max(0, unfurledSailCount),
+            X = state.X, Y = state.Y, Z = state.Z,
+            YawRadians = state.YawRadians,
+            YawRateRadPerSec = state.YawRateRadPerSec,
+            RollRadians = state.RollRadians,
+            PitchRadians = state.PitchRadians,
+            SpeedCmdMps = state.SpeedCmdMps,
+            VxMps = state.VxMps, VyMps = state.VyMps, VzMps = state.VzMps,
+            Throttle = input.Throttle, Vertical = input.Vertical,
+            AxisPitch = input.AxisPitch, AxisYaw = input.AxisYaw, AxisRoll = input.AxisRoll,
+        };
+
+        private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
     }
 
     /// <summary>

@@ -146,6 +146,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains
             return domain;
         }
 
+        /// <summary>
+        /// Reconstitutes durable process state without reviving connection-scoped
+        /// authority. The persisted generation is advanced once, pilot is empty,
+        /// and the session is abandoned so stale pre-restart input cannot move it.
+        /// </summary>
+        public static ShipDomain RestoreAfterProcessRestart(long hullEntityId,
+            int? persistentIndex, AuthorityGeneration savedGeneration, FlightSession flight)
+        {
+            if (flight == null) throw new ArgumentNullException(nameof(flight));
+            flight.Abandon();
+            return new ShipDomain(SimulationDomainId.ForShip(hullEntityId), hullEntityId,
+                persistentIndex, savedGeneration.Next(), flight, null);
+        }
+
         private ShipAuthorityToken TokenFor(ShipPilotBinding pilot) =>
             new ShipAuthorityToken(Id, pilot.Generation, pilot.PlayerEntityId);
 

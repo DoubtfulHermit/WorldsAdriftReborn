@@ -332,6 +332,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(12, (int)w["referenceSubsteps"]!);
         }
 
+        [Fact]
+        public void A_ship_domain_serializes_fixed_clock_pressure_without_guessing()
+        {
+            var domain = new ShipDomainStat(
+                "ship:85", 85, 6, 93, 240, 10,
+                0, 0, 0, active: true, piloted: true,
+                liveCadenceExpected: true, pilotPlayerEntityId: 4,
+                aboardPlayerEntityIds: new[] { 4L }, deckCount: 1,
+                mountedPartCount: 2, subscriberCount: 1,
+                fixedClock: new FixedFlightClockStat(true, 20, 25,
+                    completedSteps: 120, droppedSteps: 7, pressureEvents: 2,
+                    remainderSeconds: 0.013));
+            var snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), shipDomains: new[] { domain });
+
+            JObject d = (JObject)((JArray)((JObject)JObject.Parse(snapshot.ToJson())["runtime"]!)
+                ["shipDomains"]!)[0];
+            JObject c = (JObject)d["fixedClock"]!;
+            Assert.True((bool)c["present"]!);
+            Assert.True((bool)c["enabled"]!);
+            Assert.Equal(20, (int)c["stepMs"]!);
+            Assert.Equal(25, (int)c["catchUpCap"]!);
+            Assert.Equal(120, (long)c["completedSteps"]!);
+            Assert.Equal(7, (long)c["droppedSteps"]!);
+            Assert.Equal(2, (long)c["pressureEvents"]!);
+            Assert.Equal(0.01, (double)c["remainderSeconds"]!);
+        }
+
         /// <summary>
         /// A hull whose bytes are missing has NO SHAPE but still has an OWNER.
         ///

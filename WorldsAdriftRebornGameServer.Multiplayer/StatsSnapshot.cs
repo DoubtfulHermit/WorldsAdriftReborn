@@ -355,6 +355,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>The configured and last-evaluated retail world-edge policy.</summary>
         public ShipWorldBoundsStat WorldBounds { get; }
+        public FixedFlightClockStat FixedClock { get; }
 
         /// <summary>
         /// The character uid this hull belongs to, or "" when the owner is not
@@ -381,7 +382,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             double yawRadians = 0, double yawRateRadPerSec = 0,
             double vxMps = 0, double vyMps = 0, double vzMps = 0,
             ShipHullStat hull = default, ShipFlightStat flight = default,
-            ShipWorldBoundsStat worldBounds = default)
+            ShipWorldBoundsStat worldBounds = default,
+            FixedFlightClockStat fixedClock = default)
         {
             YawRadians = yawRadians;
             YawRateRadPerSec = yawRateRadPerSec;
@@ -391,6 +393,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Hull = hull;
             Flight = flight;
             WorldBounds = worldBounds;
+            FixedClock = fixedClock;
             DomainId = domainId ?? string.Empty;
             HullEntityId = hullEntityId;
             AuthorityGeneration = authorityGeneration;
@@ -412,6 +415,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             LiveCadenceExpected, DeliveryAgeMs, CadenceMs);
         public bool AboardCheckoutWarning => ShipDomainStatPolicy.HasAboardCheckoutGap(
             AboardPlayerEntityIds.Count, SubscriberCount);
+    }
+
+    /// <summary>Per-hull bounded fixed-step pressure, exported without inference.</summary>
+    public readonly struct FixedFlightClockStat
+    {
+        public FixedFlightClockStat(bool enabled, int stepMs, int catchUpCap,
+            long completedSteps, long droppedSteps, long pressureEvents,
+            double remainderSeconds)
+        {
+            Present = true;
+            Enabled = enabled;
+            StepMs = stepMs;
+            CatchUpCap = catchUpCap;
+            CompletedSteps = completedSteps;
+            DroppedSteps = droppedSteps;
+            PressureEvents = pressureEvents;
+            RemainderSeconds = remainderSeconds;
+        }
+        public bool Present { get; }
+        public bool Enabled { get; }
+        public int StepMs { get; }
+        public int CatchUpCap { get; }
+        public long CompletedSteps { get; }
+        public long DroppedSteps { get; }
+        public long PressureEvents { get; }
+        public double RemainderSeconds { get; }
     }
 
     /// <summary>
@@ -578,7 +607,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // result: final boundary distance, applied velocity delta,
         // hard-clamp/invalid-state verdicts and reference-substep count. This is
         // observation only and remains present with enabled:false.
-        public const int SchemaVersion = 17;
+        // v18: each ship domain gains `fixedClock`: the opt-in 20 ms step,
+        // catch-up cap, completed/dropped steps, pressure-event count and current
+        // remainder. It reports disabled explicitly without changing 1130 cadence.
+        public const int SchemaVersion = 18;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -1514,7 +1546,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             AppendHull(b, d.Hull); b.Append(',');
             AppendShipFlight(b, d.Flight); b.Append(',');
-            AppendWorldBounds(b, d.WorldBounds);
+            AppendWorldBounds(b, d.WorldBounds); b.Append(',');
+            AppendFixedClock(b, d.FixedClock);
+            b.Append('}');
+        }
+
+        private static void AppendFixedClock(StringBuilder b, FixedFlightClockStat c)
+        {
+            Key(b, "fixedClock"); b.Append('{');
+            Bool(b, "present", c.Present); b.Append(',');
+            Bool(b, "enabled", c.Enabled); b.Append(',');
+            Num(b, "stepMs", c.StepMs); b.Append(',');
+            Num(b, "catchUpCap", c.CatchUpCap); b.Append(',');
+            Num(b, "completedSteps", c.CompletedSteps); b.Append(',');
+            Num(b, "droppedSteps", c.DroppedSteps); b.Append(',');
+            Num(b, "pressureEvents", c.PressureEvents); b.Append(',');
+            Num(b, "remainderSeconds", Trim(c.RemainderSeconds));
             b.Append('}');
         }
 

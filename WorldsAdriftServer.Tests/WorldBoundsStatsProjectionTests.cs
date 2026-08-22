@@ -82,7 +82,7 @@ namespace WorldsAdriftServer.Tests
             GameStatsSnapshot parsed = GameStatsSnapshot.Parse(JObject.Parse(json));
             JObject projected = (JObject)Assert.Single(parsed.ShipDomains).Json["worldBounds"]!;
 
-            Assert.Equal(17, parsed.SchemaVersion);
+            Assert.Equal(18, parsed.SchemaVersion);
             Assert.True(parsed.WorldBounds.Present);
             Assert.True((bool)parsed.WorldBounds.Json["enabled"]!);
             Assert.Equal(0.02, (double)parsed.WorldBounds.Json["referenceStepSeconds"]!);

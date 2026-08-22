@@ -64,6 +64,13 @@ namespace WorldsAdriftRebornGameServer.Game
             Environment.GetEnvironmentVariable("WAREBORN_HELM_FLIGHT") == "1";
 
         /// <summary>
+        /// Separates authoritative physics (50 Hz) from the stock 0.24 s 1130
+        /// stream. Opt-in until live restart acceptance has been completed.
+        /// </summary>
+        internal static readonly bool FixedStepEnabled =
+            Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FIXED_STEP") == "1";
+
+        /// <summary>
         /// WAREBORN_FLIGHT_DRIVE_TARGET=helm points 1109 DrivingEntityId at the
         /// HELM entity instead of the hull. Default: the HULL - it is what
         /// ShipControlsBehaviour.UpdateVertical expects to find the
@@ -91,6 +98,8 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly ShipDomainRegistry _domains;
         private readonly LocalDomainHost? _domainHost;
         private readonly HashSet<long> _activeHullIds = new();
+        private readonly Dictionary<long, FixedFlightClock> _fixedClocks = new();
+        private readonly Dictionary<long, FixedFlightStepBatch> _fixedClockTelemetry = new();
         private static readonly IReadOnlySet<ulong> NoDomainFrameSenders =
             new HashSet<ulong>();
 
@@ -187,6 +196,10 @@ namespace WorldsAdriftRebornGameServer.Game
                     + " (WAREBORN_FLIGHT_WORLD_BOUNDS; edge "
                     + _worldBounds.EdgeLengthMetres.ToString("0.##",
                         System.Globalization.CultureInfo.InvariantCulture) + " m).");
+                Console.WriteLine("[info] authoritative 50 Hz flight clock is "
+                    + (FixedStepEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_FIXED_STEP; 20 ms step, 25-step catch-up cap;"
+                    + " 1130 remains 240 ms).");
             }
         }
 
@@ -606,13 +619,44 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         internal void RegisterHull(long hullEntityId, int? persistentIndex,
-            FixedPointPosition position, double yawRadians)
+            FixedPointPosition position, double yawRadians,
+            Multiplayer.Persistence.DurableShipFlightSnapshot? durable = null)
         {
             ShipDomain domain = _domains.GetOrAdd(hullEntityId, () =>
-                new ShipDomain(hullEntityId, persistentIndex,
+            {
+                if (durable != null
+                    && durable.TryRead(out FlightState restoredState, out FlightControlInput _))
+                {
+                    if (durable.WasDocked)
+                    {
+                        restoredState = FlightState.AtRestAt(
+                            position.MetresX, position.MetresY, position.MetresZ, yawRadians);
+                    }
+                    Console.WriteLine("[info] flight: restored durable v" + durable.Version
+                        + " state for hull " + hullEntityId + " at " + restoredState
+                        + "; invalidated pre-restart pilot/input and advanced authority generation "
+                        + durable.AuthorityGeneration + " -> " + (durable.AuthorityGeneration + 1) + ".");
+                    return ShipDomain.RestoreAfterProcessRestart(
+                        hullEntityId, persistentIndex,
+                        new AuthorityGeneration(durable.AuthorityGeneration),
+                        new FlightSession(restoredState));
+                }
+                if (durable != null)
+                {
+                    Console.WriteLine("[warning] flight: ignored invalid/unsupported durable snapshot for hull "
+                        + hullEntityId + "; using legacy pose.");
+                }
+                return new ShipDomain(hullEntityId, persistentIndex,
                     new FlightSession(FlightState.AtRestAt(
-                        position.MetresX, position.MetresY, position.MetresZ, yawRadians))));
+                        position.MetresX, position.MetresY, position.MetresZ, yawRadians)));
+            });
             RefreshDomainMembership(domain);
+            if (!domain.Flight.State.IsAtRest)
+            {
+                // A durable moving ship resumes coasting under server authority;
+                // it does not wait for a new helm interaction to wake the service.
+                _activeHullIds.Add(hullEntityId);
+            }
             if (_domainHost != null && _domainHost.ById(domain.Id) == null)
                 _domainHost.Register(domain);
             else if (_domainHost != null)
@@ -688,6 +732,8 @@ namespace WorldsAdriftRebornGameServer.Game
             _boundsInterveningHulls.Remove(hullEntityId);
             _boundsHardClampedHulls.Remove(hullEntityId);
             _boundsQuarantinedHulls.Remove(hullEntityId);
+            _fixedClocks.Remove(hullEntityId);
+            _fixedClockTelemetry.Remove(hullEntityId);
             ShipPublisher.RetireDomain(hullEntityId);
         }
 
@@ -733,14 +779,46 @@ namespace WorldsAdriftRebornGameServer.Game
                 // all from the pre-materials behaviour - for a ship of the reference
                 // mass, which is what every legacy birch-and-iron hull lands near.
                 double agility = AgilityScaleFor(hullEntityId);
-                FlightEmit emit = session.Advance(
-                    nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility,
-                    PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
-                    _worldBounds);
+                FlightEmit emit;
+                if (FixedStepEnabled)
+                {
+                    if (!_fixedClocks.TryGetValue(hullEntityId, out FixedFlightClock? fixedClock))
+                    {
+                        fixedClock = new FixedFlightClock();
+                        _fixedClocks[hullEntityId] = fixedClock;
+                    }
+                    FixedFlightStepBatch batch = fixedClock.Advance(_clock.Elapsed);
+                    _fixedClockTelemetry[hullEntityId] = batch;
+                    double lastStepTime = Math.Floor(
+                        _clock.Elapsed.TotalSeconds / FixedFlightClock.StepSeconds)
+                        * FixedFlightClock.StepSeconds;
+                    double firstStepTime = lastStepTime
+                        - Math.Max(0, batch.Steps - 1) * FixedFlightClock.StepSeconds;
+                    emit = session.AdvanceFixed(
+                        nowMs, ShipMotionPolicy.SendIntervalSeconds,
+                        batch.Steps, firstStepTime, _tuning, unfurledSails, agility,
+                        PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
+                        _worldBounds);
+                    if (batch.UnderPressure)
+                    {
+                        Console.WriteLine("[warning] flight fixed-clock pressure: hull " + hullEntityId
+                            + " ran " + batch.Steps + " catch-up step(s), dropped "
+                            + batch.DroppedSteps + " step(s); total dropped "
+                            + batch.TotalDroppedSteps + " across " + batch.PressureEvents
+                            + " pressure event(s).");
+                    }
+                }
+                else
+                {
+                    emit = session.Advance(
+                        nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility,
+                        PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
+                        _worldBounds);
+                }
                 ObserveWorldBounds(hullEntityId, session.State,
                     session.LastWorldBoundsTelemetry);
                 CompleteDepartureIfOutside(hullEntityId, session.State);
-                PersistPoseWhenDue(hullEntityId, session.State);
+                PersistPoseWhenDue(hullEntityId, domain);
                 if (!emit.Emit)
                 {
                     continue;
@@ -1302,6 +1380,17 @@ namespace WorldsAdriftRebornGameServer.Game
                 telemetry);
         }
 
+        internal Multiplayer.FixedFlightClockStat FixedClockStatFor(long hullEntityId)
+        {
+            _fixedClockTelemetry.TryGetValue(hullEntityId, out FixedFlightStepBatch batch);
+            return new Multiplayer.FixedFlightClockStat(
+                FixedStepEnabled,
+                (int)Math.Round(FixedFlightClock.StepSeconds * 1000.0),
+                FixedFlightClock.DefaultMaxCatchUpSteps,
+                batch.CompletedSteps, batch.TotalDroppedSteps,
+                batch.PressureEvents, batch.RemainderSeconds);
+        }
+
         /// <summary>
         /// Edge-triggered operator evidence for the disposable-hull acceptance
         /// run. Continuous pushback can last many cadences, so journal only
@@ -1384,14 +1473,14 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Per-hull mass cache; see <see cref="HullMassKgFor"/>.</summary>
         private readonly Dictionary<long, double> _hullMassByHull = new Dictionary<long, double>();
 
-        private void PersistPoseWhenDue(long hullEntityId, FlightState state)
+        private void PersistPoseWhenDue(long hullEntityId, ShipDomain domain)
         {
             if (_nextPoseSaveAt.TryGetValue(hullEntityId, out TimeSpan due) && _clock.Elapsed < due) return;
             _nextPoseSaveAt[hullEntityId] = _clock.Elapsed + PoseSaveInterval;
-            PersistPoseNow(hullEntityId, state);
+            PersistPoseNow(hullEntityId, domain.Flight.State);
         }
 
-        private static void PersistPoseNow(long hullEntityId, FlightState state)
+        private void PersistPoseNow(long hullEntityId, FlightState state)
         {
             FixedPointPosition position = FixedPointPosition.FromMetres(state.X, state.Y, state.Z);
             uint packedRotation = FlightIntegrator.PackedRotation(state);
@@ -1404,8 +1493,18 @@ namespace WorldsAdriftRebornGameServer.Game
 
             int? index = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
             if (!index.HasValue) return;
-            WorldStatePersistence.UpdateBuiltShipPose(index.Value,
-                position, state.YawRadians);
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            if (domain == null)
+            {
+                WorldStatePersistence.UpdateBuiltShipPose(index.Value, position, state.YawRadians);
+                return;
+            }
+            var durable = Multiplayer.Persistence.DurableShipFlightSnapshot.Capture(
+                state, domain.Flight.Input, domain.Generation.Value, domain.Flight.IsManned,
+                domain.AboardPeerIds.Count, Crafting.BuiltShips.IsHullDocked(hullEntityId),
+                WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId));
+            WorldStatePersistence.UpdateBuiltShipFlight(index.Value,
+                position, state.YawRadians, durable);
         }
 
         /// <summary>
@@ -1451,6 +1550,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     WorldStatePersistence.DockBuiltShip(
                         persistentIndex.Value, target, yaw, yardPosition);
                 }
+                PersistPoseNow(hullEntityId, session.State);
 
                 PilotSeats.Seat? pilot = _seats.PilotOf(hullEntityId);
                 if (pilot.HasValue) _inputs[pilot.Value.PlayerEntityId] = FlightControlInput.Neutral;

@@ -2691,7 +2691,8 @@ namespace WorldsAdriftRebornGameServer
                     // operator surface and the map panel cannot disagree.
                     HullStatFor(domain.HullEntityId),
                     Flight.FlightStatFor(domain.HullEntityId),
-                    Flight.WorldBoundsStatFor(domain.HullEntityId)));
+                    Flight.WorldBoundsStatFor(domain.HullEntityId),
+                    Flight.FixedClockStatFor(domain.HullEntityId)));
             }
 
             // Operator topology: the ownership-only host is the source of truth for

@@ -93,5 +93,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 StringComparison.Ordinal);
             Assert.Contains("TryCenterFor(peerId", eligibility, StringComparison.Ordinal);
         }
+
+        [Fact]
+        public void Fixed_clock_is_opt_in_and_does_not_replace_the_024_wire_cadence()
+        {
+            string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
+            Assert.Contains("WAREBORN_FLIGHT_FIXED_STEP", service, StringComparison.Ordinal);
+            Assert.Contains("new CadenceTimer(TimeSpan.FromSeconds(ShipMotionPolicy.SendIntervalSeconds))",
+                service, StringComparison.Ordinal);
+            Assert.Contains("session.AdvanceFixed(", service, StringComparison.Ordinal);
+            Assert.Contains("FixedFlightClock.DefaultMaxCatchUpSteps", service, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Durable_restore_uses_version_validation_and_rotates_authority()
+        {
+            string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
+            string persistence = Source("WorldsAdriftRebornGameServer", "Game", "Persistence",
+                "WorldStatePersistence.cs");
+            Assert.Contains("durable.TryRead(out FlightState restoredState", service,
+                StringComparison.Ordinal);
+            Assert.Contains("ShipDomain.RestoreAfterProcessRestart", service, StringComparison.Ordinal);
+            Assert.Contains("UpdateBuiltShipFlight", persistence, StringComparison.Ordinal);
+            Assert.Contains("snapshot.BuiltShips[i].FlightSnapshot", persistence,
+                StringComparison.Ordinal);
+        }
     }
 }

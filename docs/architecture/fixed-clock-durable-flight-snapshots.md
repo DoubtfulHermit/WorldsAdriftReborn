@@ -1,0 +1,109 @@
+# Fixed simulation clock and durable flight snapshots
+
+Status: implemented on `feat/fixed-clock-snapshots`; not merged, pushed, deployed, or enabled.
+
+## Period 1 — discovery
+
+The game process drains ENet in one single-threaded poll loop. `Flight.Tick()` is
+called every loop turn, but its `CadenceTimer` historically gated both physics and
+publication. Therefore flight advanced once per stock `1130` publication interval
+(0.24 seconds), not at a physics clock. The timer schedules on an ideal grid but,
+after a stall longer than one interval, skips the missed publication and resets to
+`now + 0.24s`; it never emits a burst. The old integrator still advanced one nominal
+0.24-second slice, regardless of the actual stall.
+
+Existing resumability had two different levels:
+
+- `FlightSessionSnapshot` and `ShipDomainSnapshot` are pure, complete in-memory
+  handoff objects carrying current motion, input, pilot binding, authority generation,
+  members and aboard peers.
+- `world-state.json` is an atomic, backward-compatible shared-world document. A
+  built ship stored only Q52.12 position and yaw every two seconds. Dock linkage and
+  each mounted sail's furl state were already additive fields. Pilot and aboard peer
+  ids are connection-scoped and must not survive a process.
+- Fuel is authoritative in `ShipFuelLedger`, per mounted generator, but the existing
+  persistence contract explicitly does not save generator levels. Track 7 (fuel
+  lifecycle) owns that per-part identity migration; this track does not flatten it
+  into an incorrect hull-level number.
+
+Retail evidence recovers Unity `FixedUpdate`-style 0.02-second evaluation (also the
+world-edge reference step). The retail worker's backlog cap, stall policy, time origin,
+snapshot wire/storage version, checkpoint interval, generator-fuel schema, and exact
+crash-resume rules are lost. Wareborn's cap and persistence format are consequently
+labelled Wareborn safety policy, not retail values.
+
+## Period 2 — coding
+
+- `FixedFlightClock` is a monotonic, deterministic 50 Hz accumulator.
+- One hull may execute at most 25 catch-up steps (500 ms) per 0.24-second publish
+  turn. Excess whole steps are dropped, never retained as a death spiral.
+- Completed steps, dropped steps, pressure events and fractional remainder are
+  exported per ship in schema 18 under `fixedClock` and logged on pressure.
+- Physics stepping is separated from publication: `FlightSession.AdvanceFixed()`
+  performs N 20 ms integrations and makes one stock-cadence emission decision.
+- `WAREBORN_FLIGHT_FIXED_STEP=1` opts in. The default path remains the previous
+  one-call-per-0.24-second behavior.
+- `BuiltShipRecord.FlightSnapshot` is an additive version-1 checkpoint carrying every
+  scalar represented by today's flight model (position, yaw, yaw rate, roll, pitch,
+  speed command and XYZ velocity), all five held inputs, authority generation, and
+  dock/sail/aboard/pilot lifecycle evidence. Old documents load with it null; old
+  binaries ignore it and keep using pose+yaw.
+- Periodic saves update the legacy pose and the new checkpoint in one atomic document
+  replacement. A valid moving checkpoint wakes the flight service after boot.
+- Restart never revives a pilot capability: pilot/aboard bindings are empty, controls
+  are neutralized, and the persisted authority generation advances once. Momentum is
+  retained so an undocked moving ship can safely coast from its last checkpoint.
+
+This phase does not add vector 6DOF, torque, collisions, lift, docking physics or new
+fuel behavior.
+
+## Period 3 — review
+
+The review checked:
+
+- Determinism: fixed duration is an integer count of 20 ms steps; sub-step jitter is
+  carried as a remainder. Weather samples receive deterministic step-end times.
+- Time origins: process-monotonic elapsed time drives accumulation; Unix milliseconds
+  remain only the client control-point timestamp.
+- Stale/replayed authority: saved pilot ids are diagnostic only; the generation rotates
+  before any new command can be accepted.
+- Corrupt/partial/newer data: unknown versions, non-finite state, invalid counts and
+  exhausted epochs fail closed to the legacy pose. Atomic JSON quarantines an unreadable
+  whole document using its existing `.broken` mechanism.
+- Stall safety: the backlog is consumed after the cap, not retained; pressure is visible.
+- Rollback: legacy pose fields continue updating and schema additions are optional.
+- Concurrency: all mutation remains on the single poll loop; snapshots are written by
+  the existing atomic writer.
+- Lifecycle: dock capture writes a settled checkpoint; moving restore becomes active;
+  pilot and aboard connections never resurrect.
+
+Known dependency: exact per-generator fuel durability must be completed by the fuel
+lifecycle track using stable part identities. Treating pooled hull fuel as durable here
+would break retail's “fuel travels with the generator” rule.
+
+## Period 4 — testing and non-production acceptance
+
+Automated coverage includes jitter accumulation, exact step counts, deterministic
+state hashes under different batching, deliberate one-second stalls, catch-up cap and
+pressure counters, one publication for twelve physics steps, legacy JSON, unsupported
+and non-finite snapshots, atomic round-trip, capture/destroy/restore/resume, authority
+epoch rotation, stale-token rejection, schema-18 pressure serialization, and source
+wiring/mutation guards.
+
+Non-production restart acceptance procedure:
+
+1. Back up `world-state.json`; use a disposable undocked ship and no passengers.
+2. Start with `WAREBORN_FLIGHT_FIXED_STEP=1`; keep all vector/collision feature flags off.
+3. Fly at moderate forward throttle for at least four seconds. Record hull id, position,
+   velocity, authority generation, fixed-clock counters and current 1130 cadence.
+4. Stop the process only after observing a fresh `FlightSnapshot` in the atomic file.
+5. Restart without a client at the helm. Confirm the hull restores near the checkpoint,
+   generation is exactly saved+1, pilot is null, input is neutral, and the moving hull
+   coasts rather than teleporting or accepting the old command.
+6. Reconnect, check out the ship, man the helm and test neutral/forward/idle/reverse.
+   Confirm 1130 remains about 0.24 seconds and `droppedSteps=0` in normal operation.
+7. On a disposable process inject a 1-second poll stall. Confirm at most 25 catch-up
+   steps, a nonzero dropped count/pressure event, no packet burst and service recovery.
+8. Restore the backup or disable `WAREBORN_FLIGHT_FIXED_STEP` for immediate rollback.
+
+Production activation is intentionally not part of this changeset.
