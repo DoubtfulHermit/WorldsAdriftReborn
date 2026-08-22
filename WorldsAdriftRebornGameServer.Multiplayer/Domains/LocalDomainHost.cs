@@ -15,6 +15,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
     {
         private readonly Dictionary<SimulationDomainId, ILocalSimulationDomain> _domains = new();
         private readonly Dictionary<long, SimulationDomainId> _ownerByEntity = new();
+        // This is the inverse of _ownerByEntity, not a second source of truth.
+        // Keeping it current makes one-domain refresh/removal proportional to that
+        // domain's membership instead of scanning every entity in the world.
+        private readonly Dictionary<SimulationDomainId, HashSet<long>> _membersByDomain = new();
         private readonly HashSet<long> _globals = new();
 
         public IReadOnlyList<ILocalSimulationDomain> Domains =>
@@ -33,9 +37,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
             if (domain == null) throw new ArgumentNullException(nameof(domain));
             if (_domains.ContainsKey(domain.Id))
                 throw new ArgumentException("domain '" + domain.Id + "' is already hosted", nameof(domain));
-            ValidateAssignments(domain.Id, domain.EntityIds);
+            long[] desired = domain.EntityIds.ToArray();
+            ValidateAssignments(domain.Id, desired);
             _domains.Add(domain.Id, domain);
-            foreach (long entityId in domain.EntityIds) _ownerByEntity.Add(entityId, domain.Id);
+            var members = new HashSet<long>(desired);
+            _membersByDomain.Add(domain.Id, members);
+            foreach (long entityId in members) _ownerByEntity.Add(entityId, domain.Id);
         }
 
         /// <summary>Atomically replaces the indexed membership with the domain's live membership.</summary>
@@ -48,10 +55,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
 
             long[] desired = domain.EntityIds.Distinct().ToArray();
             ValidateAssignments(domain.Id, desired);
-            foreach (long current in _ownerByEntity
-                .Where(x => x.Value == domain.Id).Select(x => x.Key).ToArray())
+            HashSet<long> indexed = _membersByDomain[domain.Id];
+            foreach (long current in indexed)
                 _ownerByEntity.Remove(current);
-            foreach (long entityId in desired) _ownerByEntity.Add(entityId, domain.Id);
+            indexed.Clear();
+            foreach (long entityId in desired)
+            {
+                _ownerByEntity.Add(entityId, domain.Id);
+                indexed.Add(entityId);
+            }
         }
 
         public void Assign(long entityId, SimulationDomainId domainId)
@@ -73,6 +85,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
             }
             AddToDomain(domain, entityId);
             _ownerByEntity.Add(entityId, domainId);
+            _membersByDomain[domainId].Add(entityId);
         }
 
         public void Move(long entityId, SimulationDomainId expectedSource, SimulationDomainId destination)
@@ -92,6 +105,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
                     + "' did not contain entity " + entityId);
             }
             _ownerByEntity[entityId] = destination;
+            _membersByDomain[expectedSource].Remove(entityId);
+            _membersByDomain[destination].Add(entityId);
         }
 
         public bool Unassign(long entityId, SimulationDomainId expectedOwner)
@@ -100,6 +115,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
                 || current != expectedOwner) return false;
             if (!RemoveFromDomain(_domains[expectedOwner], entityId))
                 throw new InvalidOperationException("host index and domain membership diverged for entity " + entityId);
+            _membersByDomain[expectedOwner].Remove(entityId);
             return _ownerByEntity.Remove(entityId);
         }
 
@@ -113,9 +129,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
 
         public bool RemoveDomain(SimulationDomainId id)
         {
-            if (!_domains.Remove(id)) return false;
-            foreach (long entityId in _ownerByEntity.Where(x => x.Value == id).Select(x => x.Key).ToArray())
+            if (!_domains.ContainsKey(id)) return false;
+            if (!_membersByDomain.TryGetValue(id, out HashSet<long>? members))
+                throw new InvalidOperationException("domain '" + id + "' has no reverse membership index");
+            _domains.Remove(id);
+            foreach (long entityId in members)
                 _ownerByEntity.Remove(entityId);
+            _membersByDomain.Remove(id);
             return true;
         }
 
@@ -128,21 +148,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Domains
             var inconsistencies = new List<string>();
             foreach (ILocalSimulationDomain domain in _domains.Values)
             {
-                foreach (long entityId in domain.EntityIds)
+                HashSet<long> live = new HashSet<long>(domain.EntityIds);
+                if (!_membersByDomain.TryGetValue(domain.Id, out HashSet<long>? indexedMembers))
+                {
+                    inconsistencies.Add("domain " + domain.Id + " has no reverse membership index");
+                    indexedMembers = new HashSet<long>();
+                }
+                foreach (long entityId in live)
                 {
                     if (!_ownerByEntity.TryGetValue(entityId, out SimulationDomainId indexed)
                         || indexed != domain.Id)
                         inconsistencies.Add("domain " + domain.Id + " contains " + entityId
                             + " but host index says " + (indexed.Value ?? "<none>"));
                 }
+                foreach (long entityId in indexedMembers)
+                {
+                    if (!live.Contains(entityId))
+                        inconsistencies.Add("reverse index assigns " + entityId + " to " + domain.Id
+                            + " but the domain does not contain it");
+                }
             }
             foreach ((long entityId, SimulationDomainId owner) in _ownerByEntity)
             {
                 if (!_domains.TryGetValue(owner, out ILocalSimulationDomain? domain))
                     inconsistencies.Add("host index points " + entityId + " at missing domain " + owner);
-                else if (!domain.EntityIds.Contains(entityId))
+                else if (!_membersByDomain.TryGetValue(owner, out HashSet<long>? members)
+                    || !members.Contains(entityId))
                     inconsistencies.Add("host index assigns " + entityId + " to " + owner
-                        + " but the domain does not contain it");
+                        + " but the reverse index does not contain it");
                 if (_globals.Contains(entityId))
                     inconsistencies.Add("entity " + entityId + " is both global and domain-owned");
                 if (!expectedSet.Contains(entityId))

@@ -155,5 +155,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Domains
             Assert.Contains(report.Inconsistencies, message => message.Contains("domain ship:70 contains 71"));
             Assert.Throws<InvalidOperationException>(() => host.EnsureComplete(new long[] { 70, 71 }));
         }
+
+        [Fact]
+        public void Synchronize_repairs_reverse_membership_after_live_domain_change()
+        {
+            var host = new LocalDomainHost();
+            var ship = new ShipDomain(70, 0,
+                new FlightSession(FlightState.AtRestAt(0, 0, 0)));
+            ship.ReplaceMembers(new long[] { 71 }, new long[] { 72 });
+            host.Register(ship);
+
+            ship.ReplaceMembers(new long[] { 73 }, new long[] { 74 });
+            host.Synchronize(ship);
+
+            Assert.Null(host.OwnerOf(71));
+            Assert.Null(host.OwnerOf(72));
+            Assert.Equal(ship.Id, host.OwnerOf(73));
+            Assert.Equal(ship.Id, host.OwnerOf(74));
+            DomainOwnershipSummary report = host.EnsureComplete(new long[] { 70, 73, 74 });
+            Assert.Empty(report.Inconsistencies);
+        }
+
+        [Fact]
+        public void Remove_domain_clears_only_its_reverse_index_members()
+        {
+            var host = new LocalDomainHost();
+            IslandDomain haven = Island("haven", "haven-region");
+            IslandDomain trades = Island("trades", "trades-region");
+            host.Register(haven);
+            host.Register(trades);
+            for (long id = 1; id <= 100; id++)
+                host.Assign(id, id <= 50 ? haven.Id : trades.Id);
+
+            Assert.True(host.RemoveDomain(haven.Id));
+
+            for (long id = 1; id <= 50; id++) Assert.Null(host.OwnerOf(id));
+            for (long id = 51; id <= 100; id++) Assert.Equal(trades.Id, host.OwnerOf(id));
+            Assert.False(host.RemoveDomain(haven.Id));
+        }
     }
 }
