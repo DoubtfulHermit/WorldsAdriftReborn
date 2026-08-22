@@ -46,14 +46,26 @@ namespace WorldsAdriftRebornGameServer.Game
             FixedPointPosition destination, out long hullEntityId)
         {
             hullEntityId = 0;
-            double nearestSquared = ShipRestoreReadinessPolicy.MaximumShipDistanceMetres
-                * ShipRestoreReadinessPolicy.MaximumShipDistanceMetres;
+            double nearestSquared = double.PositiveInfinity;
             foreach (ShipDomain domain in _domains.All)
             {
-                FixedPointPosition pose;
-                if (!WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(
-                        domain.HullEntityId, out pose, out _))
-                    pose = _registry.TransformSeedFor(domain.HullEntityId);
+                FixedPointPosition pose = _registry.TransformSeedFor(domain.HullEntityId);
+                uint rotation = _registry.RotationSeedFor(domain.HullEntityId);
+                if (WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(
+                        domain.HullEntityId, out FixedPointPosition flown, out uint flownRotation))
+                {
+                    pose = flown;
+                    rotation = flownRotation;
+                }
+                byte[]? bytes = BuiltShips.HullBytesFor(domain.HullEntityId);
+                if (bytes == null || !ShipPlanModel.TryDecode(bytes,
+                        out ShipPlanModel? plan, out _) || plan == null) continue;
+                ShipHullMetrics metrics = ShipHullMetrics.Measure(plan);
+                double yaw = ShipyardDockingPolicy.YawFromPacked(rotation);
+                if (!ShipRestoreReadinessPolicy.IsWithinHullEnvelope(metrics,
+                        pose.MetresX, pose.MetresY, pose.MetresZ, yaw,
+                        destination.MetresX, destination.MetresY, destination.MetresZ))
+                    continue;
                 double dx = destination.MetresX - pose.MetresX;
                 double dy = destination.MetresY - pose.MetresY;
                 double dz = destination.MetresZ - pose.MetresZ;

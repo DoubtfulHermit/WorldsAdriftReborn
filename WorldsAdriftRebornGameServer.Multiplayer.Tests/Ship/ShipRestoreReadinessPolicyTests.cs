@@ -31,5 +31,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.False(ShipRestoreReadinessPolicy.IsReady(
                 10, new long[] { 0 }, new HashSet<long> { 10, 0 }));
         }
+
+        [Fact]
+        public void Authored_rotated_hull_envelope_distinguishes_deck_from_island_below()
+        {
+            var hull = new ShipHullMetrics(3, 1, 0, 2,
+                beamMetres: 4.54, keelMetres: 12,
+                bowLocalZMetres: 10, sternLocalZMetres: -2,
+                deckPlaneMetres: 3.4);
+
+            Assert.True(ShipRestoreReadinessPolicy.IsWithinHullEnvelope(hull,
+                17212.373, -283.315, -1130.451, -2.58,
+                17209.959, -279.786, -1131.338));
+            Assert.False(ShipRestoreReadinessPolicy.IsWithinHullEnvelope(hull,
+                17212.373, -283.315, -1130.451, -2.58,
+                17209.959, -313.4, -1131.338));
+            Assert.False(ShipRestoreReadinessPolicy.IsWithinHullEnvelope(hull,
+                17212.373, -283.315, -1130.451, -2.58,
+                17250, -279.786, -1131.338));
+        }
     }
 }

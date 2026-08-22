@@ -621,24 +621,27 @@ namespace WorldsAdriftRebornGameServer.Game
                 // the player's confirmed ground, so the streamer cannot unload it.
                 requiredWorldEntityKey: registered?.WorldEntityKey);
 
-            // Open sky is safe only when it is actually a ship. Preload that
+            // A ship deck wins over a broad island envelope. Preload that
             // domain around the stored coordinate and wait for the client's own
             // component-interest requests for the root and every deck. Sending
             // first creates a circular dependency: resource interest moves only
             // after landing, while the collider is needed before landing.
-            if (location.Kind == IslandLocationKind.OpenSky && peer != null)
+            if (peer != null)
             {
                 ShipDomainInterestService.RestoreCheckoutStatus shipStatus =
                     WorldsAdriftRebornGameServer.ShipInterest.RequestRestoreDestination(
                         peer, stored!.Value, out long restoreHull);
                 if (shipStatus == ShipDomainInterestService.RestoreCheckoutStatus.Unknown)
                 {
-                    Console.WriteLine("[warning] " + LogoutRestoreReason + ": entity " + entityId
-                        + " stays at " + TeleportPolicy.SafeDestination.Name
-                        + "; its open-sky logout position is not within 40 m of a live ship.");
-                    return false;
+                    if (location.Kind == IslandLocationKind.OpenSky)
+                    {
+                        Console.WriteLine("[warning] " + LogoutRestoreReason + ": entity " + entityId
+                            + " stays at " + TeleportPolicy.SafeDestination.Name
+                            + "; its open-sky logout position is not inside a live hull envelope.");
+                        return false;
+                    }
                 }
-                if (shipStatus == ShipDomainInterestService.RestoreCheckoutStatus.Ready)
+                else if (shipStatus == ShipDomainInterestService.RestoreCheckoutStatus.Ready)
                 {
                     bool sent = Send(peerId.Value, entityId, home, LogoutRestoreReason);
                     if (sent)
@@ -648,21 +651,23 @@ namespace WorldsAdriftRebornGameServer.Game
                             peer, restoreHull);
                     return sent;
                 }
-
-                _pendingTerrain[entityId] = new PendingTerrainTeleport
+                else
                 {
-                    PeerId = peerId.Value,
-                    EntityId = entityId,
-                    Destination = home,
-                    Deadline = _terrainWaitClock.Elapsed + TimeSpan.FromSeconds(35),
-                    Reason = LogoutRestoreReason,
-                    IsRestore = true,
-                    RequiredShipHullId = restoreHull,
-                };
-                Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
-                    + " held at " + TeleportPolicy.SafeDestination.Name + " while ship "
-                    + restoreHull + " root/deck colliders materialize (up to 35 s).");
-                return true;
+                    _pendingTerrain[entityId] = new PendingTerrainTeleport
+                    {
+                        PeerId = peerId.Value,
+                        EntityId = entityId,
+                        Destination = home,
+                        Deadline = _terrainWaitClock.Elapsed + TimeSpan.FromSeconds(35),
+                        Reason = LogoutRestoreReason,
+                        IsRestore = true,
+                        RequiredShipHullId = restoreHull,
+                    };
+                    Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
+                        + " held at " + TeleportPolicy.SafeDestination.Name + " while ship "
+                        + restoreHull + " root/deck colliders materialize (up to 35 s).");
+                    return true;
+                }
             }
 
             if (outcome.Decision == SpawnRestoreDecision.Place)
