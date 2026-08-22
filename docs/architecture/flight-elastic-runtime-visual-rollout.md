@@ -6,18 +6,82 @@ player-facing companion to `elastic-runtime-phases.md` and
 
 The purpose of this plan is not to switch everything on. It is to change one
 observable authority behavior at a time, prove it in the real client, preserve
-evidence, and retain a tested rollback after every step.
+evidence, and retain a tested rollback after every step. The numbered checks are
+observations inside a session, **not separate game launches**.
+
+## 0. Acceptance sessions — approximately nine launches, not 128
+
+Compatible checks are grouped into the packs below. The user normally opens the
+game once at the start of a pack and remains connected while Codex marks test
+boundaries, captures telemetry and changes only safe runtime/per-hull selectors.
+The game is closed only where the pack explicitly requires a server restart.
+
+| Pack | What is grouped | Expected user launches/reconnects | Approximate active time |
+|---:|---|---:|---:|
+| A | Universal baseline + already-live world bounds | 1 launch | 45–60 min |
+| B | Retail residual drag + sail power 840 + ship-domain/part alignment | 1 launch | 35–50 min |
+| C | Fixed clock + durable snapshot + vector/collision shadow telemetry | 1 initial launch, 2 planned reconnects | 45–60 min |
+| D | Fuel/propulsion lifecycle on the engine test rig | 1 launch, 1 planned reconnect | 30–45 min |
+| E | Vector authority + lift/gravity/overload + collision shadow | 1 launch | 45–60 min |
+| F | Collision response + docking + two-client coherence | 1 launch per tester | 45–75 min |
+| G | Wind-wall/storm force + separately gated damage | 1 launch | 35–60 min |
+| H | Final multiplayer/performance soak | 1 launch per tester | 60–90 min |
+| I | Same-host/remote worker + empty-island and ship migration/failure | 1 launch per tester; restart only if recovery fails | 60–90 min |
+
+Thus the normal path is about **nine purposeful game sessions**. Packs C and D
+contain deliberate persistence restarts; those are the feature being tested and
+cannot be removed without ceasing to test restart correctness. A failed pack may
+require an additional rollback reconnect, but later packs do not proceed until
+the failure is understood.
+
+### How checks are combined inside one launch
+
+- The universal smoke checks are performed while walking to the craft needed for
+  the pack; they are not repeated as a separate ceremony.
+- Acceleration, heading, one/two-sail behavior, component alignment and stopping
+  are one continuous flight in Pack B.
+- Shadow systems run beside the authoritative system and are inspected during
+  movements the user was already going to perform.
+- Collision response flows directly into docking in Pack F: slow approach,
+  contact, capture, departure and a second-ship contention test use the same two
+  disposable ships.
+- Wall distance, direction, torque, collision ordering and damage use successive
+  crossings of one chosen wall in Pack G.
+- Multiplayer checks are sampled during each relevant pack; Pack H is the final
+  long soak, not the first time a second player appears.
+
+### Runtime test controls required before later packs
+
+Boot-only global flags are acceptable for Packs B–D because those systems own
+restart or global-clock behavior. Before Packs E–I are integrated, the server
+must gain authenticated, audited **test-cohort controls** that can promote or
+demote one stable disposable hull/domain at a time without restarting the game
+or changing unrelated ships. Each change must:
+
+1. rotate the domain authority generation;
+2. reject stale commands from the previous mode;
+3. publish the selected mode and transition time in World Inspector;
+4. fail closed if snapshot/collision/worker prerequisites are absent;
+5. provide an immediate rollback to the last accepted authority mode.
+
+These controls reduce client relaunches without hiding multiple simultaneous
+changes. Codex marks a timestamp before each promotion, waits for the inspector
+to confirm it, and asks the user to begin the next numbered action. If a stage
+fails, the current hull is demoted and the rest of the pack stops.
 
 ## 1. Rollout rules
 
-1. **One behavioral switch per run.** A build may contain several default-off
-   foundations, but only the named phase changes live behavior.
+1. **One behavioral transition at a marked test boundary.** A build and one game
+   session may contain several compatible default-off foundations, but Codex
+   promotes only the named per-hull/domain behavior, records the transition and
+   completes its checks before promoting the next one.
 2. **Automation before visuals.** Full relevant tests, Release builds, diff
    checks and configuration-source tests must pass before the user is asked to
    open the game.
 3. **No restart with players connected.** The user explicitly closes the game
    before every game-server restart.
-4. **Every deploy uses `tools/deploy-game.sh`.** It protects the canonical data
+4. **Every deploy uses `tools/deploy-game.sh`.** Several compatible default-off
+   tracks may share that deployment. The tool protects the canonical data
    link, native SDK and world-state hash and refuses connected players.
 5. **Back up both code and state.** Record the backup path, build, schema,
    environment switches and `world-state.json` hash before the restart.
@@ -86,8 +150,8 @@ The user records:
 
 ## 3. Universal visual smoke test
 
-Run this abbreviated set after every behavior-changing phase before its special
-tests:
+Run this abbreviated set once at the start of each acceptance pack, then repeat
+only the affected item after an in-session behavior transition:
 
 - [ ] **U-01 Login:** spawn on solid terrain or deck; no fall, old-position snap
       or extended loading-screen stall.
@@ -118,20 +182,15 @@ test to “see whether it gets worse.”
 
 | Order | Phase | Live change | Required craft/clients | Rollback |
 |---:|---|---|---|---|
-| 0 | Baseline and bounds debt | No new switch | B / one client | none |
-| 1 | Retail residual drag | Correct drag order only | A / one | legacy drag build or temporary compatibility flag |
-| 2 | Sail calibration | 420 → 840 only | A, then B / one | `WAREBORN_FLIGHT_SAIL_POWER=420` |
-| 3 | Fixed clock and snapshots | `WAREBORN_FLIGHT_FIXED_STEP=1` | B, then A / one | flag `0` + restart |
-| 4 | Fuel lifecycle | `WAREBORN_FUEL_HULL_DEMAND=1` | C / one | flag `0` + restart |
-| 5 | Vector shadow | telemetry only | A and B / one | disable shadow |
-| 6 | Vector flight authority | per-hull opt-in | B, then A / one and two | return selected hull to scalar authority |
-| 7 | Lift, gravity and overload | per-hull opt-in | B / one | disable for selected hull |
-| 8 | Collision shadow | telemetry only | B / one and two | disable shadow |
-| 9 | Collision response | per-hull, damage off | B / one and two | disable response |
-| 10 | Authentic docking | per-hull/yard opt-in | B / one and two | legacy docking + restore association |
-| 11 | Wall/storm forces | force-only, then damage | B / one and two | zero per-type tuning / disable damage |
-| 12 | Scale and multiplayer | no new mechanics | synthetic fleet + two clients | reduce cohort/caps |
-| 13 | Remote worker | empty island → empty ship → crewed ship | staged / two | authority transfer back to `local:primary` |
+| 0 / A | Baseline and bounds debt | No new switch | B / one client | none |
+| 1–2 / B | Retail residual drag, then 420 → 840 sails | Two marked measurements in one flight session | A, then B / one | legacy drag build; sail override 420 |
+| 3+5 / C | Fixed clock/snapshots with vector and collision shadows | Clock authority changes; shadows observe only | B, then A / one | fixed-step flag `0`; disable shadows |
+| 4 / D | Fuel lifecycle | `WAREBORN_FUEL_HULL_DEMAND=1` | C / one | flag `0` + restart |
+| 6–8 / E | Vector authority, lift and collision shadow | Sequential per-hull cohort promotion | B / one | demote selected hull at each boundary |
+| 9–10 / F | Collision response and authentic docking | Sequential per-hull/yard promotion | B / one and two | disable response; restore docking association |
+| 11 / G | Wall/storm forces, then damage | Force and damage are separately marked | B / one and two | zero tuning / disable damage |
+| 12 / H | Scale and multiplayer | No new mechanics | synthetic fleet + two clients | reduce cohort/caps |
+| 13 / I | Remote worker | empty island → empty ship → crewed ship | staged / two | transfer authority to `local:primary` |
 
 Phases 5–11 do not yet have live switches in production. Adding a bounded,
 observable, default-off switch—preferably a stable hull allowlist rather than a
