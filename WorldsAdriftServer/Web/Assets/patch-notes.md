@@ -1,9 +1,27 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 699 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 717 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-22 | 3 commits
+## 2026-08-22 | 21 commits
 
+* c2348ca Record final retail flight program integration
+* 3c944db Gate the authoritative fuel lifecycle rollout
+* fc02ef6 Cross-review fuel wall and worker foundations
+* 325eb8f Add bounded worker authority foundations
+* 515dccb Add deterministic vector wall and storm shadow policies
+* 80c19cd Make fuel follow authoritative hull propulsion
+* ee37c55 Record flight waves one and two consolidation
+* da109eb Integrate flight shadow force collision and docking policies
+* b82368c Prepare authentic docking lifecycle
+* bc1d65a Add deterministic collision shadow primitives
+* 0159c86 Add authentic lift and overload shadow policies
+* fd5a21f Harden vector shadow inputs
+* bda1f15 Record flight wave one mutation review
+* 31db3a4 Integrate flight wave one seams
+* 40b5db4 Add deterministic vector flight shadow primitives
+* 25aa300 Add fixed flight clock and durable snapshots
+* e2bc98d Harden retail world-boundary stepping
+* 11931bd Define the retail flight reconstruction program
 * dbc41e6 Record the retail flight reconstruction phases
 * c3699fa Enable recovered retail flight bounds
 * 560885b Add opt-in retail world flight bounds
