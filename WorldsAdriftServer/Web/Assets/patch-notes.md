@@ -1,9 +1,12 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 693 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 696 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-22 | 32 commits
+## 2026-08-22 | 35 commits
 
+* e17cc53 Increase sail power within recovered balance bracket
+* 68ba949 Restore retail residual ship drag
+* fcd7fb0 Complete ship restores on authoritative boarding
 * c5ef3ca Prefer exact ship decks during logout restore
 * 705cde8 Gate ship logout restores on collider checkout
 * 2d5f2df Stage boundary test ships safely
