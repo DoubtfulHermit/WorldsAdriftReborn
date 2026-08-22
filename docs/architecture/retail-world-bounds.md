@@ -1,7 +1,8 @@
 # Retail flight world bounds
 
-Status: implemented behind `WAREBORN_FLIGHT_WORLD_BOUNDS=1`; disabled by
-default; not enabled or deployed by this changeset.
+Status: implemented behind `WAREBORN_FLIGHT_WORLD_BOUNDS=1` and enabled in
+production on 2026-08-22 by build `a70d4f1`. The code default remains OFF so a
+new deployment cannot silently select this behavior without explicit config.
 
 ## Preserved evidence
 
@@ -65,5 +66,4 @@ Simulation/Infrastructure ship detail renders it. It is observation, not a
 control surface.
 
 This slice does not add component 1250, client changes, collision, quaternion or
-6DOF physics, a general fixed-step accumulator, live configuration, deployment,
-or authority migration.
+6DOF physics, a general fixed-step accumulator, or authority migration.

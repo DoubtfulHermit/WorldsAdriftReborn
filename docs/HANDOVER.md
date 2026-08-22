@@ -20,6 +20,20 @@ then follow the narrower documents it links. Do not treat old roadmap entries,
 downloaded design briefs, branch names, or chat summaries as proof that code is
 implemented.
 
+### Current production correction (2026-08-22)
+
+The historical snapshot header above is retained for context but is no longer
+the deployed baseline. Production game and login are now build `a70d4f1`.
+Stats schema v17 is live, `WAREBORN_FLIGHT_WORLD_BOUNDS=1` is enabled, and the
+recovered release-world flight boundaries report 36 km / +/-17600 m push /
++/-17700 m clamp / 800 m vertical push / 1000 m vertical clamp. The same deploy
+includes secured sail/helm and part authority, sail-only flight activation,
+mounted-part flight mass and one runtime/admin force evaluator. Both services
+were clean after restart with `47` island domains, `5` ship domains,
+`owned=3788`, `unowned=0`, `duplicates=0`. Rollback is at
+`/opt/wareborn/backups/pre-flight-bounds-a70d4f1/`. The dependency-gated next
+work is [retail-flight-reconstruction-plan.md](architecture/retail-flight-reconstruction-plan.md).
+
 ## 1. First 15 minutes
 
 1. Work in `/home/ttanurhan/Games/wareborn-loading` unless the user
