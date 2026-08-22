@@ -77,6 +77,11 @@ invalid quarantine, zero-step sail wake, jitter, stall dropping, one emission de
 per batch, moving snapshot restore, authority rotation, stale-token rejection,
 schema projection, vector determinism and vector input ceilings.
 
+Three representative mutations were applied separately and restored before the clean
+run: duplicating each fixed integration failed the matrix test; removing durable
+restore's OFF gate failed the lifecycle wiring guard; removing `fixedClock` from the
+login allowlist failed the schema-18 cross-process projection test.
+
 Live acceptance remains required before enabling fixed stepping: disposable undocked
 hull, no passengers, normal 240 ms publication, no dropped steps under ordinary load,
 captured moving checkpoint, clean restart/coast, old-token rejection, one injected
