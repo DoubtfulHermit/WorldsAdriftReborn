@@ -1,9 +1,10 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 697 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 696 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-22 | 30 commits
+## 2026-08-22 | 31 commits
 
+* 705cde8 Gate ship logout restores on collider checkout
 * 2d5f2df Stage boundary test ships safely
 * f94a2d4 Add exact player acceptance scripts
 * d8af77e Group visual acceptance into test sessions
@@ -731,7 +732,7 @@ Every commit, newest first. 697 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 13 commits
+## 2026-08-07 | 11 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -744,9 +745,7 @@ Every commit, newest first. 697 of them since 2026-08-07. Merges are left out - 
 * 0044868 Make the anti-yeet neutralize deterministic: run it in FixedUpdate
 * fc765fa Phase 4a: replicate the grapple rope line
 * 0c6e860 Roadmap: mark Phases 1a/2/3 + yeet fix done; flag Phase 4 as the hard frontier
-* 4d06732 Fix 'yeet into the sky on second join': neutralize remote rig physics on frame one
-* deeb606 Phase 3: replicate the glider via UtilitySlotActivatedState (6910)
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 164 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 166 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
