@@ -1,9 +1,10 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 698 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 699 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-22 | 2 commits
+## 2026-08-22 | 3 commits
 
+* dbc41e6 Record the retail flight reconstruction phases
 * c3699fa Enable recovered retail flight bounds
 * 560885b Add opt-in retail world flight bounds
 
