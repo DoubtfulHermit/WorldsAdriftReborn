@@ -4,6 +4,11 @@ This plan evolves the existing native Linux game server without changing the
 legacy client's one-server view. Every phase must work in the current process
 and poll loop before a process boundary is introduced.
 
+The controlled enablement order and player-facing visual acceptance catalogue
+are maintained in `flight-elastic-runtime-visual-rollout.md`. A phase described
+as implemented below is not production-accepted until its applicable visual and
+operator gates in that playbook pass.
+
 ## Invariants
 
 - The client connects to one endpoint and speaks the existing protocol.

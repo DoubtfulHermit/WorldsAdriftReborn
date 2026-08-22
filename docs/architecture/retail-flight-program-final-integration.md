@@ -4,6 +4,10 @@ Status: complete locally on `integ/flight-program-consolidation`. Nothing in thi
 worktree has been pushed, merged to main, deployed, enabled, restarted, or added
 to a client manifest.
 
+The later merged/default-off state and the controlled production enablement
+sequence are tracked in `flight-elastic-runtime-visual-rollout.md`. Its visual
+tests are required in addition to the automated gates recorded here.
+
 ## Integrated dependency stack
 
 The program starts from production planning head `11931bd` and preserves the
