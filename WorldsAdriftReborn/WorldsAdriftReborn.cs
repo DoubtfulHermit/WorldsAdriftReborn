@@ -103,6 +103,14 @@ namespace WorldsAdriftReborn
             // of the hull mesh - if that decode is axis-swapped relative to what
             // the client actually draws, only the rendered numbers can show it.
             gameObject.AddComponent<Patching.Flight.OrientationProbe>();
+
+            // Explicitly opt-in local semantic control for repeatable acceptance
+            // testing. It binds loopback only and requires a per-run token; the
+            // component is not even created for ordinary clients.
+            if (Patching.Automation.LocalTestBridge.ShouldStart())
+            {
+                gameObject.AddComponent<Patching.Automation.LocalTestBridge>();
+            }
         }
 
         /// <summary>
