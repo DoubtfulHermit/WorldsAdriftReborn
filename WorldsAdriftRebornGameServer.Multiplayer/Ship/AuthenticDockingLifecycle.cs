@@ -1,4 +1,5 @@
 using System;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 {
@@ -42,19 +43,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     {
         public DockingPose(double x, double y, double z, double yawRadians)
         {
-            X = x; Y = y; Z = z; YawRadians = NormalizeYaw(yawRadians);
+            Position = new ShadowVector3(x, y, z);
+            YawRadians = NormalizeYaw(yawRadians);
         }
 
-        public double X { get; }
-        public double Y { get; }
-        public double Z { get; }
+        public ShadowVector3 Position { get; }
+        public double X => Position.X;
+        public double Y => Position.Y;
+        public double Z => Position.Z;
         public double YawRadians { get; }
-        public bool IsFinite => Finite(X) && Finite(Y) && Finite(Z) && Finite(YawRadians);
+        public bool IsFinite => Position.IsFinite && Finite(YawRadians);
 
         public double DistanceTo(DockingPose other)
         {
-            double dx = other.X - X, dy = other.Y - Y, dz = other.Z - Z;
-            return Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            return (other.Position - Position).Magnitude;
         }
 
         /// <summary>
@@ -94,15 +96,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     {
         public DockingMotion(double vx, double vy, double vz, double angularSpeedRadiansPerSecond)
         {
-            Vx = vx; Vy = vy; Vz = vz; AngularSpeedRadiansPerSecond = angularSpeedRadiansPerSecond;
+            LinearVelocity = new ShadowVector3(vx, vy, vz);
+            AngularSpeedRadiansPerSecond = angularSpeedRadiansPerSecond;
         }
 
-        public double Vx { get; }
-        public double Vy { get; }
-        public double Vz { get; }
+        public ShadowVector3 LinearVelocity { get; }
+        public double Vx => LinearVelocity.X;
+        public double Vy => LinearVelocity.Y;
+        public double Vz => LinearVelocity.Z;
         public double AngularSpeedRadiansPerSecond { get; }
-        public double LinearSpeed => Math.Sqrt(Vx * Vx + Vy * Vy + Vz * Vz);
-        public bool IsFinite => Finite(Vx) && Finite(Vy) && Finite(Vz)
+        public double LinearSpeed => LinearVelocity.Magnitude;
+        public bool IsFinite => LinearVelocity.IsFinite
             && Finite(AngularSpeedRadiansPerSecond);
         public static DockingMotion Frozen => default;
         private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
@@ -136,27 +140,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     public readonly struct DockingApproachRequest
     {
         public DockingApproachRequest(long hullEntityId, long yardEntityId,
+            string hullStableKey, string yardStableKey,
             string? hullOwner, string? yardOwner, bool crewAuthorized, bool yardAbandoned,
-            bool yardExists, bool propulsionNeutral, bool collisionClear,
+            bool yardExists, bool propulsionNeutral, CollisionClearanceRecord collisionClearance,
             DockingPose hullPose, DockingPose targetPose, DockingMotion motion)
         {
             HullEntityId = hullEntityId; YardEntityId = yardEntityId;
+            HullStableKey = hullStableKey; YardStableKey = yardStableKey;
             HullOwner = hullOwner; YardOwner = yardOwner;
             CrewAuthorized = crewAuthorized; YardAbandoned = yardAbandoned;
             YardExists = yardExists; PropulsionNeutral = propulsionNeutral;
-            CollisionClear = collisionClear; HullPose = hullPose; TargetPose = targetPose;
+            CollisionClearance = collisionClearance; HullPose = hullPose; TargetPose = targetPose;
             Motion = motion;
         }
 
         public long HullEntityId { get; }
         public long YardEntityId { get; }
+        public string HullStableKey { get; }
+        public string YardStableKey { get; }
         public string? HullOwner { get; }
         public string? YardOwner { get; }
         public bool CrewAuthorized { get; }
         public bool YardAbandoned { get; }
         public bool YardExists { get; }
         public bool PropulsionNeutral { get; }
-        public bool CollisionClear { get; }
+        public CollisionClearanceRecord CollisionClearance { get; }
         public DockingPose HullPose { get; }
         public DockingPose TargetPose { get; }
         public DockingMotion Motion { get; }
@@ -166,12 +174,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     {
         public DockingFrame(double deltaSeconds, bool yardExists, bool permissionValid,
             DockingPropulsion propulsion,
-            bool collisionClear, bool outsideReleaseEnvelope, DockingPose observedPose,
+            CollisionClearanceRecord collisionClearance, bool outsideReleaseEnvelope, DockingPose observedPose,
             DockingMotion observedMotion)
         {
             DeltaSeconds = deltaSeconds; YardExists = yardExists;
             PermissionValid = permissionValid;
-            Propulsion = propulsion; CollisionClear = collisionClear;
+            Propulsion = propulsion; CollisionClearance = collisionClearance;
             OutsideReleaseEnvelope = outsideReleaseEnvelope;
             ObservedPose = observedPose; ObservedMotion = observedMotion;
         }
@@ -181,7 +189,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public bool PermissionValid { get; }
         public DockingPropulsion Propulsion { get; }
         public bool PropulsionNeutral => Propulsion == DockingPropulsion.None;
-        public bool CollisionClear { get; }
+        public CollisionClearanceRecord CollisionClearance { get; }
         public bool OutsideReleaseEnvelope { get; }
         public DockingPose ObservedPose { get; }
         public DockingMotion ObservedMotion { get; }
@@ -236,6 +244,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public DockingPose TargetPose { get; private set; }
         public DockingMotion Motion { get; private set; }
         public DockingPropulsion DeparturePropulsion { get; private set; }
+        public string HullStableKey { get; private set; } = string.Empty;
+        public string YardStableKey { get; private set; } = string.Empty;
+        public long LastCollisionClearanceStep { get; private set; } = -1;
 
         public bool TryBeginApproach(DockingApproachRequest request, ShipDockRegistry claims,
             out DockingRejectReason reason)
@@ -253,6 +264,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             if (reason != DockingRejectReason.None) return false;
 
             YardEntityId = request.YardEntityId;
+            HullStableKey = request.HullStableKey;
+            YardStableKey = request.YardStableKey;
+            LastCollisionClearanceStep = request.CollisionClearance.FixedStep;
             Phase = DockingPhase.Approaching;
             Pose = request.HullPose;
             TargetPose = request.TargetPose;
@@ -303,8 +317,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             {
                 Pose = frame.ObservedPose;
                 Motion = frame.ObservedMotion;
-                if (!frame.CollisionClear)
+                if (!ClearanceMatches(frame.CollisionClearance))
                     return Result(false, false, DockingRejectReason.CollisionBlocked);
+                LastCollisionClearanceStep = frame.CollisionClearance.FixedStep;
                 if (Pose.DistanceTo(TargetPose) <= _tuning.CaptureRadiusMetres
                     && Motion.LinearSpeed <= _tuning.MaximumCaptureSpeedMetresPerSecond
                     && Math.Abs(Motion.AngularSpeedRadiansPerSecond)
@@ -378,6 +393,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                     && claim != ShipDockClaimResult.AlreadyClaimed) return false;
             }
             restored.YardEntityId = phase == DockingPhase.Undocked ? 0 : restoredYardEntityId;
+            restored.HullStableKey = snapshot.HullStableKey ?? string.Empty;
+            restored.YardStableKey = snapshot.YardStableKey ?? string.Empty;
             restored.Phase = phase;
             restored.Pose = pose;
             restored.TargetPose = target;
@@ -399,7 +416,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                     request.CrewAuthorized, request.YardAbandoned))
                 return DockingRejectReason.Unauthorized;
             if (!request.PropulsionNeutral) return DockingRejectReason.PropulsionActive;
-            if (!request.CollisionClear) return DockingRejectReason.CollisionBlocked;
+            if (!ClearanceMatches(request.CollisionClearance,
+                    request.HullStableKey, request.YardStableKey, -1))
+                return DockingRejectReason.CollisionBlocked;
             if (!request.HullPose.IsFinite || !request.TargetPose.IsFinite || !request.Motion.IsFinite)
                 return DockingRejectReason.InvalidSnapshot;
             if (request.HullPose.DistanceTo(request.TargetPose) > _tuning.ApproachRadiusMetres)
@@ -415,6 +434,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             && !double.IsInfinity(frame.DeltaSeconds) && frame.ObservedPose.IsFinite
             && frame.ObservedMotion.IsFinite
             && Enum.IsDefined(typeof(DockingPropulsion), frame.Propulsion);
+
+        private bool ClearanceMatches(CollisionClearanceRecord clearance) =>
+            ClearanceMatches(clearance, HullStableKey, YardStableKey, LastCollisionClearanceStep);
+
+        private static bool ClearanceMatches(CollisionClearanceRecord clearance,
+            string hullStableKey, string yardStableKey, long minimumStep) =>
+            clearance.IsClear && clearance.FixedStep >= minimumStep
+            && string.Equals(clearance.SubjectStableKey, hullStableKey, StringComparison.Ordinal)
+            && string.Equals(clearance.ExpectedTargetStableKey, yardStableKey, StringComparison.Ordinal);
 
         private DockingStepResult Release(ShipDockRegistry claims, DockingRejectReason reason)
         {
@@ -432,6 +460,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         private void Reset()
         {
             YardEntityId = 0; Phase = DockingPhase.Undocked;
+            HullStableKey = string.Empty; YardStableKey = string.Empty;
+            LastCollisionClearanceStep = -1;
             Motion = DockingMotion.Frozen; DeparturePropulsion = DockingPropulsion.None;
         }
 
@@ -450,6 +480,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     {
         public const int CurrentVersion = 1;
         public int Version { get; set; } = CurrentVersion;
+        public string? HullStableKey { get; set; }
+        public string? YardStableKey { get; set; }
         public int Phase { get; set; }
         public double X { get; set; }
         public double Y { get; set; }
@@ -468,6 +500,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public static DockingSnapshotV1 Capture(AuthenticDockingLifecycle lifecycle) => new DockingSnapshotV1
         {
             Phase = (int)lifecycle.Phase,
+            HullStableKey = lifecycle.HullStableKey,
+            YardStableKey = lifecycle.YardStableKey,
             X = lifecycle.Pose.X, Y = lifecycle.Pose.Y, Z = lifecycle.Pose.Z,
             YawRadians = lifecycle.Pose.YawRadians,
             TargetX = lifecycle.TargetPose.X, TargetY = lifecycle.TargetPose.Y,
@@ -491,6 +525,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             motion = new DockingMotion(Vx, Vy, Vz, AngularSpeedRadiansPerSecond);
             departure = (DockingPropulsion)DeparturePropulsion;
             if (!pose.IsFinite || !target.IsFinite || !motion.IsFinite) return false;
+            if (phase != DockingPhase.Undocked
+                && (string.IsNullOrWhiteSpace(HullStableKey)
+                    || string.IsNullOrWhiteSpace(YardStableKey))) return false;
             if (phase != DockingPhase.Departing && departure != DockingPropulsion.None) return false;
             if (phase == DockingPhase.Departing && departure == DockingPropulsion.None) return false;
             return true;

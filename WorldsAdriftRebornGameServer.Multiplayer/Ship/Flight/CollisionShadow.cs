@@ -4,35 +4,15 @@ using System.Linq;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 {
-    /// <summary>Double-precision, engine-free vector for collision policy.</summary>
-    public readonly record struct CollisionVector3(double X, double Y, double Z)
-    {
-        public static readonly CollisionVector3 Zero = new(0.0, 0.0, 0.0);
-        public bool IsFinite => double.IsFinite(X) && double.IsFinite(Y) && double.IsFinite(Z);
-        public double LengthSquared => X * X + Y * Y + Z * Z;
-        public double Length => Math.Sqrt(LengthSquared);
-
-        public static CollisionVector3 operator +(CollisionVector3 a, CollisionVector3 b) =>
-            new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
-        public static CollisionVector3 operator -(CollisionVector3 a, CollisionVector3 b) =>
-            new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
-        public static CollisionVector3 operator *(CollisionVector3 value, double scale) =>
-            new(value.X * scale, value.Y * scale, value.Z * scale);
-        public static CollisionVector3 operator *(double scale, CollisionVector3 value) => value * scale;
-
-        public static double Dot(CollisionVector3 a, CollisionVector3 b) =>
-            a.X * b.X + a.Y * b.Y + a.Z * b.Z;
-    }
-
     /// <summary>Inclusive world-space axis-aligned bounds, in metres.</summary>
-    public readonly record struct CollisionAabb(CollisionVector3 Minimum, CollisionVector3 Maximum)
+    public readonly record struct CollisionAabb(ShadowVector3 Minimum, ShadowVector3 Maximum)
     {
         public bool IsFinite => Minimum.IsFinite && Maximum.IsFinite;
         public bool IsOrdered => Minimum.X <= Maximum.X && Minimum.Y <= Maximum.Y && Minimum.Z <= Maximum.Z;
-        public CollisionVector3 Centre => (Minimum + Maximum) * 0.5;
-        public CollisionVector3 HalfExtents => (Maximum - Minimum) * 0.5;
+        public ShadowVector3 Centre => (Minimum + Maximum) * 0.5;
+        public ShadowVector3 HalfExtents => (Maximum - Minimum) * 0.5;
 
-        public static CollisionAabb FromCentreHalfExtents(CollisionVector3 centre, CollisionVector3 halfExtents) =>
+        public static CollisionAabb FromCentreHalfExtents(ShadowVector3 centre, ShadowVector3 halfExtents) =>
             new(centre - halfExtents, centre + halfExtents);
 
         public bool Overlaps(CollisionAabb other) =>
@@ -40,13 +20,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             Minimum.Y <= other.Maximum.Y && Maximum.Y >= other.Minimum.Y &&
             Minimum.Z <= other.Maximum.Z && Maximum.Z >= other.Minimum.Z;
 
-        public CollisionAabb Swept(CollisionVector3 displacement)
+        public CollisionAabb Swept(ShadowVector3 displacement)
         {
-            CollisionVector3 endMin = Minimum + displacement;
-            CollisionVector3 endMax = Maximum + displacement;
+            ShadowVector3 endMin = Minimum + displacement;
+            ShadowVector3 endMax = Maximum + displacement;
             return new CollisionAabb(
-                new CollisionVector3(Math.Min(Minimum.X, endMin.X), Math.Min(Minimum.Y, endMin.Y), Math.Min(Minimum.Z, endMin.Z)),
-                new CollisionVector3(Math.Max(Maximum.X, endMax.X), Math.Max(Maximum.Y, endMax.Y), Math.Max(Maximum.Z, endMax.Z)));
+                new ShadowVector3(Math.Min(Minimum.X, endMin.X), Math.Min(Minimum.Y, endMin.Y), Math.Min(Minimum.Z, endMin.Z)),
+                new ShadowVector3(Math.Max(Maximum.X, endMax.X), Math.Max(Maximum.Y, endMax.Y), Math.Max(Maximum.Z, endMax.Z)));
         }
     }
 
@@ -64,7 +44,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         string Id,
         CollisionProxyKind Kind,
         CollisionAabb Bounds,
-        CollisionVector3 VelocityMetresPerSecond);
+        ShadowVector3 VelocityMetresPerSecond);
 
     public enum CollisionContactKind
     {
@@ -78,8 +58,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         string FirstId,
         string SecondId,
         double TimeOfImpact,
-        CollisionVector3 Point,
-        CollisionVector3 Normal,
+        ShadowVector3 Point,
+        ShadowVector3 Normal,
         double ClosingSpeedMetresPerSecond,
         bool InitialOverlap);
 
@@ -112,6 +92,54 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         public IReadOnlyList<CollisionShadowContact> Contacts { get; }
         public CollisionShadowTelemetry Telemetry { get; }
+    }
+
+    /// <summary>
+    /// Immutable proof consumed by later policies such as docking. A clear result is
+    /// never inferred from a truncated or rejected collision batch. Stable domain
+    /// keys are used deliberately; runtime entity ids are not persistence identities.
+    /// The expected subject/target overlap may be excluded for a shipyard capture
+    /// volume, while every other contact remains blocking.
+    /// </summary>
+    public readonly record struct CollisionClearanceRecord(
+        string SubjectStableKey,
+        string ExpectedTargetStableKey,
+        long FixedStep,
+        int BlockingContactCount,
+        bool EvaluationComplete)
+    {
+        public bool IsValid => !string.IsNullOrWhiteSpace(SubjectStableKey)
+            && !string.IsNullOrWhiteSpace(ExpectedTargetStableKey)
+            && FixedStep >= 0 && BlockingContactCount >= 0;
+
+        public bool IsClear => IsValid && EvaluationComplete && BlockingContactCount == 0;
+
+        public static CollisionClearanceRecord From(CollisionShadowResult result,
+            string subjectStableKey, string expectedTargetStableKey, long fixedStep)
+        {
+            if (result == null) throw new ArgumentNullException(nameof(result));
+            bool complete = !result.Telemetry.HardInputRejected
+                && !result.Telemetry.DynamicCapReached
+                && !result.Telemetry.TerrainCapReached
+                && !result.Telemetry.PairCapReached
+                && !result.Telemetry.ContactCapReached;
+            int blockers = result.Contacts.Count(contact =>
+                Touches(contact, subjectStableKey)
+                && !IsExpectedPair(contact, subjectStableKey, expectedTargetStableKey));
+            return new CollisionClearanceRecord(subjectStableKey,
+                expectedTargetStableKey, fixedStep, blockers, complete);
+        }
+
+        private static bool Touches(CollisionShadowContact contact, string stableKey) =>
+            string.Equals(contact.FirstId, stableKey, StringComparison.Ordinal)
+            || string.Equals(contact.SecondId, stableKey, StringComparison.Ordinal);
+
+        private static bool IsExpectedPair(CollisionShadowContact contact,
+            string subjectStableKey, string targetStableKey) =>
+            (string.Equals(contact.FirstId, subjectStableKey, StringComparison.Ordinal)
+                && string.Equals(contact.SecondId, targetStableKey, StringComparison.Ordinal))
+            || (string.Equals(contact.SecondId, subjectStableKey, StringComparison.Ordinal)
+                && string.Equals(contact.FirstId, targetStableKey, StringComparison.Ordinal));
     }
 
     /// <summary>Hard complexity and geometry limits. Inputs are server-owned only.</summary>
@@ -175,7 +203,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // pair selection and contact order independent of caller iteration.
             foreach (CollisionProxy hull in dynamics)
             {
-                CollisionVector3 displacement = hull.VelocityMetresPerSecond * stepSeconds;
+                ShadowVector3 displacement = hull.VelocityMetresPerSecond * stepSeconds;
                 CollisionAabb swept = hull.Bounds.Swept(displacement);
                 foreach (CollisionProxy island in terrain)
                 {
@@ -201,17 +229,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     {
                         CollisionProxy first = dynamics[i];
                         CollisionProxy second = dynamics[j];
-                        CollisionVector3 firstDelta = first.VelocityMetresPerSecond * stepSeconds;
-                        CollisionVector3 secondDelta = second.VelocityMetresPerSecond * stepSeconds;
+                        ShadowVector3 firstDelta = first.VelocityMetresPerSecond * stepSeconds;
+                        ShadowVector3 secondDelta = second.VelocityMetresPerSecond * stepSeconds;
                         if (!first.Bounds.Swept(firstDelta).Overlaps(second.Bounds.Swept(secondDelta))) continue;
                         if (candidates >= CollisionShadowLimits.MaxCandidatePairs) { pairCap = true; break; }
                         candidates++;
                         narrowphase++;
-                        CollisionVector3 relativeDelta = firstDelta - secondDelta;
+                        ShadowVector3 relativeDelta = firstDelta - secondDelta;
                         if (TrySweep(first.Bounds, relativeDelta, second.Bounds, out SweepHit hit))
                         {
                             if (contacts.Count >= CollisionShadowLimits.MaxContacts) { contactCap = true; break; }
-                            CollisionVector3 secondMotionAtImpact = secondDelta * hit.Time;
+                            ShadowVector3 secondMotionAtImpact = secondDelta * hit.Time;
                             SweepHit worldHit = hit with { Point = hit.Point + secondMotionAtImpact };
                             contacts.Add(ToContact(CollisionContactKind.HullHull, first, second,
                                 first.VelocityMetresPerSecond - second.VelocityMetresPerSecond, worldHit));
@@ -268,10 +296,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 return false;
             if (!proxy.Bounds.IsFinite || !proxy.Bounds.IsOrdered || !proxy.VelocityMetresPerSecond.IsFinite)
                 return false;
-            if (kind == CollisionProxyKind.IslandTerrain && proxy.VelocityMetresPerSecond != CollisionVector3.Zero)
+            if (kind == CollisionProxyKind.IslandTerrain
+                && !proxy.VelocityMetresPerSecond.Equals(ShadowVector3.Zero))
                 return false;
-            CollisionVector3 centre = proxy.Bounds.Centre;
-            CollisionVector3 half = proxy.Bounds.HalfExtents;
+            ShadowVector3 centre = proxy.Bounds.Centre;
+            ShadowVector3 half = proxy.Bounds.HalfExtents;
             return Math.Abs(centre.X) <= CollisionShadowLimits.MaxAbsoluteCoordinateMetres &&
                 Math.Abs(centre.Y) <= CollisionShadowLimits.MaxAbsoluteCoordinateMetres &&
                 Math.Abs(centre.Z) <= CollisionShadowLimits.MaxAbsoluteCoordinateMetres &&
@@ -279,35 +308,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 half.X <= CollisionShadowLimits.MaxHalfExtentMetres &&
                 half.Y <= CollisionShadowLimits.MaxHalfExtentMetres &&
                 half.Z <= CollisionShadowLimits.MaxHalfExtentMetres &&
-                proxy.VelocityMetresPerSecond.Length <= CollisionShadowLimits.MaxSpeedMetresPerSecond;
+                proxy.VelocityMetresPerSecond.Magnitude <= CollisionShadowLimits.MaxSpeedMetresPerSecond;
         }
 
-        private readonly record struct SweepHit(double Time, CollisionVector3 Point,
-            CollisionVector3 Normal, bool InitialOverlap);
+        private readonly record struct SweepHit(double Time, ShadowVector3 Point,
+            ShadowVector3 Normal, bool InitialOverlap);
 
-        private static bool TrySweep(CollisionAabb moving, CollisionVector3 displacement,
+        private static bool TrySweep(CollisionAabb moving, ShadowVector3 displacement,
             CollisionAabb target, out SweepHit hit)
         {
-            CollisionVector3 origin = moving.Centre;
-            CollisionVector3 half = moving.HalfExtents;
+            ShadowVector3 origin = moving.Centre;
+            ShadowVector3 half = moving.HalfExtents;
             CollisionAabb expanded = new(target.Minimum - half, target.Maximum + half);
 
             if (Contains(expanded, origin))
             {
-                CollisionVector3 normal = MinimumPenetrationNormal(origin, expanded);
+                ShadowVector3 normal = MinimumPenetrationNormal(origin, expanded);
                 hit = new SweepHit(0.0, SurfacePoint(moving.Centre, half, target, normal), normal, true);
                 return true;
             }
 
             double enter = 0.0;
             double exit = 1.0;
-            CollisionVector3 normalAtEnter = CollisionVector3.Zero;
+            ShadowVector3 normalAtEnter = ShadowVector3.Zero;
             if (!Slab(origin.X, displacement.X, expanded.Minimum.X, expanded.Maximum.X,
-                    new CollisionVector3(-1, 0, 0), new CollisionVector3(1, 0, 0), ref enter, ref exit, ref normalAtEnter) ||
+                    new ShadowVector3(-1, 0, 0), new ShadowVector3(1, 0, 0), ref enter, ref exit, ref normalAtEnter) ||
                 !Slab(origin.Y, displacement.Y, expanded.Minimum.Y, expanded.Maximum.Y,
-                    new CollisionVector3(0, -1, 0), new CollisionVector3(0, 1, 0), ref enter, ref exit, ref normalAtEnter) ||
+                    new ShadowVector3(0, -1, 0), new ShadowVector3(0, 1, 0), ref enter, ref exit, ref normalAtEnter) ||
                 !Slab(origin.Z, displacement.Z, expanded.Minimum.Z, expanded.Maximum.Z,
-                    new CollisionVector3(0, 0, -1), new CollisionVector3(0, 0, 1), ref enter, ref exit, ref normalAtEnter) ||
+                    new ShadowVector3(0, 0, -1), new ShadowVector3(0, 0, 1), ref enter, ref exit, ref normalAtEnter) ||
                 enter < -CollisionShadowLimits.Epsilon || enter > 1.0 + CollisionShadowLimits.Epsilon)
             {
                 hit = default;
@@ -315,14 +344,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             }
 
             double time = Math.Clamp(enter, 0.0, 1.0);
-            CollisionVector3 centre = origin + displacement * time;
+            ShadowVector3 centre = origin + displacement * time;
             hit = new SweepHit(time, SurfacePoint(centre, half, target, normalAtEnter), normalAtEnter, false);
             return true;
         }
 
         private static bool Slab(double origin, double displacement, double minimum, double maximum,
-            CollisionVector3 negativeNormal, CollisionVector3 positiveNormal,
-            ref double enter, ref double exit, ref CollisionVector3 normalAtEnter)
+            ShadowVector3 negativeNormal, ShadowVector3 positiveNormal,
+            ref double enter, ref double exit, ref ShadowVector3 normalAtEnter)
         {
             if (Math.Abs(displacement) <= CollisionShadowLimits.Epsilon)
                 return origin >= minimum && origin <= maximum;
@@ -331,7 +360,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double second = (maximum - origin) / displacement;
             double near;
             double far;
-            CollisionVector3 nearNormal;
+            ShadowVector3 nearNormal;
             if (first <= second)
             {
                 near = first; far = second; nearNormal = negativeNormal;
@@ -351,12 +380,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             return enter <= exit + CollisionShadowLimits.Epsilon && exit >= -CollisionShadowLimits.Epsilon;
         }
 
-        private static bool Contains(CollisionAabb bounds, CollisionVector3 point) =>
+        private static bool Contains(CollisionAabb bounds, ShadowVector3 point) =>
             point.X >= bounds.Minimum.X && point.X <= bounds.Maximum.X &&
             point.Y >= bounds.Minimum.Y && point.Y <= bounds.Maximum.Y &&
             point.Z >= bounds.Minimum.Z && point.Z <= bounds.Maximum.Z;
 
-        private static CollisionVector3 MinimumPenetrationNormal(CollisionVector3 point, CollisionAabb bounds)
+        private static ShadowVector3 MinimumPenetrationNormal(ShadowVector3 point, CollisionAabb bounds)
         {
             double[] distance =
             {
@@ -364,7 +393,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 point.Y - bounds.Minimum.Y, bounds.Maximum.Y - point.Y,
                 point.Z - bounds.Minimum.Z, bounds.Maximum.Z - point.Z
             };
-            CollisionVector3[] normal =
+            ShadowVector3[] normal =
             {
                 new(-1, 0, 0), new(1, 0, 0), new(0, -1, 0),
                 new(0, 1, 0), new(0, 0, -1), new(0, 0, 1)
@@ -375,23 +404,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             return normal[chosen];
         }
 
-        private static CollisionVector3 SurfacePoint(CollisionVector3 movingCentre, CollisionVector3 movingHalf,
-            CollisionAabb target, CollisionVector3 normal)
+        private static ShadowVector3 SurfacePoint(ShadowVector3 movingCentre, ShadowVector3 movingHalf,
+            CollisionAabb target, ShadowVector3 normal)
         {
-            CollisionVector3 face = new(
+            ShadowVector3 face = new(
                 movingCentre.X - normal.X * movingHalf.X,
                 movingCentre.Y - normal.Y * movingHalf.Y,
                 movingCentre.Z - normal.Z * movingHalf.Z);
-            return new CollisionVector3(
+            return new ShadowVector3(
                 Math.Clamp(face.X, target.Minimum.X, target.Maximum.X),
                 Math.Clamp(face.Y, target.Minimum.Y, target.Maximum.Y),
                 Math.Clamp(face.Z, target.Minimum.Z, target.Maximum.Z));
         }
 
         private static CollisionShadowContact ToContact(CollisionContactKind kind,
-            CollisionProxy first, CollisionProxy second, CollisionVector3 relativeVelocity, SweepHit hit)
+            CollisionProxy first, CollisionProxy second, ShadowVector3 relativeVelocity, SweepHit hit)
         {
-            double closing = Math.Max(0.0, -CollisionVector3.Dot(relativeVelocity, hit.Normal));
+            double closing = Math.Max(0.0, -ShadowVector3.Dot(relativeVelocity, hit.Normal));
             return new CollisionShadowContact(kind, first.Id, second.Id, hit.Time,
                 hit.Point, hit.Normal, closing, hit.InitialOverlap);
         }

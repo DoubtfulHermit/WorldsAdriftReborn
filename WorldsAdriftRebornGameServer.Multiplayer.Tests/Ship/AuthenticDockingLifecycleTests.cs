@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
@@ -220,7 +221,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
             DockingStepResult revoked = machine.Step(new DockingFrame(0.02,
                 yardExists: true, permissionValid: false, propulsion: DockingPropulsion.None,
-                collisionClear: true, outsideReleaseEnvelope: false,
+                collisionClearance: Clearance(true, 1), outsideReleaseEnvelope: false,
                 observedPose: machine.Pose, observedMotion: default), claims);
 
             Assert.Equal(DockingPhase.Undocked, revoked.Phase);
@@ -291,13 +292,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         private static DockingApproachRequest Request(DockingPose pose,
             DockingMotion motion = default, bool propulsionNeutral = true,
             bool collisionClear = true, long hullId = 200) => new DockingApproachRequest(
-                hullId, 100, "owner", "owner", false, false, true,
-                propulsionNeutral, collisionClear, pose, Target, motion);
+                hullId, 100, "ship:stable", "yard:stable", "owner", "owner", false, false, true,
+                propulsionNeutral, Clearance(collisionClear, 0), pose, Target, motion);
 
         private static DockingFrame Frame(double delta, DockingPose pose, DockingMotion motion,
             bool yardExists = true, bool collisionClear = true, bool outsideRelease = false,
             DockingPropulsion propulsion = DockingPropulsion.None) => new DockingFrame(delta,
-                yardExists, true, propulsion, collisionClear, outsideRelease, pose, motion);
+                yardExists, true, propulsion, Clearance(collisionClear, 1), outsideRelease, pose, motion);
+
+        private static CollisionClearanceRecord Clearance(bool clear, long fixedStep) =>
+            new CollisionClearanceRecord("ship:stable", "yard:stable", fixedStep,
+                clear ? 0 : 1, EvaluationComplete: true);
 
         private static void AssertRejected(DockingApproachRequest request,
             DockingRejectReason expected)

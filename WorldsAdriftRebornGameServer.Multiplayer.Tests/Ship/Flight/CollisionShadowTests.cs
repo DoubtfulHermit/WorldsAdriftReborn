@@ -19,7 +19,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 
             Assert.Equal(CollisionContactKind.Terrain, contact.Kind);
             Assert.Equal(0.7291666666666666, contact.TimeOfImpact, 12);
-            Assert.Equal(new CollisionVector3(-1, 0, 0), contact.Normal);
+            Assert.Equal(new ShadowVector3(-1, 0, 0), contact.Normal);
             Assert.Equal(60.0, contact.ClosingSpeedMetresPerSecond);
             Assert.False(contact.InitialOverlap);
             Assert.Equal(9.75, contact.Point.X, 12);
@@ -43,7 +43,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void Initial_overlap_has_deterministic_minimum_penetration_normal()
         {
-            CollisionProxy hull = Hull("ship", Centre(0, 0, 0, 1, 1, 1), CollisionVector3.Zero);
+            CollisionProxy hull = Hull("ship", Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero);
             CollisionProxy terrain = Terrain("terrain", Centre(0, 0, 0, 2, 2, 2));
 
             CollisionShadowContact contact = CollisionShadowEvaluator
@@ -51,7 +51,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 
             Assert.True(contact.InitialOverlap);
             Assert.Equal(0.0, contact.TimeOfImpact);
-            Assert.Equal(new CollisionVector3(-1, 0, 0), contact.Normal);
+            Assert.Equal(new ShadowVector3(-1, 0, 0), contact.Normal);
             Assert.Equal(0.0, contact.ClosingSpeedMetresPerSecond);
         }
 
@@ -107,14 +107,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         {
             CollisionProxy[] bad =
             {
-                Hull("nan", new CollisionAabb(new(double.NaN, 0, 0), new(1, 1, 1)), CollisionVector3.Zero),
-                Hull("reverse", new CollisionAabb(new(2, 2, 2), new(1, 1, 1)), CollisionVector3.Zero),
+                Hull("nan", new CollisionAabb(new(double.NaN, 0, 0), new(1, 1, 1)), ShadowVector3.Zero),
+                Hull("reverse", new CollisionAabb(new(2, 2, 2), new(1, 1, 1)), ShadowVector3.Zero),
                 Hull("fast", Centre(0, 0, 0, 1, 1, 1), new(251, 0, 0)),
-                Hull("huge", Centre(0, 0, 0, 513, 1, 1), CollisionVector3.Zero),
+                Hull("huge", Centre(0, 0, 0, 513, 1, 1), ShadowVector3.Zero),
                 new CollisionProxy("wrong-kind", CollisionProxyKind.IslandTerrain,
-                    Centre(0, 0, 0, 1, 1, 1), CollisionVector3.Zero),
-                Hull("duplicate", Centre(0, 0, 0, 1, 1, 1), CollisionVector3.Zero),
-                Hull("duplicate", Centre(0, 0, 0, 1, 1, 1), CollisionVector3.Zero)
+                    Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero),
+                Hull("duplicate", Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero),
+                Hull("duplicate", Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero)
             };
 
             CollisionShadowResult result = CollisionShadowEvaluator.Evaluate(bad,
@@ -128,9 +128,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void Moving_terrain_and_cross_kind_duplicate_ids_are_rejected()
         {
-            CollisionProxy hull = Hull("same", Centre(0, 0, 0, 1, 1, 1), CollisionVector3.Zero);
+            CollisionProxy hull = Hull("same", Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero);
             CollisionProxy movingTerrain = new("moving", CollisionProxyKind.IslandTerrain,
-                Centre(0, 0, 0, 2, 2, 2), new CollisionVector3(1, 0, 0));
+                Centre(0, 0, 0, 2, 2, 2), new ShadowVector3(1, 0, 0));
             CollisionProxy duplicateTerrain = Terrain("same", Centre(0, 0, 0, 2, 2, 2));
 
             CollisionShadowResult result = CollisionShadowEvaluator.Evaluate(
@@ -150,7 +150,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         public void Invalid_step_rejects_the_batch(double step)
         {
             CollisionShadowResult result = CollisionShadowEvaluator.Evaluate(
-                new[] { Hull("ship", Centre(0, 0, 0, 1, 1, 1), CollisionVector3.Zero) },
+                new[] { Hull("ship", Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero) },
                 Array.Empty<CollisionProxy>(), step);
 
             Assert.Empty(result.Contacts);
@@ -161,7 +161,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         public void Dynamic_and_contact_work_is_strictly_capped()
         {
             CollisionProxy[] hulls = Enumerable.Range(0, CollisionShadowLimits.MaxDynamicProxies + 50)
-                .Select(i => Hull("ship-" + i.ToString("D4"), Centre(0, 0, 0, 1, 1, 1), CollisionVector3.Zero))
+                .Select(i => Hull("ship-" + i.ToString("D4"), Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero))
                 .ToArray();
 
             CollisionShadowResult result = CollisionShadowEvaluator.Evaluate(
@@ -177,7 +177,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void Hard_input_cap_avoids_unbounded_sort_or_pair_work()
         {
-            CollisionProxy proxy = Hull("ship", Centre(0, 0, 0, 1, 1, 1), CollisionVector3.Zero);
+            CollisionProxy proxy = Hull("ship", Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero);
             CollisionProxy[] tooMany = Enumerable.Repeat(proxy, CollisionShadowLimits.HardInputCount + 1).ToArray();
 
             CollisionShadowResult result = CollisionShadowEvaluator.Evaluate(
@@ -191,7 +191,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void Telemetry_compares_shadow_to_current_authoritative_contact_count()
         {
-            CollisionProxy hull = Hull("ship", Centre(0, 0, 0, 1, 1, 1), CollisionVector3.Zero);
+            CollisionProxy hull = Hull("ship", Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero);
             CollisionProxy terrain = Terrain("terrain", Centre(0, 0, 0, 2, 2, 2));
 
             CollisionShadowTelemetry telemetry = CollisionShadowEvaluator
@@ -204,12 +204,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         private static CollisionAabb Centre(double x, double y, double z, double hx, double hy, double hz) =>
-            CollisionAabb.FromCentreHalfExtents(new CollisionVector3(x, y, z), new CollisionVector3(hx, hy, hz));
+            CollisionAabb.FromCentreHalfExtents(new ShadowVector3(x, y, z), new ShadowVector3(hx, hy, hz));
 
-        private static CollisionProxy Hull(string id, CollisionAabb bounds, CollisionVector3 velocity) =>
+        private static CollisionProxy Hull(string id, CollisionAabb bounds, ShadowVector3 velocity) =>
             new(id, CollisionProxyKind.ShipHull, bounds, velocity);
 
         private static CollisionProxy Terrain(string id, CollisionAabb bounds) =>
-            new(id, CollisionProxyKind.IslandTerrain, bounds, CollisionVector3.Zero);
+            new(id, CollisionProxyKind.IslandTerrain, bounds, ShadowVector3.Zero);
     }
 }

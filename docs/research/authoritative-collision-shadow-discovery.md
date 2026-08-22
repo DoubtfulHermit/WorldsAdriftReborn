@@ -99,7 +99,7 @@ comparison, not acceptable for live impulses.
 
 `CollisionShadow.cs` adds an engine-free module with:
 
-- finite `CollisionVector3` and inclusive `CollisionAabb` primitives;
+- shared finite `ShadowVector3` and inclusive `CollisionAabb` primitives;
 - typed server-owned hull/terrain proxies;
 - deterministic terrain and moving-hull swept tests;
 - stable, immutable contact records;
