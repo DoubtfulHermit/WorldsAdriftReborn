@@ -296,12 +296,13 @@ The baseline is a ledger of debt, not a mute button: an id that gets fixed is
 DELETED from it, and an entry whose consequence has not been established says
 `UNINVESTIGATED` rather than implying it is harmless.
 
-**Where it belongs in a deploy.** There is no `tools/deploy-game.sh` — the game
-server holds live progression and a restart is session-ending, so it is
-deliberately a hand operation. Run this **before** a deploy over a window that
-had players in it, to get the number you are changing from, and again a few hours
-**after**, over a window that had players in it. Two minutes after a restart is
-not one of those windows and the script will tell you so.
+**Where it belongs in a deploy.** `tools/deploy-game.sh` is the only supported
+production game deployment path. It refuses connected players and protects the
+world-state path, but it cannot provide a meaningful gameplay error sample from
+an empty post-restart journal. Run this check **before** a deploy over a window
+that had players in it, to get the number you are changing from, and again a few
+hours **after**, over a window that had players in it. Two minutes after a
+restart is not one of those windows and the script will tell you so.
 
 ## The storage suite
 

@@ -75,19 +75,19 @@ nm -D --defined-only libCoreSdkDll.so | grep ENet_EXP_PeerChannelCount
 The build script also checks the complete game-server export surface. Put the
 verified `libCoreSdkDll.so` in the publish stage beside the executable.
 
-After backing up the live deployment/state and confirming all players are out:
+After confirming all players are out, use the guarded deploy command:
 
 ```bash
-rsync -a "$game_stage"/ \
-  root@62.171.161.19:/opt/wareborn/WorldsAdriftRebornGameServer-native/
-ssh root@62.171.161.19 'systemctl restart wareborn-game'
-ssh root@62.171.161.19 \
-  "systemctl is-active wareborn-game && journalctl -u wareborn-game -n 100 --no-pager -o cat"
+tools/deploy-game.sh
 ```
 
-Never use `--delete` against the live directory: persistent `data/` is not
-produced by publish. Verify restore counts, resource-interest configuration,
-island registration and the first real connection before declaring success.
+The script publishes into a fresh stage, refuses connected players, backs up the
+binary directory and canonical live data, excludes both `data/` and the native
+SDK from synchronization, verifies the world-state hash and symlink before the
+restart, and checks restore counts plus the startup journal afterward. Never
+bypass it with a hand-written rsync. In particular, never use `--delete` against
+the live directory: persistent `data/` and `libCoreSdkDll.so` are not produced by
+`dotnet publish`.
 
 ## Native login-server deployment
 
