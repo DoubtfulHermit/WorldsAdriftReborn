@@ -50,3 +50,16 @@ model lacks.
 Do not tune the recovered `0.007 / 2.5` aerodynamic drag constants merely to make
 this trace stop sooner. First recover or bound retail low-speed/sleep behavior,
 then add a separately classified policy with replay and live acceptance evidence.
+
+## Separate visual replication defect observed during the run
+
+The player also reported that individual ship components stayed behind the moving
+hull and snapped forward on the next update. Wire counters corroborated the cadence
+split: the hull published 1130 at about 4.2 Hz (`20–21` points per five seconds),
+while the mounted-member 190602 bundle was deliberately limited to about 2 Hz.
+There were no relay drops, duplicate drops, bad timestamp pairs, or pressure skips.
+
+The assumption that an awake `"~"` follower would compose smoothly against every
+intermediate hull point is therefore disproven in the live client. Moving domains
+must publish root and mounted-member transforms in the same domain frame. The cheap
+member heartbeat remains appropriate only after the complete ship is at rest.

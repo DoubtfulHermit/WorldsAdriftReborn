@@ -107,6 +107,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Moving_ship_publishes_members_with_every_root_frame()
+        {
+            string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
+
+            Assert.Contains("bool wakeDue = !session.State.IsAtRest", service,
+                StringComparison.Ordinal);
+            Assert.Contains("ShipPublisher.BroadcastDomainMotion(", service,
+                StringComparison.Ordinal);
+            Assert.Contains("hullWake,\n                    memberWakes", service,
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void Fixed_clock_is_opt_in_and_does_not_replace_the_024_wire_cadence()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");

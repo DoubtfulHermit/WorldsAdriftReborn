@@ -135,7 +135,11 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         private readonly Dictionary<long, FlightControlInput> _lastEchoed = new Dictionary<long, FlightControlInput>();
 
-        /// <summary>When each hull's mounted parts were last woken (the 0.5 s sub-cadence).</summary>
+        /// <summary>
+        /// When each resting hull's mounted parts were last woken. Moving domains
+        /// publish every member with every root point; throttling those frames made
+        /// sails and helms visibly remain behind and then snap onto the hull.
+        /// </summary>
         private readonly Dictionary<long, TimeSpan> _lastWakeAt = new Dictionary<long, TimeSpan>();
 
         private static readonly TimeSpan PoseSaveInterval = TimeSpan.FromSeconds(2);
@@ -146,12 +150,10 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly HashSet<long> _boundsQuarantinedHulls = new HashSet<long>();
 
         /// <summary>
-        /// The wake sub-cadence, slightly under the policy's 0.5 s heartbeat so
-        /// the 0.24 s tick grid lands a wake every OTHER tick (0.48 s spacing) -
-        /// comfortably below the client's 1 s follow-visualizer sleep. v1 woke on
-        /// EVERY point (4.2 Hz); halving it is free because a "~" follower
-        /// composes against the hull's live interpolated transform every frame
-        /// while awake - the wake only needs to keep it awake, not move it.
+        /// Resting member heartbeat. A moving domain does not use this throttle:
+        /// live acceptance on 2026-08-22 disproved the assumption that an awake
+        /// "~" follower adds smoothness for free between root points. Mounted
+        /// components visibly lagged one root frame and snapped on the next wake.
         /// </summary>
         private static readonly TimeSpan WakeInterval =
             TimeSpan.FromSeconds(ShipPartMotionPolicy.HeartbeatIntervalSeconds * 0.9);
@@ -856,11 +858,13 @@ namespace WorldsAdriftRebornGameServer.Game
 
                 FixedPointPosition hullPosition = FixedPointPosition.FromMetres(
                     emit.Spec.X, emit.Spec.Y, emit.Spec.Z);
-                // Mounted-part wakes ride a 0.5 s SUB-cadence, not every point:
-                // an awake "~" follower composes against the hull's live
-                // interpolated transform every frame, so more wakes add reliable
-                // packets without adding smoothness (see WakeInterval).
-                bool wakeDue = !_lastWakeAt.TryGetValue(hullEntityId, out TimeSpan lastWake)
+                // A moving ship is one replication domain: root and mounted members
+                // must publish in the SAME frame. The former every-other-point
+                // throttle was visible in live acceptance as sails/helm remaining
+                // behind, then snapping forward on their next 190602 wake. Only a
+                // fully resting domain uses the cheaper heartbeat.
+                bool wakeDue = !session.State.IsAtRest
+                    || !_lastWakeAt.TryGetValue(hullEntityId, out TimeSpan lastWake)
                     || _clock.Elapsed - lastWake >= WakeInterval;
                 ShipDomainComponentUpdate? hullWake = null;
                 IReadOnlyList<ShipDomainComponentUpdate> memberWakes = Array.Empty<ShipDomainComponentUpdate>();
@@ -1153,8 +1157,8 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
-        /// The wake bundle, on the 0.5 s sub-cadence (<see cref="WakeInterval"/>,
-        /// v1 sent it per point): the hull's own 190602 timeline advance (the
+        /// The wake bundle, on every moving root point and the resting heartbeat
+        /// (<see cref="WakeInterval"/>): the hull's own 190602 timeline advance (the
         /// moving pose + the next shared stamp) and one 190602 wake per mounted
         /// "~" part carrying its UNCHANGED hull-local offset/rotation at the same
         /// stamp. Real Unity children - the built ship's decks, and any mounted part
