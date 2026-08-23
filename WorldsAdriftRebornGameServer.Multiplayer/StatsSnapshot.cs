@@ -223,7 +223,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             double wallIntensity, double windAngleDegrees,
             double sailForceNewtons, double engineForceNewtons,
             double propulsionAccelerationMps2, double windAlongHeadingMps,
-            double predictedTerminalSpeedMps)
+            double predictedTerminalSpeedMps, ShipFlightShadowStat shadow = default)
         {
             Present = true;
             MassKg = massKg;
@@ -239,6 +239,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             PropulsionAccelerationMps2 = propulsionAccelerationMps2;
             WindAlongHeadingMps = windAlongHeadingMps;
             PredictedTerminalSpeedMps = predictedTerminalSpeedMps;
+            Shadow = shadow;
         }
 
         public bool Present { get; }
@@ -256,6 +257,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public double PropulsionAccelerationMps2 { get; }
         public double WindAlongHeadingMps { get; }
         public double PredictedTerminalSpeedMps { get; }
+        public ShipFlightShadowStat Shadow { get; }
+    }
+
+    /// <summary>Read-only comparison with the pure vector/collision flight shadow.</summary>
+    public readonly struct ShipFlightShadowStat
+    {
+        public ShipFlightShadowStat(bool enabled, bool vectorAvailable, string reason,
+            double scalarForwardNewtons, ShadowVector3 force, ShadowVector3 rawTorque,
+            ShadowVector3 retailTorque, int acceptedParts, int rejectedParts,
+            bool massApproximation, CollisionShadowTelemetry collision,
+            bool terrainAvailable)
+        {
+            Present = true; Enabled = enabled; VectorAvailable = vectorAvailable;
+            Reason = reason ?? string.Empty; ScalarForwardNewtons = scalarForwardNewtons;
+            ForceX = force.X; ForceY = force.Y; ForceZ = force.Z;
+            RawTorqueX = rawTorque.X; RawTorqueY = rawTorque.Y; RawTorqueZ = rawTorque.Z;
+            RetailTorqueX = retailTorque.X; RetailTorqueY = retailTorque.Y; RetailTorqueZ = retailTorque.Z;
+            AcceptedParts = acceptedParts; RejectedParts = rejectedParts;
+            MassApproximation = massApproximation; Collision = collision;
+            TerrainAvailable = terrainAvailable;
+        }
+        public bool Present { get; }
+        public bool Enabled { get; }
+        public bool VectorAvailable { get; }
+        public string Reason { get; }
+        public double ScalarForwardNewtons { get; }
+        public double ForceX { get; }
+        public double ForceY { get; }
+        public double ForceZ { get; }
+        public double RawTorqueX { get; }
+        public double RawTorqueY { get; }
+        public double RawTorqueZ { get; }
+        public double RetailTorqueX { get; }
+        public double RetailTorqueY { get; }
+        public double RetailTorqueZ { get; }
+        public int AcceptedParts { get; }
+        public int RejectedParts { get; }
+        public bool MassApproximation { get; }
+        public CollisionShadowTelemetry Collision { get; }
+        public bool TerrainAvailable { get; }
     }
 
     /// <summary>
@@ -610,7 +651,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // v18: each ship domain gains `fixedClock`: the opt-in 20 ms step,
         // catch-up cap, completed/dropped steps, pressure-event count and current
         // remainder. It reports disabled explicitly without changing 1130 cadence.
-        public const int SchemaVersion = 18;
+        public const int SchemaVersion = 19;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -1603,6 +1644,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Num(b, "propulsionAccelerationMps2", Trim(f.PropulsionAccelerationMps2)); b.Append(',');
             Num(b, "windAlongHeadingMps", Trim(f.WindAlongHeadingMps)); b.Append(',');
             Num(b, "predictedTerminalSpeedMps", Trim(f.PredictedTerminalSpeedMps));
+            b.Append(','); AppendFlightShadow(b, f.Shadow);
+            b.Append('}');
+        }
+
+        private static void AppendFlightShadow(StringBuilder b, ShipFlightShadowStat s)
+        {
+            Key(b, "shadow"); b.Append('{');
+            Bool(b, "present", s.Present); b.Append(','); Bool(b, "enabled", s.Enabled); b.Append(',');
+            Bool(b, "vectorAvailable", s.VectorAvailable); b.Append(','); Str(b, "reason", s.Reason); b.Append(',');
+            Num(b, "scalarForwardNewtons", Trim(s.ScalarForwardNewtons)); b.Append(',');
+            Num(b, "forceX", Trim(s.ForceX)); b.Append(','); Num(b, "forceY", Trim(s.ForceY)); b.Append(','); Num(b, "forceZ", Trim(s.ForceZ)); b.Append(',');
+            Num(b, "rawTorqueX", Trim(s.RawTorqueX)); b.Append(','); Num(b, "rawTorqueY", Trim(s.RawTorqueY)); b.Append(','); Num(b, "rawTorqueZ", Trim(s.RawTorqueZ)); b.Append(',');
+            Num(b, "retailTorqueX", Trim(s.RetailTorqueX)); b.Append(','); Num(b, "retailTorqueY", Trim(s.RetailTorqueY)); b.Append(','); Num(b, "retailTorqueZ", Trim(s.RetailTorqueZ)); b.Append(',');
+            Num(b, "acceptedParts", s.AcceptedParts); b.Append(','); Num(b, "rejectedParts", s.RejectedParts); b.Append(',');
+            Bool(b, "massApproximation", s.MassApproximation); b.Append(','); Bool(b, "terrainAvailable", s.TerrainAvailable); b.Append(',');
+            Num(b, "collisionCandidates", s.Collision.BroadphaseCandidateCount); b.Append(',');
+            Num(b, "collisionContacts", s.Collision.TerrainContactCount + s.Collision.HullContactCount); b.Append(',');
+            Bool(b, "collisionHardRejected", s.Collision.HardInputRejected);
             b.Append('}');
         }
 

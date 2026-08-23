@@ -1713,6 +1713,33 @@ namespace WorldsAdriftServer.Admin
             ["windAlongHeadingMps"] = Finite((double?)f?["windAlongHeadingMps"] ?? 0, 1000),
             ["predictedTerminalSpeedMps"] = Finite(
                 (double?)f?["predictedTerminalSpeedMps"] ?? 0, 1000),
+            ["shadow"] = FlightShadow(f?["shadow"] as JObject),
+        };
+
+        private static JObject FlightShadow(JObject? s) => new JObject
+        {
+            ["present"] = s != null && ((bool?)s["present"] ?? false),
+            ["enabled"] = s != null && ((bool?)s["enabled"] ?? false),
+            ["vectorAvailable"] = s != null && ((bool?)s["vectorAvailable"] ?? false),
+            ["reason"] = ((string?)s?["reason"] ?? string.Empty).Length <= 160
+                ? (string?)s?["reason"] ?? string.Empty : string.Empty,
+            ["scalarForwardNewtons"] = Finite((double?)s?["scalarForwardNewtons"] ?? 0, 100_000_000),
+            ["forceX"] = Finite((double?)s?["forceX"] ?? 0, 100_000_000),
+            ["forceY"] = Finite((double?)s?["forceY"] ?? 0, 100_000_000),
+            ["forceZ"] = Finite((double?)s?["forceZ"] ?? 0, 100_000_000),
+            ["rawTorqueX"] = Finite((double?)s?["rawTorqueX"] ?? 0, 1_000_000_000),
+            ["rawTorqueY"] = Finite((double?)s?["rawTorqueY"] ?? 0, 1_000_000_000),
+            ["rawTorqueZ"] = Finite((double?)s?["rawTorqueZ"] ?? 0, 1_000_000_000),
+            ["retailTorqueX"] = Finite((double?)s?["retailTorqueX"] ?? 0, 1_000_000_000),
+            ["retailTorqueY"] = Finite((double?)s?["retailTorqueY"] ?? 0, 1_000_000_000),
+            ["retailTorqueZ"] = Finite((double?)s?["retailTorqueZ"] ?? 0, 1_000_000_000),
+            ["acceptedParts"] = Count((int?)s?["acceptedParts"] ?? 0),
+            ["rejectedParts"] = Count((int?)s?["rejectedParts"] ?? 0),
+            ["massApproximation"] = s != null && ((bool?)s["massApproximation"] ?? false),
+            ["terrainAvailable"] = s != null && ((bool?)s["terrainAvailable"] ?? false),
+            ["collisionCandidates"] = Count((int?)s?["collisionCandidates"] ?? 0),
+            ["collisionContacts"] = Count((int?)s?["collisionContacts"] ?? 0),
+            ["collisionHardRejected"] = s != null && ((bool?)s["collisionHardRejected"] ?? false),
         };
 
         /// <summary>

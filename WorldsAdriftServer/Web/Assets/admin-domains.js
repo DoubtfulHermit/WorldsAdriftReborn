@@ -125,6 +125,18 @@
           +Number(flight.sampledAtSeconds).toFixed(3)+'s');
         addDetailItem(grid,'Predicted settled speed',Number(flight.predictedTerminalSpeedMps).toFixed(2)+' m/s · '
           +(Number(flight.predictedTerminalSpeedMps)*1.94384449).toFixed(1)+' kn');
+        var sh=flight.shadow;
+        if(sh&&sh.present===true){
+          addDetailItem(grid,'C4 flight shadow',sh.enabled===true?(sh.vectorAvailable===true?'observing':'unavailable'):'observer off');
+          addDetailItem(grid,'Scalar ↔ vector force',Number(sh.scalarForwardNewtons).toFixed(1)+' N scalar · ['
+            +Number(sh.forceX).toFixed(1)+', '+Number(sh.forceY).toFixed(1)+', '+Number(sh.forceZ).toFixed(1)+'] N shadow');
+          addDetailItem(grid,'Vector torque','raw ['+Number(sh.rawTorqueX).toFixed(1)+', '+Number(sh.rawTorqueY).toFixed(1)+', '+Number(sh.rawTorqueZ).toFixed(1)
+            +'] · retail ['+Number(sh.retailTorqueX).toFixed(1)+', '+Number(sh.retailTorqueY).toFixed(1)+', '+Number(sh.retailTorqueZ).toFixed(1)+'] N·m');
+          addDetailItem(grid,'Shadow inputs',String(sh.acceptedParts)+' accepted · '+String(sh.rejectedParts)+' rejected · '+(sh.massApproximation?'mass/inertia approximate':'mass exact'));
+          addDetailItem(grid,'Collision shadow',String(sh.collisionContacts)+' contacts · '+String(sh.collisionCandidates)+' candidates · terrain '
+            +(sh.terrainAvailable?'available':'UNWIRED')+(sh.collisionHardRejected?' · INPUT REJECTED':''));
+          addDetailItem(grid,'Shadow status',sh.reason||'no status');
+        }
       }else{
         addDetailItem(grid,'Flight forces','not reported (force model off or older server)');
       }

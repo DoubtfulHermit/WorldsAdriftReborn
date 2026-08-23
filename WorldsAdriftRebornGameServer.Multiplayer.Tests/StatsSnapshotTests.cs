@@ -250,6 +250,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [Fact]
         public void A_ship_domain_carries_live_force_inputs_and_prediction()
         {
+            var collision = new CollisionShadowTelemetry(
+                1, 0, 1, 0, 0, 2, 2, 0, 1, 0, 1,
+                false, false, false, false, false);
+            var shadow = new ShipFlightShadowStat(true, true, "vector-live; terrain-proxies-unwired",
+                715.5, new ShadowVector3(4, 5, 700), new ShadowVector3(6, 7, 8),
+                new ShadowVector3(0, 2, 3), 2, 0, true, collision, false);
             ShipFlightStat flight = new ShipFlightStat(
                 massKg: 3094, mountedSails: 3, unfurledSails: 2,
                 sampledAtSeconds: 123.456, windX: 1, windZ: -2,
@@ -257,7 +263,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 sailForceNewtons: 715.5, engineForceNewtons: 0,
                 propulsionAccelerationMps2: 0.23125,
                 windAlongHeadingMps: 1.25,
-                predictedTerminalSpeedMps: 5.75);
+                predictedTerminalSpeedMps: 5.75, shadow: shadow);
             ShipDomainStat domain = new ShipDomainStat(
                 "ship:83", 83, 4, 91, 240, 35,
                 0, 0, 0, active: true, piloted: false, liveCadenceExpected: true,
@@ -280,6 +286,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(1.25, (double)f["windAlongHeadingMps"]!);
             Assert.Equal(715.5, (double)f["sailForceNewtons"]!);
             Assert.Equal(5.75, (double)f["predictedTerminalSpeedMps"]!);
+            JObject s = (JObject)f["shadow"]!;
+            Assert.True((bool)s["present"]!);
+            Assert.True((bool)s["enabled"]!);
+            Assert.True((bool)s["vectorAvailable"]!);
+            Assert.Equal(700, (double)s["forceZ"]!);
+            Assert.Equal(1, (int)s["collisionContacts"]!);
+            Assert.False((bool)s["terrainAvailable"]!);
         }
 
         [Fact]

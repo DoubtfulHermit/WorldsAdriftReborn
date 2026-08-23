@@ -1479,7 +1479,8 @@ namespace WorldsAdriftRebornGameServer.Game
         /// model is off prevents legacy kinematic flight from being presented as a
         /// physical measurement.
         /// </summary>
-        internal Multiplayer.ShipFlightStat FlightStatFor(long hullEntityId)
+        internal Multiplayer.ShipFlightStat FlightStatFor(long hullEntityId,
+            Multiplayer.ShipHullStat hull)
         {
             ShipDomain? domain = _domains.ByHull(hullEntityId);
             if (domain == null || !ForceModelEnabled)
@@ -1516,6 +1517,8 @@ namespace WorldsAdriftRebornGameServer.Game
                     ship, _tuning, _clock.Elapsed.TotalSeconds, _wallFlightInfluence.Segments);
             }
 
+            Multiplayer.ShipFlightShadowStat shadow = ShadowStatFor(
+                hullEntityId, domain, hull, evaluation, ship);
             return new Multiplayer.ShipFlightStat(
                 evaluation.MassKg, mountedSails, evaluation.UnfurledSails,
                 evaluation.SampledAtSeconds,
@@ -1524,7 +1527,84 @@ namespace WorldsAdriftRebornGameServer.Game
                 evaluation.SailForceNewtons, evaluation.EngineForceNewtons,
                 evaluation.PropulsionAccelerationMps2,
                 evaluation.WindAlongHeadingMps,
-                evaluation.PredictedSettledSpeedMps);
+                evaluation.PredictedSettledSpeedMps, shadow);
+        }
+
+        private Multiplayer.ShipFlightShadowStat ShadowStatFor(long hullEntityId,
+            ShipDomain domain, Multiplayer.ShipHullStat hull,
+            ShipForceEvaluation scalar, ShipPropulsion ship)
+        {
+            bool enabled = Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_SHADOW_OBSERVE") == "1";
+            if (!enabled)
+                return new Multiplayer.ShipFlightShadowStat(false, false, "observer-off",
+                    scalar.EngineForceNewtons + scalar.SailForceNewtons,
+                    ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
+                    0, 0, false, default, false);
+            if (!hull.Present)
+                return new Multiplayer.ShipFlightShadowStat(true, false, "hull-geometry-unavailable",
+                    scalar.EngineForceNewtons + scalar.SailForceNewtons,
+                    ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
+                    0, 0, false, default, false);
+
+            var parts = new List<ShadowPropulsor>();
+            int propulsorCount = 0;
+            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry in
+                Crafting.MountedParts.OnHull(hullEntityId).OrderBy(x => x.Key))
+            {
+                Crafting.MountedParts.Mount mount = entry.Value;
+                var kind = Multiplayer.Ship.ShipPartKinds.Classify(
+                    mount.ItemType, mount.PrefabName, mount.AttachmentType);
+                if (kind != Multiplayer.Ship.ShipPartKinds.Engine
+                    && kind != Multiplayer.Ship.ShipPartKinds.Sail) continue;
+                (float w, float x, float y, float z) =
+                    Multiplayer.Placement.Quaternion32Packing.Decode(mount.PackedRotation);
+                if (!ShadowQuaternion.TryNormalized(w, x, y, z, out ShadowQuaternion rotation))
+                    continue;
+                bool isEngine = kind == Multiplayer.Ship.ShipPartKinds.Engine;
+                double power = isEngine
+                    ? (WorldsAdriftRebornGameServer.ShipFuel.EnginesPowered(hullEntityId)
+                        ? _tuning.EngineThrustNewtons : 0.0)
+                    : (WorldsAdriftRebornGameServer.Sails.IsUnfurled(entry.Key)
+                        ? _tuning.SailPowerNewtons : 0.0);
+                parts.Add(new ShadowPropulsor(isEngine ? ShadowPartKind.Engine : ShadowPartKind.Sail,
+                    new ShadowVector3(mount.LocalOffset.MetresX, mount.LocalOffset.MetresY,
+                        mount.LocalOffset.MetresZ), rotation, power, 50.0,
+                    torqueless: false));
+                propulsorCount++;
+            }
+
+            Multiplayer.Ship.ShipHullMetrics metrics = hull.Silhouette.Metrics;
+            ShadowVector3 half = new(Math.Max(0.25, metrics.BeamMetres * 0.5),
+                Math.Max(0.25, metrics.DeckPlaneMetres * 0.5),
+                Math.Max(0.25, metrics.KeelMetres * 0.5));
+            double hullAndNonPropulsorMass = Math.Max(1.0, ship.MassKg - propulsorCount * 50.0);
+            double yaw = domain.Flight.State.YawRadians;
+            double sin = Math.Sin(yaw), cos = Math.Cos(yaw);
+            ShadowVector3 localWind = new(
+                scalar.Wind.WindX * cos - scalar.Wind.WindZ * sin, 0.0,
+                scalar.Wind.WindX * sin + scalar.Wind.WindZ * cos);
+            double spin = Math.Clamp(domain.Flight.Input.Throttle, -1.0, 1.0);
+            if (spin < 0.0) spin *= _tuning.ReverseFactor;
+            if (!VectorRigidBodyShadow.TryEvaluate(hullAndNonPropulsorMass, half, parts,
+                spin, localWind, out VectorRigidBodyShadowResult vector))
+                return new Multiplayer.ShipFlightShadowStat(true, false, "vector-input-rejected",
+                    scalar.EngineForceNewtons + scalar.SailForceNewtons,
+                    ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
+                    0, parts.Count, true, default, false);
+
+            FlightState state = domain.Flight.State;
+            CollisionProxy subject = new(domain.Id.ToString(), CollisionProxyKind.ShipHull,
+                CollisionAabb.FromCentreHalfExtents(new ShadowVector3(state.X, state.Y, state.Z), half),
+                new ShadowVector3(state.VxMps, state.VyMps, state.VzMps));
+            CollisionShadowResult collision = CollisionShadowEvaluator.Evaluate(
+                new[] { subject }, Array.Empty<CollisionProxy>(), FixedFlightClock.StepSeconds);
+            return new Multiplayer.ShipFlightShadowStat(true, true,
+                "vector-live; collision-hull-only; terrain-proxies-unwired",
+                scalar.EngineForceNewtons + scalar.SailForceNewtons,
+                vector.ForceNewtons, vector.RawTorqueNewtonMetres,
+                vector.RetailTorqueNewtonMetres, vector.AcceptedParts,
+                vector.RejectedParts, vector.Mass.IsApproximation,
+                collision.Telemetry, false);
         }
 
         internal Multiplayer.ShipWorldBoundsStat WorldBoundsStatFor(long hullEntityId)

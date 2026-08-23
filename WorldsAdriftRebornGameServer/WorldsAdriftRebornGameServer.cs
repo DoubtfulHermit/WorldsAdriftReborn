@@ -2666,6 +2666,7 @@ namespace WorldsAdriftRebornGameServer
                 bool piloted = Flight.IsPiloted(domain.HullEntityId);
                 bool liveCadenceExpected = piloted || !pose.IsAtRest
                     || domain.Flight.Input.Throttle != 0f;
+                ShipHullStat hullStat = HullStatFor(domain.HullEntityId);
                 shipDomains.Add(new ShipDomainStat(
                     domain.Id.ToString(),
                     domain.HullEntityId,
@@ -2691,8 +2692,8 @@ namespace WorldsAdriftRebornGameServer
                     // Carries the OWNER as well as the shape - ShipDomainStat's
                     // top-level OwnerCharacterUid reads through this, so the
                     // operator surface and the map panel cannot disagree.
-                    HullStatFor(domain.HullEntityId),
-                    Flight.FlightStatFor(domain.HullEntityId),
+                    hullStat,
+                    Flight.FlightStatFor(domain.HullEntityId, hullStat),
                     Flight.WorldBoundsStatFor(domain.HullEntityId),
                     Flight.FixedClockStatFor(domain.HullEntityId)));
             }

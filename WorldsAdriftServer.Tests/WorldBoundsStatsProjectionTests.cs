@@ -110,7 +110,7 @@ namespace WorldsAdriftServer.Tests
             JObject projected = (JObject)Assert.Single(parsed.ShipDomains).Json["worldBounds"]!;
             JObject fixedClock = (JObject)Assert.Single(parsed.ShipDomains).Json["fixedClock"]!;
 
-            Assert.Equal(18, parsed.SchemaVersion);
+            Assert.Equal(19, parsed.SchemaVersion);
             Assert.True(parsed.WorldBounds.Present);
             Assert.True((bool)parsed.WorldBounds.Json["enabled"]!);
             Assert.Equal(0.02, (double)parsed.WorldBounds.Json["referenceStepSeconds"]!);

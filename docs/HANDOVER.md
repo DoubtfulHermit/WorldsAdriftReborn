@@ -2013,9 +2013,14 @@ blast-radius assessment and ordered response plan are in
   back to Haven because its stored logout point was outside the coasting hull
   envelope; this limitation was expected and recorded separately. C3's exact
   1.016-second suspension recovered with 25 catch-up and 25 dropped steps, no
-  disconnect or packet burst; its aboard visual remains **REAL EYES**. C4 is
-  pending because Tracks 3–6 are pure/unwired and publish no comparison
-  telemetry. The combined
+  disconnect or packet burst; its aboard visual remains **REAL EYES**. C4 now
+  has a schema-19, opt-in observation adapter
+  (`WAREBORN_FLIGHT_SHADOW_OBSERVE=1`) publishing scalar versus vector force,
+  mount-position torque, approximation provenance and bounded collision-shadow
+  counters in the authenticated ship inspector. Terrain proxies and multi-hull
+  batching remain explicitly unwired, so this is force/torque evidence—not live
+  vector motion or collision response. The checklist is in
+  `docs/architecture/flight-pack-c4-shadow-observer.md`. The combined
   moving sail-plus-turn view is explicitly **REAL EYES**, not an automated pass.
 - The earlier intermittent 680 ms clock gap was not world persistence: the
   instrumented first sail save completed below 100 ms. Loop-stage telemetry then
