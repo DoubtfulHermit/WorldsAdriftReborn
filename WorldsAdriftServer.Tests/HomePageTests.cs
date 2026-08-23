@@ -60,9 +60,9 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void ClaimsDistinguishCurrentRuntimeFromFutureDistribution()
         {
-            Assert.Contains("One process hosts everything", HomePage.Html,
+            Assert.Contains("One machine runs the world", HomePage.Html,
                 StringComparison.Ordinal);
-            Assert.Contains("Not live yet:</b> remote workers", HomePage.Html,
+            Assert.Contains("Design target, not a live claim", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
             Assert.Contains("vector, collision and docking systems advance through shadow evidence",
                 HomePage.Html, StringComparison.Ordinal);
@@ -104,6 +104,18 @@ namespace WorldsAdriftServer.Tests
             Assert.DoesNotContain("hero-world", HomePage.Html, StringComparison.Ordinal);
             Assert.DoesNotContain("skyship approaching", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void PageUsesOneThemeWithoutTheOldSpectrumDivider()
+        {
+            Assert.DoesNotContain("class=\"spectrum", HomePage.Html,
+                StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("linear-gradient(90deg, #744d8c", HomePage.Html,
+                StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Ships now keep their place through lag and server restarts",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("One familiar address", HomePage.Html, StringComparison.Ordinal);
         }
 
         [Fact]

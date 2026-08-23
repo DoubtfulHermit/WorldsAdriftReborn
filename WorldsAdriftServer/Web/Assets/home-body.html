@@ -38,8 +38,6 @@
     </div>
   </section>
 
-  <div class="spectrum" aria-hidden="true"><i></i></div>
-
   <section class="mission-strip" aria-label="Live production summary">
     <div><span>Runtime</span><b>1 local process</b><small>local:primary</small></div>
     <div><span>Hosted domains</span><b>47 islands · 5 ships</b><small>complete ownership audit</small></div>
@@ -51,16 +49,15 @@
     <div class="section-label"><span>01</span><p>Latest verified milestone</p></div>
     <article class="milestone-card reveal">
       <div class="milestone-copy">
-        <div class="badge badge-live"><i></i> Live-verified foundation</div>
-        <h2 id="latest-title">Deterministic flight now survives the server clock—and a restart.</h2>
-        <p>Pack C proved the fixed simulation clock and durable ship snapshots on the live server. A corrected test hull completed <strong>19,877 fixed steps</strong> with no dropped steps or pressure events. Stationary and moving restart checks restored authoritative ship state, while the injected one-second stall recovered inside the designed catch-up budget.</p>
-        <a class="text-link" href="/patchnotes">Read the build record <span aria-hidden="true">→</span></a>
+        <div class="badge badge-live"><i></i> Tested in the live world</div>
+        <h2 id="latest-title">Ships now keep their place through lag and server restarts.</h2>
+        <p>We flew, stopped, restarted the server and returned to the same ship. A forced one-second stall recovered cleanly too. This gives every future flight system a steadier foundation.</p>
+        <a class="text-link" href="/patchnotes">See the technical build notes <span aria-hidden="true">→</span></a>
       </div>
       <dl class="milestone-readout">
-        <div><dt>Fixed steps</dt><dd>19,877</dd><small>zero dropped in normal run</small></div>
-        <div><dt>Restart proofs</dt><dd>2</dd><small>stationary + moving</small></div>
-        <div><dt>Stall recovery</dt><dd>25 + 25</dd><small>catch-up + bounded drops</small></div>
-        <div><dt>Visual debt</dt><dd>1</dd><small>combined C4 sail/turn run</small></div>
+        <div><dt>Flight</dt><dd>Smooth</dd><small>no lost simulation steps</small></div>
+        <div><dt>Restart</dt><dd>Safe</dd><small>parked and moving ships tested</small></div>
+        <div><dt>Recovery</dt><dd>Proven</dd><small>a one-second stall caught up</small></div>
       </dl>
     </article>
   </section>
@@ -198,20 +195,36 @@
     </aside>
   </section>
 
-  <div class="spectrum spectrum-small" aria-hidden="true"><i></i></div>
-
   <section class="section elastic" aria-labelledby="elastic-title">
     <div class="elastic-heading reveal">
       <p class="kicker"><span></span> Elastic server, in plain language</p>
-      <h2 id="elastic-title">One world endpoint.<br><em>Many possible homes.</em></h2>
-      <p>The player should always connect to one familiar server. Behind it, Wareborn is preparing each island and entire ship as a unit that could eventually move to whichever VPS has room—without splitting a ship's hull, parts or aboard crew.</p>
+      <h2 id="elastic-title">One shared world.<br><em>Room to grow.</em></h2>
+      <p>You always join the same world. Behind the scenes, WAReborn is being shaped so a busy island or a whole ship can eventually move to another server without splitting up the people and parts that belong together.</p>
     </div>
-    <div class="elastic-stages reveal">
-      <article class="stage-current"><span>Today</span><h3>One process hosts everything</h3><div class="host"><b>local:primary</b><p>47 island domains</p><p>5 whole-ship domains</p><p>one proven poll loop</p></div><small>Domains organize ownership and observation. They do not provide extra CPU yet.</small></article>
-      <article><span>Later</span><h3>Domains can occupy workers</h3><div class="workers"><p><b>Gateway</b><small>keeps client sockets</small></p><p><b>Worker A</b><small>island domain</small></p><p><b>Worker B</b><small>whole-ship domain</small></p></div><small>Workers could live on separate VPS systems and communicate using versioned domain messages.</small></article>
-      <article><span>The hard rule</span><h3>Only one authority at a time</h3><div class="authority"><b>Snapshot</b><i>→</i><b>Generation +1</b><i>→</i><b>New owner</b></div><small>Migration must reject stale writes, preserve the ship or island intact, recover after worker loss and keep the player connected.</small></article>
+    <div class="elastic-story reveal" aria-label="How the elastic server is intended to grow">
+      <div class="elastic-entry">
+        <span>Players</span>
+        <strong>One familiar address</strong>
+        <small>Your connection stays put.</small>
+      </div>
+      <span class="flow-arrow" aria-hidden="true">→</span>
+      <div class="elastic-gateway">
+        <span>World gateway</span>
+        <strong>Keeps everyone connected</strong>
+        <small>It knows where each part of the world lives.</small>
+      </div>
+      <span class="flow-arrow" aria-hidden="true">→</span>
+      <div class="elastic-domains">
+        <article><span>Island domain</span><strong>Land, resources and visitors</strong></article>
+        <article><span>Ship domain</span><strong>Hull, parts and crew</strong></article>
+      </div>
     </div>
-    <p class="truth-note reveal"><b>Not live yet:</b> remote workers, cross-VPS simulation messaging, authority migration, worker failover and distributed domain sleep. The current inspector reports these as unavailable rather than pretending they exist.</p>
+    <div class="elastic-steps reveal">
+      <article><span>Today</span><strong>One machine runs the world</strong><p>The domain system already keeps islands and whole ships organized inside <code>local:primary</code>.</p></article>
+      <article><span>Next</span><strong>Give busy places more room</strong><p>An island or ship could move as one intact unit to a worker on another VPS.</p></article>
+      <article><span>Always</span><strong>One owner, no split worlds</strong><p>Only one server may control a domain at a time, and players should stay connected during a handoff.</p></article>
+    </div>
+    <p class="truth-note reveal"><b>Design target, not a live claim.</b> The world currently runs in one process. Remote workers, live handoffs and failover are the next infrastructure milestones.</p>
   </section>
 
   <section class="join" id="join" aria-labelledby="join-title">
