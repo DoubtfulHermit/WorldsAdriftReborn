@@ -51,10 +51,13 @@ Prefer the bounded `input.pulse` and `axis.pulse` forms for unattended runs.
 They clear themselves after 0.02-10 seconds even if the caller is interrupted;
 `input.clear` remains the explicit emergency release for all synthetic state.
 
-The bridge deliberately has no username/password commands. Authenticate once
-through the normal landing screen after each fresh client process; subsequent
-Play, character selection, movement, interaction and helm acceptance steps can
-then be driven semantically without desktop mouse-coordinate injection.
+The bridge deliberately has no username/password commands. On the first login
+the client remembers the server-issued 30-day game session, protected with the
+current Wine/Windows user key; it never stores the password. Later fresh client
+processes resume that session automatically, after which Play, character
+selection, movement, interaction and helm acceptance steps can be driven
+semantically without desktop mouse-coordinate injection. A rejected/expired
+session is deleted and fails back to the ordinary login form.
 
 The bridge binds only `127.0.0.1`, accepts one allocation-bounded line per
 connection, caps line length and commands per frame, requires a constant-time token match, and times

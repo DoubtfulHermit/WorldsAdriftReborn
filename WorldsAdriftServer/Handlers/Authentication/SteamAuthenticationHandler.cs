@@ -1,6 +1,7 @@
 ﻿using NetCoreServer;
 using Newtonsoft.Json.Linq;
 using WorldsAdriftReborn.Storage.Records;
+using WorldsAdriftReborn.Storage.Policy;
 using WorldsAdriftServer.Objects.SteamObjects;
 using WorldsAdriftServer.Persistence;
 
@@ -66,9 +67,32 @@ namespace WorldsAdriftServer.Handlers.Authentication
             string username = reqToken.bossaCredential.userKey;
 
             AccountRecord? account;
+            SessionRecord? resumedSession = null;
             try
             {
-                account = Accounts.Repository.Verify(username, reqToken.bossaCredential.secret);
+                if (GameSessionResumeCredential.TryParse(
+                    reqToken.bossaCredential.secret, out string rememberedToken))
+                {
+                    resumedSession = Accounts.Sessions.Resolve(rememberedToken, DateTimeOffset.UtcNow);
+                    account = resumedSession == null
+                        ? null
+                        : Accounts.Repository.FindById(resumedSession.AccountId);
+
+                    // A stolen token must not be usable with a different visible
+                    // account name.  Keep the same generic failure as passwords
+                    // so the endpoint still cannot enumerate usernames.
+                    if (account != null && !string.Equals(
+                        AccountPolicy.NormalizeUsername(username),
+                        AccountPolicy.NormalizeUsername(account.Username),
+                        StringComparison.Ordinal))
+                    {
+                        account = null;
+                    }
+                }
+                else
+                {
+                    account = Accounts.Repository.Verify(username, reqToken.bossaCredential.secret);
+                }
             }
             catch (Exception e)
             {
@@ -93,11 +117,12 @@ namespace WorldsAdriftServer.Handlers.Authentication
             }
 
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            SessionRecord issued = Accounts.Sessions.Issue(account.AccountId, now);
+            SessionRecord issued = resumedSession ?? Accounts.Sessions.Issue(account.AccountId, now);
             Accounts.Repository.TouchLastLogin(account.AccountId, now);
 
-            Console.WriteLine("[info] '" + account.Username + "' signed in (account "
-                + account.AccountId + ").");
+            Console.WriteLine("[info] '" + account.Username + "' "
+                + (resumedSession == null ? "signed in" : "resumed a remembered session")
+                + " (account " + account.AccountId + ").");
 
             // token comes back to us in the Security header on every later
             // request; playerId and bossaId only have to be present and non-empty.

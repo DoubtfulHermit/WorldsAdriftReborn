@@ -84,8 +84,11 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
                 BossaNetBootstrap.Instance.AuthenticateWithBossaNet(
                     user,
                     pwd,
-                    (BossaNetBootstrap.OnAuthSuccess)Handler(__instance, "LoginSuccess",
-                        typeof(BossaNetBootstrap.OnAuthSuccess)),
+                    (BossaNetBootstrap.OnAuthSuccess)delegate(string token)
+                    {
+                        RememberedGameSession.Save(user, token);
+                        Invoke(__instance, "LoginSuccess", token);
+                    },
                     (BossaNetBootstrap.OnAuthFail)Handler(__instance, "LoginFailed",
                         typeof(BossaNetBootstrap.OnAuthFail)),
                     (BossaNetBootstrap.OnAuthError)Handler(__instance, "AuthError",
@@ -111,7 +114,7 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
             return field == null ? null : field.GetValue(instance) as T;
         }
 
-        private static void Invoke(object instance, string name)
+        internal static void Invoke(object instance, string name, params object[] args)
         {
             MethodInfo method = AccessTools.Method(typeof(LandingScreenType), name);
             if (method == null)
@@ -119,10 +122,10 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
                 throw new InvalidOperationException(
                     "[WAReborn] LandingScreen." + name + "() not found.");
             }
-            method.Invoke(instance, null);
+            method.Invoke(instance, args == null || args.Length == 0 ? null : args);
         }
 
-        private static Delegate Handler(object instance, string name, Type delegateType)
+        internal static Delegate Handler(object instance, string name, Type delegateType)
         {
             MethodInfo method = AccessTools.Method(typeof(LandingScreenType), name);
             if (method == null)
