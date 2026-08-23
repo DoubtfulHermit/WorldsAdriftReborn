@@ -17,6 +17,7 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
     {
         internal const string CredentialPrefix = "wareborn-session-v1:";
         private const string FileName = "wareborn-remembered-session-v1.json";
+        private const string BootstrapFileName = ".wareborn-remember-session-v1";
         private const int TokenLength = 43;
         private static readonly byte[] Entropy = Encoding.UTF8.GetBytes(
             "WAReborn remembered game session v1");
@@ -72,6 +73,10 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
             try
             {
                 string path = PathName;
+                if (!File.Exists(path))
+                {
+                    ConsumeOneShotBootstrap();
+                }
                 if (!File.Exists(path) || new FileInfo(path).Length > 4096)
                 {
                     return false;
@@ -150,6 +155,66 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Lets a local acceptance runner enroll an already-issued session
+        /// without ever learning or storing the account password.  The runner
+        /// creates a mode-0600, tab-separated username/token file beside the
+        /// executable; this consumes it once and immediately converts it to the
+        /// DPAPI-protected durable record.  No command can read it back.
+        /// </summary>
+        private static void ConsumeOneShotBootstrap()
+        {
+            string path = Path.Combine(Environment.CurrentDirectory, BootstrapFileName);
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            try
+            {
+                FileInfo info = new FileInfo(path);
+                if (info.Length <= 0 || info.Length > 256)
+                {
+                    return;
+                }
+
+                string record = File.ReadAllText(path, Encoding.UTF8).Trim();
+                int separator = record.IndexOf('\t');
+                if (separator <= 0 || separator != record.LastIndexOf('\t'))
+                {
+                    return;
+                }
+
+                string username = record.Substring(0, separator).Trim();
+                string token = record.Substring(separator + 1).Trim();
+                if (IsBlank(username) || username.Length > 64 || !IsToken(token))
+                {
+                    return;
+                }
+
+                Save(username, token);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[WAReborn] one-shot session enrollment failed; "
+                    + "showing the normal login form: " + e.Message);
+            }
+            finally
+            {
+                // It is a bearer token in plaintext only for this one handoff.
+                // Consume it even when malformed; never leave it for another run.
+                try
+                {
+                    File.Delete(path);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("[WAReborn] could not consume the one-shot session file: "
+                        + e.Message);
+                }
+            }
         }
 
         private static bool IsBlank(string value)

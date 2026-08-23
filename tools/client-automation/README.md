@@ -59,6 +59,13 @@ selection, movement, interaction and helm acceptance steps can be driven
 semantically without desktop mouse-coordinate injection. A rejected/expired
 session is deleted and fails back to the ordinary login form.
 
+For a trusted local acceptance machine, an operator may instead provision an
+already-issued session without handling the account password. Place one line,
+`username<TAB>session-token`, in `.wareborn-remember-session-v1` beside the game
+executable with mode `0600`. The client consumes and deletes it on the next
+launch, then stores only the DPAPI-protected form. The bridge has no command to
+read, export, or replace either credential.
+
 The bridge binds only `127.0.0.1`, accepts one allocation-bounded line per
 connection, caps line length and commands per frame, requires a constant-time token match, and times
 out if Unity's main thread does not answer. Timed-out work is cancelled before
