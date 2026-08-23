@@ -19,7 +19,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void LiveClientHidesEveryVirtualDeckRendererAndRetainsGeometry()
+        public void LiveClientHidesOnlyVirtualDeckRenderersAndRetainsGeometry()
         {
             string patch = Source("WorldsAdriftReborn", "Patching", "Ship",
                 "VirtualDeckPresentation_Patch.cs");
@@ -27,7 +27,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Contains("HarmonyPatch(typeof(MeshGenerator), \"MakeVirtualDeck\")", patch,
                 StringComparison.Ordinal);
             Assert.Contains("WorldsAdrift.IsClient", patch, StringComparison.Ordinal);
-            Assert.DoesNotContain("CustomShipFrameVisualizer", patch,
+            Assert.Contains("GetComponent(\"CustomShipFrameVisualizer\")", patch,
                 StringComparison.Ordinal);
             Assert.Contains("GetComponentsInChildren<Renderer>(true)", patch,
                 StringComparison.Ordinal);

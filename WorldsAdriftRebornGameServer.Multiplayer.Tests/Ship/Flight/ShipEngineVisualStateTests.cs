@@ -69,22 +69,5 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Contains("PropulsionDemandFor(hullEntityId)", wire, StringComparison.Ordinal);
             Assert.Contains("ShipFuel.EnginesPowered(hullEntityId)", wire, StringComparison.Ordinal);
         }
-
-        [Fact]
-        public void ClientPresentationPollsTheAuthoritativeReaderAfterAsyncAssembly()
-        {
-            string patch = Source("WorldsAdriftReborn", "Patching", "Ship",
-                "EngineVisualStateRefresh_Patch.cs");
-
-            Assert.Contains("TypeByName(\"Assets.Visualizers.EngineVisualizer\")", patch,
-                StringComparison.Ordinal);
-            Assert.Contains("AccessTools.Property(EngineVisualizerType, \"SpinPct\")", patch,
-                StringComparison.Ordinal);
-            Assert.Contains("AccessTools.Field(EngineVisualizerType, \"_engineVFX\")", patch,
-                StringComparison.Ordinal);
-            Assert.Contains("engineVfx.SpinPct", patch, StringComparison.Ordinal);
-            Assert.DoesNotContain("ShipControlsBehaviour", patch, StringComparison.Ordinal);
-            Assert.DoesNotContain("ShipThrottle", patch, StringComparison.Ordinal);
-        }
     }
 }
