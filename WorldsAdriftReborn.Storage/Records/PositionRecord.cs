@@ -27,5 +27,9 @@ namespace WorldsAdriftReborn.Storage.Records
         long Y,
         long Z,
         DateTimeOffset CreatedAt,
-        DateTimeOffset UpdatedAt);
+        DateTimeOffset UpdatedAt,
+        int? BuiltShipIndex = null,
+        long? ShipLocalX = null,
+        long? ShipLocalY = null,
+        long? ShipLocalZ = null);
 }

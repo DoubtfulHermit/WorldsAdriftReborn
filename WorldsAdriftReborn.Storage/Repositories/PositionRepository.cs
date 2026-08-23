@@ -21,7 +21,8 @@ namespace WorldsAdriftReborn.Storage.Repositories
             this.db = db ?? throw new ArgumentNullException(nameof(db));
         }
 
-        private const string Columns = "character_uid, x, y, z, created_at, updated_at";
+        private const string Columns = "character_uid, x, y, z, created_at, updated_at, "
+            + "built_ship_index, ship_local_x, ship_local_y, ship_local_z";
 
         /// <summary>
         /// One character's stored position, or null if none has ever been saved.
@@ -60,9 +61,14 @@ namespace WorldsAdriftReborn.Storage.Repositories
 
             command.CommandText =
                 "INSERT INTO character_positions (" + Columns + ") VALUES ("
-                + "@uid, @x, @y, @z, @created_at, @updated_at) "
+                + "@uid, @x, @y, @z, @created_at, @updated_at, "
+                + "@ship_index, @local_x, @local_y, @local_z) "
                 + "ON CONFLICT (character_uid) DO UPDATE SET "
                 + "x = excluded.x, y = excluded.y, z = excluded.z, "
+                + "built_ship_index = excluded.built_ship_index, "
+                + "ship_local_x = excluded.ship_local_x, "
+                + "ship_local_y = excluded.ship_local_y, "
+                + "ship_local_z = excluded.ship_local_z, "
                 + "updated_at = excluded.updated_at;";
 
             command.Parameters.AddWithValue("uid", position.CharacterUid);
@@ -71,6 +77,10 @@ namespace WorldsAdriftReborn.Storage.Repositories
             command.Parameters.AddWithValue("z", position.Z);
             command.Parameters.AddWithValue("created_at", Timestamps.ToDb(position.CreatedAt));
             command.Parameters.AddWithValue("updated_at", Timestamps.ToDb(position.UpdatedAt));
+            command.Parameters.AddWithValue("ship_index", (object?)position.BuiltShipIndex ?? DBNull.Value);
+            command.Parameters.AddWithValue("local_x", (object?)position.ShipLocalX ?? DBNull.Value);
+            command.Parameters.AddWithValue("local_y", (object?)position.ShipLocalY ?? DBNull.Value);
+            command.Parameters.AddWithValue("local_z", (object?)position.ShipLocalZ ?? DBNull.Value);
 
             command.ExecuteNonQuery();
         }
@@ -98,7 +108,11 @@ namespace WorldsAdriftReborn.Storage.Repositories
                 reader.GetInt64(2),
                 reader.GetInt64(3),
                 Timestamps.FromDb(reader.GetDateTime(4)),
-                Timestamps.FromDb(reader.GetDateTime(5)));
+                Timestamps.FromDb(reader.GetDateTime(5)),
+                reader.IsDBNull(6) ? null : reader.GetInt32(6),
+                reader.IsDBNull(7) ? null : reader.GetInt64(7),
+                reader.IsDBNull(8) ? null : reader.GetInt64(8),
+                reader.IsDBNull(9) ? null : reader.GetInt64(9));
         }
     }
 }

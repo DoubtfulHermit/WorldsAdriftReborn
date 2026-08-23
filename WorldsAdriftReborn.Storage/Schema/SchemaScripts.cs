@@ -54,7 +54,7 @@ ON CONFLICT (only_row) DO NOTHING;
         /// Every script, oldest first. Index i takes the database from version i
         /// to version i+1, so <c>All.Count</c> is the current version.
         /// </summary>
-        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7, V8, V9 };
+        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7, V8, V9, V10 };
 
         /// <summary>
         /// v1 - accounts, sessions, characters.
@@ -726,6 +726,26 @@ CREATE TABLE map_viewer_samples (
 
     CONSTRAINT map_viewer_samples_count_not_negative CHECK (viewer_count >= 0)
 );
+";
+
+        /// <summary>
+        /// v10 - durable ship-relative logout positions. The absolute position
+        /// remains the safe fallback when a ship was salvaged or cannot restore.
+        /// The four nullable anchor fields are all-or-nothing so a partial anchor
+        /// can never be mistaken for a valid deck location.
+        /// </summary>
+        internal const string V10 = @"
+ALTER TABLE character_positions
+    ADD COLUMN built_ship_index INTEGER NULL,
+    ADD COLUMN ship_local_x BIGINT NULL,
+    ADD COLUMN ship_local_y BIGINT NULL,
+    ADD COLUMN ship_local_z BIGINT NULL,
+    ADD CONSTRAINT character_positions_ship_anchor_complete CHECK (
+        (built_ship_index IS NULL AND ship_local_x IS NULL AND ship_local_y IS NULL AND ship_local_z IS NULL)
+        OR
+        (built_ship_index IS NOT NULL AND built_ship_index >= 0
+            AND ship_local_x IS NOT NULL AND ship_local_y IS NOT NULL AND ship_local_z IS NOT NULL)
+    );
 ";
     }
 }

@@ -247,6 +247,15 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             return PersistentIndexByHull.TryGetValue(hullEntityId, out int index) ? index : (int?)null;
         }
 
+        /// <summary>Resolves a durable ship index to this boot's hull entity id.</summary>
+        internal static long? HullForPersistentIndex(int index)
+        {
+            if (index < 0) return null;
+            foreach (KeyValuePair<long, int> pair in PersistentIndexByHull)
+                if (pair.Value == index) return pair.Key;
+            return null;
+        }
+
         /// <summary>
         /// Records a built hull's OWNER character uid (Gate B). Called by the runtime
         /// build (owner = the shipyard's owner) and the boot restore (owner = the

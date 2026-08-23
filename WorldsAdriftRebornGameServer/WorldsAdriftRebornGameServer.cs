@@ -177,7 +177,11 @@ namespace WorldsAdriftRebornGameServer
                 // whereas the interest centre is always a global world position.
                 if (ResourceInterest.TryCenterFor(peerId, out Multiplayer.FixedPointPosition leftAt))
                 {
-                    if (Game.Persistence.PlayerPositionService.SaveOnLeave(ownEntity.Value, leftAt))
+                    long? leftHull = leftAboard.Change == Multiplayer.AboardChange.Disembarked
+                        ? leftAboard.PreviousShipRootEntityId
+                        : (long?)null;
+                    if (Game.Persistence.PlayerPositionService.SaveOnLeave(
+                        ownEntity.Value, leftAt, leftHull))
                     {
                         Console.WriteLine("[info] saved the logout position of entity " + ownEntity.Value
                             + " at (" + leftAt.MetresX.ToString("0.#") + ", "
@@ -2476,7 +2480,8 @@ namespace WorldsAdriftRebornGameServer
             {
                 if (ResourceInterest.TryCenterFor(peerId, out Multiplayer.FixedPointPosition at))
                 {
-                    Game.Persistence.PlayerPositionService.SaveIfMoved(entityId, at);
+                    Game.Persistence.PlayerPositionService.SaveIfMoved(
+                        entityId, at, Aboard.ShipOf(peerId));
                 }
             }
         }

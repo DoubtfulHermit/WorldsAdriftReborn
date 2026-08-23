@@ -262,8 +262,8 @@ namespace WorldsAdriftReborn.Storage.Tests
                 accounts.Create("timu", "Timu", "hunter22", null, Noon);
 
                 // The upgrade.
-                Assert.Equal(9, db.EnsureSchema());
-                Assert.Equal(9, db.SchemaVersion());
+                Assert.Equal(10, db.EnsureSchema());
+                Assert.Equal(10, db.SchemaVersion());
 
                 // The account is still there...
                 Assert.Equal(1, accounts.Count());
@@ -275,7 +275,7 @@ namespace WorldsAdriftReborn.Storage.Tests
                 Assert.Equal(6, samples.PeakAllTime());
 
                 // And running it again is a no-op, so it is safe on every start.
-                Assert.Equal(9, db.EnsureSchema());
+                Assert.Equal(10, db.EnsureSchema());
                 Assert.Equal(1, samples.Count());
             }
             finally

@@ -95,7 +95,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 Multiplayer.Placement.Quaternion32Packing.Identity).Position;
         }
 
-        private static (FixedPointPosition Position, uint PackedRotation) HullWorldPose(long hullEntityId)
+        internal static (FixedPointPosition Position, uint PackedRotation) HullWorldPose(long hullEntityId)
         {
             Multiplayer.Ship.Domains.ShipDomain? domain =
                 WorldsAdriftRebornGameServer.ShipDomains.ByHull(hullEntityId);

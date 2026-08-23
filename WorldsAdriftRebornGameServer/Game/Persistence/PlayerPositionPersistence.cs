@@ -5,6 +5,10 @@ using WorldsAdriftRebornGameServer.Multiplayer;
 
 namespace WorldsAdriftRebornGameServer.Game.Persistence
 {
+    internal readonly record struct StoredPlayerPosition(
+        FixedPointPosition World,
+        Multiplayer.Ship.ShipLogoutAnchor? ShipAnchor);
+
     /// <summary>
     /// Reads and writes where a character logged out, and NEVER lets the database
     /// stop the game. The exact analogue of InventoryPersistence and
@@ -48,16 +52,23 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// Where a character logged out, or null when there is none or the read
         /// failed. Both mean the same thing to the caller: use the spawn point.
         /// </summary>
-        internal FixedPointPosition? Load(Guid characterUid)
+        internal StoredPlayerPosition? Load(Guid characterUid)
         {
             if (repository == null) return null;
 
             try
             {
                 PositionRecord? record = repository.Find(characterUid);
-                return record == null
-                    ? (FixedPointPosition?)null
-                    : new FixedPointPosition(record.X, record.Y, record.Z);
+                if (record == null) return null;
+                Multiplayer.Ship.ShipLogoutAnchor? anchor = record.BuiltShipIndex.HasValue
+                    && record.ShipLocalX.HasValue && record.ShipLocalY.HasValue
+                    && record.ShipLocalZ.HasValue
+                    ? new Multiplayer.Ship.ShipLogoutAnchor(record.BuiltShipIndex.Value,
+                        new FixedPointPosition(record.ShipLocalX.Value,
+                            record.ShipLocalY.Value, record.ShipLocalZ.Value))
+                    : null;
+                return new StoredPlayerPosition(
+                    new FixedPointPosition(record.X, record.Y, record.Z), anchor);
             }
             catch (Exception e)
             {
@@ -76,7 +87,8 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// Writes where a character is now. Returns whether anything was written
         /// so the caller can say which happened.
         /// </summary>
-        internal bool Save(Guid characterUid, FixedPointPosition position)
+        internal bool Save(Guid characterUid, FixedPointPosition position,
+            Multiplayer.Ship.ShipLogoutAnchor? shipAnchor = null)
         {
             if (repository == null) return false;
 
@@ -84,7 +96,11 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             {
                 DateTimeOffset now = DateTimeOffset.UtcNow;
                 repository.Save(new PositionRecord(characterUid,
-                    position.X, position.Y, position.Z, now, now));
+                    position.X, position.Y, position.Z, now, now,
+                    shipAnchor?.BuiltShipIndex,
+                    shipAnchor?.LocalPosition.X,
+                    shipAnchor?.LocalPosition.Y,
+                    shipAnchor?.LocalPosition.Z));
                 return true;
             }
             catch (Exception e)

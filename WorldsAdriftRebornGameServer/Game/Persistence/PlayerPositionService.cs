@@ -34,6 +34,8 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
 
         /// <summary>What was last written, so standing still never writes again.</summary>
         private static readonly Dictionary<long, FixedPointPosition> LastSaved = new Dictionary<long, FixedPointPosition>();
+        private static readonly Dictionary<long, int?> LastSavedShipIndex =
+            new Dictionary<long, int?>();
 
         /// <summary>Entities already restored this session; the move happens once.</summary>
         private static readonly HashSet<long> Restored = new HashSet<long>();
@@ -69,7 +71,8 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
 
             if (!Restored.Add(entityId)) return;
 
-            FixedPointPosition? stored = Persistence.Load(uid.Value);
+            StoredPlayerPosition? durable = Persistence.Load(uid.Value);
+            FixedPointPosition? stored = ResolveRestorePosition(durable, out string anchorDetail);
             PositionRestoreVerdict verdict = PlayerPositionPolicy.Decide(
                 stored, SpawnPolicy.PlayerSpawnPosition);
 
@@ -81,7 +84,7 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 + (stored.HasValue
                     ? "stored at (" + stored.Value.MetresX.ToString("0.#") + ", "
                         + stored.Value.MetresY.ToString("0.#") + ", "
-                        + stored.Value.MetresZ.ToString("0.#") + ") m."
+                        + stored.Value.MetresZ.ToString("0.#") + ") m" + anchorDetail + "."
                     : "nothing stored."));
 
             if (verdict == PositionRestoreVerdict.Restore)
@@ -93,6 +96,7 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 // far from the stored value, so the next periodic tick writes their
                 // real location instead of quietly keeping the old one.
                 LastSaved[entityId] = stored!.Value;
+                LastSavedShipIndex[entityId] = durable?.ShipAnchor?.BuiltShipIndex;
             }
 
             // Handed on WHATEVER the verdict, including "nothing stored". The
@@ -110,16 +114,26 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// server that is killed never runs the disconnect path and a player who
         /// crashes out should still come back near where they were.
         /// </summary>
-        internal static void SaveIfMoved(long entityId, FixedPointPosition current)
+        internal static void SaveIfMoved(long entityId, FixedPointPosition current,
+            long? aboardHullEntityId = null)
         {
             if (!EntityUid.TryGetValue(entityId, out Guid uid)) return;
 
+            Multiplayer.Ship.ShipLogoutAnchor? anchor = CaptureAnchor(aboardHullEntityId, current);
             LastSaved.TryGetValue(entityId, out FixedPointPosition last);
             bool everSaved = LastSaved.ContainsKey(entityId);
-            if (!PlayerPositionPolicy.ShouldSave(everSaved ? last : (FixedPointPosition?)null, current))
+            LastSavedShipIndex.TryGetValue(entityId, out int? lastShipIndex);
+            bool anchorChanged = !LastSavedShipIndex.ContainsKey(entityId)
+                || lastShipIndex != anchor?.BuiltShipIndex;
+            if (!anchorChanged
+                && !PlayerPositionPolicy.ShouldSave(everSaved ? last : (FixedPointPosition?)null, current))
                 return;
 
-            if (Persistence.Save(uid, current)) LastSaved[entityId] = current;
+            if (Persistence.Save(uid, current, anchor))
+            {
+                LastSaved[entityId] = current;
+                LastSavedShipIndex[entityId] = anchor?.BuiltShipIndex;
+            }
         }
 
         /// <summary>
@@ -127,10 +141,11 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// because it ignores the movement threshold: the last few paces before a
         /// disconnect are exactly the ones worth keeping.
         /// </summary>
-        internal static bool SaveOnLeave(long entityId, FixedPointPosition current)
+        internal static bool SaveOnLeave(long entityId, FixedPointPosition current,
+            long? aboardHullEntityId = null)
         {
             if (!EntityUid.TryGetValue(entityId, out Guid uid)) return false;
-            return Persistence.Save(uid, current);
+            return Persistence.Save(uid, current, CaptureAnchor(aboardHullEntityId, current));
         }
 
         /// <summary>
@@ -143,7 +158,7 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// everybody happened to be present. Reading it here rather than opening a
         /// second connection keeps one component owning the table.
         /// </summary>
-        internal static FixedPointPosition? StoredFor(Guid uid) => Persistence.Load(uid);
+        internal static FixedPointPosition? StoredFor(Guid uid) => Persistence.Load(uid)?.World;
 
         /// <summary>
         /// Writes a character's position directly, outside the movement threshold.
@@ -160,7 +175,11 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             if (!Persistence.Save(uid, where)) return false;
 
             foreach (KeyValuePair<long, Guid> bound in EntityUid)
-                if (bound.Value == uid) LastSaved[bound.Key] = where;
+                if (bound.Value == uid)
+                {
+                    LastSaved[bound.Key] = where;
+                    LastSavedShipIndex[bound.Key] = null;
+                }
             return true;
         }
 
@@ -169,7 +188,49 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         {
             EntityUid.Remove(entityId);
             LastSaved.Remove(entityId);
+            LastSavedShipIndex.Remove(entityId);
             Restored.Remove(entityId);
+        }
+
+        private static Multiplayer.Ship.ShipLogoutAnchor? CaptureAnchor(
+            long? hullEntityId, FixedPointPosition playerWorld)
+        {
+            if (!hullEntityId.HasValue) return null;
+            int? index = Game.Crafting.BuiltShips.PersistentIndexFor(hullEntityId.Value);
+            (FixedPointPosition hullWorld, uint hullRotation) =
+                Game.ShipInteractionEligibility.HullWorldPose(hullEntityId.Value);
+            return Multiplayer.Ship.ShipRelativeLogoutPolicy.Capture(
+                index, playerWorld, hullWorld, hullRotation);
+        }
+
+        private static FixedPointPosition? ResolveRestorePosition(
+            StoredPlayerPosition? durable, out string detail)
+        {
+            detail = "";
+            if (!durable.HasValue) return null;
+            Multiplayer.Ship.ShipLogoutAnchor? anchor = durable.Value.ShipAnchor;
+            if (!anchor.HasValue) return durable.Value.World;
+
+            long? hull = Game.Crafting.BuiltShips.HullForPersistentIndex(
+                anchor.Value.BuiltShipIndex);
+            if (!hull.HasValue)
+            {
+                detail = " (ship anchor unavailable; using world fallback)";
+                return durable.Value.World;
+            }
+
+            (FixedPointPosition hullWorld, uint hullRotation) =
+                Game.ShipInteractionEligibility.HullWorldPose(hull.Value);
+            FixedPointPosition? resolved = Multiplayer.Ship.ShipRelativeLogoutPolicy.Resolve(
+                anchor.Value, hullWorld, hullRotation);
+            if (!resolved.HasValue)
+            {
+                detail = " (invalid ship anchor; using world fallback)";
+                return durable.Value.World;
+            }
+
+            detail = " aboard durable ship " + anchor.Value.BuiltShipIndex;
+            return resolved.Value;
         }
     }
 }

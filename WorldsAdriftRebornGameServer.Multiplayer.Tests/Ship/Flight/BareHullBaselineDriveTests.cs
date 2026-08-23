@@ -289,18 +289,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Bare_hull_multiplier_is_explicit_bounded_and_defaults_to_parity()
+        public void Bare_hull_multiplier_is_explicit_bounded_and_defaults_off()
         {
-            Assert.Equal(1.0, FlightTuning.FromEnvironment(_ => null).BareHullDriveMultiplier, 9);
+            Assert.Equal(0.0, FlightTuning.FromEnvironment(_ => null).BareHullDriveMultiplier, 9);
             Assert.Equal(2.0, FlightTuning.FromEnvironment(
                 n => n == "WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER" ? "2" : null)
                 .BareHullDriveMultiplier, 9);
             Assert.Equal(4.0, FlightTuning.FromEnvironment(
                 n => n == "WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER" ? "999" : null)
                 .BareHullDriveMultiplier, 9);
-            Assert.Equal(1.0, FlightTuning.FromEnvironment(
+            Assert.Equal(0.0, FlightTuning.FromEnvironment(
                 n => n == "WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER" ? "NaN" : null)
                 .BareHullDriveMultiplier, 9);
+        }
+
+        [Fact]
+        public void Default_tuning_cannot_drive_a_ship_with_no_engine_or_canvas()
+        {
+            var propulsion = new ShipPropulsion(3094.0, 0.0, 0);
+            var fullThrottle = new FlightControlInput(1f, 0f, 0f, 0f, 0f);
+
+            ShipForceEvaluation force = ShipForceEvaluator.Evaluate(
+                0, 0, 0, fullThrottle, propulsion,
+                FlightTuning.FromEnvironment(_ => null), 0);
+
+            Assert.Equal(0.0, force.WindAlongHeadingMps, 9);
+            Assert.Equal(0.0, force.EngineForceNewtons, 9);
+            Assert.Equal(0.0, force.SailForceNewtons, 9);
         }
 
         [Fact]

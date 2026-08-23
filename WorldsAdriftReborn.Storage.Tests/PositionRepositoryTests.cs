@@ -28,6 +28,28 @@ namespace WorldsAdriftReborn.Storage.Tests
             Assert.Equal(saved, db.Positions.Find(character.CharacterUid));
         }
 
+        [PostgresFact]
+        public void A_ship_relative_anchor_round_trips_and_can_be_cleared()
+        {
+            using TempDb db = new TempDb();
+            AccountRecord account = db.AnAccount();
+            CharacterRecord character = TempDb.ACharacter(account.AccountId);
+            db.Characters.Save(character);
+
+            PositionRecord aboard = new PositionRecord(character.CharacterUid,
+                10, 20, 30, TempDb.Now, TempDb.Now, 4, 100, 200, -300);
+            db.Positions.Save(aboard);
+            Assert.Equal(aboard, db.Positions.Find(character.CharacterUid));
+
+            db.Positions.Save(new PositionRecord(character.CharacterUid,
+                40, 50, 60, TempDb.Now, TempDb.Now.AddMinutes(1)));
+            PositionRecord ashore = db.Positions.Find(character.CharacterUid)!;
+            Assert.Null(ashore.BuiltShipIndex);
+            Assert.Null(ashore.ShipLocalX);
+            Assert.Null(ashore.ShipLocalY);
+            Assert.Null(ashore.ShipLocalZ);
+        }
+
         /// <summary>
         /// The whole reason the coordinates are BIGINT columns rather than
         /// floats: a position that drifts on the way to the database and back is

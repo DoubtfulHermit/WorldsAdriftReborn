@@ -205,8 +205,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER - WAReborn balance tuning applied
         /// only to the throttle-requested, no-canvas baseline wind carry. It does
         /// not alter the wind field, sail force, engine force, wall influence or
-        /// drag. Retail's ordinary weather magnitudes are lost, so the default is
-        /// compatibility-preserving 1 and live deployments must record any change.
+        /// drag. Retail requires propulsion from canvas or engines, so this
+        /// speculative compatibility seam defaults OFF; any experiment must opt in.
         /// </summary>
         public double BareHullDriveMultiplier { get; }
 
@@ -334,7 +334,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // Clamps to [0,1] inside the struct rather than here, because the same
             // clamp has to hold for a caller that constructs one directly.
             WindVariation = new WindFieldVariation(windFieldVariation);
-            BareHullDriveMultiplier = Clamp(bareHullDriveMultiplier, 0.0, 4.0, 1.0);
+            BareHullDriveMultiplier = Clamp(bareHullDriveMultiplier, 0.0, 4.0, 0.0);
         }
 
         /// <summary>
@@ -388,7 +388,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // otherwise, because turning it into a field makes what a player
                 // FEELS diverge from what the client DRAWS - see WindVariation.
                 Parse(getenv("WAREBORN_FLIGHT_WIND_FIELD"), 0.0),
-                Parse(getenv("WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER"), 1.0));
+                Parse(getenv("WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER"), 0.0));
         }
 
         private static double Parse(string? env, double fallback)
