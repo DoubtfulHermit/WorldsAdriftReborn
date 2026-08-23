@@ -138,6 +138,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void World_persistence_slow_path_names_the_exact_mutating_caller()
+        {
+            string persistence = Source("WorldsAdriftRebornGameServer", "Game", "Persistence",
+                "WorldStatePersistence.cs");
+
+            Assert.Contains("Save([CallerMemberName] string operation", persistence,
+                StringComparison.Ordinal);
+            Assert.Contains("TimeSpan.FromMilliseconds(100)", persistence,
+                StringComparison.Ordinal);
+            Assert.Contains("world persistence slow: operation=", persistence,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain("WarmWritePath", persistence, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void Durable_restore_uses_version_validation_and_rotates_authority()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");

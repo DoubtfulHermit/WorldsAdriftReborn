@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 using WorldsAdriftRebornGameServer.Game.Crafting;
 using WorldsAdriftRebornGameServer.Game.Placement;
 using WorldsAdriftRebornGameServer.Multiplayer;
@@ -629,9 +631,20 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 + " (they will be served to every joining client via the spawn plan).");
         }
 
-        private static bool Save()
+        private static bool Save([CallerMemberName] string operation = "")
         {
-            return AtomicJsonFile.Write(FilePath, Snapshot());
+            var elapsed = Stopwatch.StartNew();
+            bool written = AtomicJsonFile.Write(FilePath, Snapshot());
+            elapsed.Stop();
+            if (elapsed.Elapsed >= TimeSpan.FromMilliseconds(100))
+            {
+                Console.WriteLine("[warning] world persistence slow: operation="
+                    + operation + " elapsedMs="
+                    + elapsed.Elapsed.TotalMilliseconds.ToString("0.0",
+                        System.Globalization.CultureInfo.InvariantCulture)
+                    + " written=" + written + ".");
+            }
+            return written;
         }
     }
 }

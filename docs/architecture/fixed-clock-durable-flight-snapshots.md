@@ -142,3 +142,27 @@ window produces a different state from the rejected retroactive twelve-step
 batch. Production was rolled back to `WAREBORN_FLIGHT_FIXED_STEP=0` immediately
 after the failed observation; reactivation requires the full test/build gates
 and a repeat of C0 before any restart acceptance.
+
+## Second production acceptance finding — first persistence write pressure, 2026-08-23
+
+The unattended corrected-C0 run was visually smooth through forward/reverse,
+yaw, climb/descent and a continuous cruise, but the acceptance gate still found
+one fixed-clock pressure event: hull 3639 ran the 25-step catch-up cap and dropped
+9 steps (about 180 ms). The journal fixes the event at 10:17:03, four seconds
+after the first post-boot mounted-sail persistence mutation. The ship was parked
+and unpiloted at the time; later flight remained finite and produced no second
+event. This is not the rejected 240 ms physics batching bug.
+
+The event followed the first post-boot mounted-sail persistence mutation, but
+the save itself was not timed, so that correlation is not yet a root-cause
+claim. The first diagnostic correction logs every real world save's caller and
+elapsed time when it exceeds 100 ms. The instrumented production run must reproduce
+the same first sail mutation; only direct timing evidence can decide whether
+serializer/file-replace cold start, a scheduler pause or another poll-loop
+operation caused the clock pressure. A persistence warm-up must not be merged as
+a speculative fallback before that evidence exists.
+
+Pack C remains **NO-GO** until an evidence-backed correction repeats the first
+sail mutation and corrected C0 with `droppedSteps=0` and `pressureEvents=0`.
+C3's deliberate stall is not allowed to hide or normalize this ordinary-load
+event.
