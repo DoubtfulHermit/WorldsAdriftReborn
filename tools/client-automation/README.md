@@ -39,6 +39,11 @@ Initial commands:
 - `axis.pulse ShipYaw -1 0.5`
 - `axis.clear ShipThrottle`
 - `input.clear`
+- `interact.list`
+- `interact.list helm`
+- `interact.use kind helm`
+- `interact.use entity 12345`
+- `interact.release`
 
 `state` reports the active menu/world phase, SpatialOS connection state,
 whether the fully initialized `LocalPlayer` exists, global player position,
@@ -49,6 +54,17 @@ A half-created `LocalPlayer.Instance` is never reported as `world`.
 Prefer the bounded `input.pulse` and `axis.pulse` forms for unattended runs.
 They clear themselves after 0.02-10 seconds even if the caller is interrupted;
 `input.clear` remains the explicit emergency release for all synthetic state.
+
+`interact.list` is the aim-independent path for unattended helm/sail tests. It
+only returns active, enabled native helm and sail visualizers whose SpatialOS
+entity is valid and whose distance satisfies the exact retail initial rule
+(`distance + 0.5m < interaction radius`). `interact.use` selects the nearest
+listed semantic kind or an exact listed entity, then invokes the client's own
+`InteractAgentObserver.CheckInteraction` path. The native friendliness/lock
+checks and `TimedInteractionController` remain in charge, and the synthetic E
+hold releases just after the actual timer value read back from that controller.
+`interact.release` calls the client's normal `ReleaseInteractiveObject` path;
+none of these commands constructs or sends a server component update directly.
 
 The bridge deliberately has no username/password commands. On the first login
 the client remembers the server-issued 30-day game session, protected with the

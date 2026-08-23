@@ -36,6 +36,8 @@ namespace WorldsAdriftReborn.Patching.Automation
         private const int MaxCommandsPerFrame = 8;
         private const float MaxPulseSeconds = 10f;
         private const string OneShotTokenFileName = ".wareborn-test-bridge-token";
+        private const int MaxInteractionTargets = 24;
+        private const float InteractionReleaseMarginSeconds = 0.1f;
 
         private static string _startupToken;
 
@@ -47,6 +49,15 @@ namespace WorldsAdriftReborn.Patching.Automation
             PlayerLookingAtType == null ? null : AccessTools.Property(PlayerLookingAtType, "LookingAtInteractive");
         private static readonly PropertyInfo LookingAtCollider =
             PlayerLookingAtType == null ? null : AccessTools.Property(PlayerLookingAtType, "LookingAtCollider");
+        private static readonly MethodInfo CheckInteractionMethod =
+            AccessTools.Method(typeof(Bossa.Prototype.Character.Observer.InteractAgentObserver),
+                "CheckInteraction");
+        private static readonly FieldInfo InteractionTotalTimeField =
+            AccessTools.Field(typeof(TimedInteractionController), "_interactionTotalTime");
+        private static readonly Type PilotVisualizerType =
+            AccessTools.TypeByName("PilotVisualizer");
+        private static readonly MethodInfo PilotIsDrivingMethod =
+            PilotVisualizerType == null ? null : AccessTools.Method(PilotVisualizerType, "IsDriving");
 
         private readonly Queue<PendingCommand> _pending = new Queue<PendingCommand>();
         private TcpListener _listener;
@@ -241,6 +252,33 @@ namespace WorldsAdriftReborn.Patching.Automation
                 SyntheticInput.Clear();
                 return Ok(command);
             }
+            if (parts[0] == "interact.list" && (parts.Length == 1 || parts.Length == 2))
+            {
+                string kind = parts.Length == 2 ? parts[1] : null;
+                if (kind != null && !IsSupportedInteractionKind(kind))
+                    return Error("bad_kind", kind);
+                return InteractionListJson(kind);
+            }
+            if (parts[0] == "interact.use" && parts.Length == 3)
+            {
+                if (parts[1] == "kind")
+                {
+                    if (!IsSupportedInteractionKind(parts[2]))
+                        return Error("bad_kind", parts[2]);
+                    return UseInteractionTarget(parts[2], 0);
+                }
+                if (parts[1] == "entity")
+                {
+                    long entityId;
+                    if (!long.TryParse(parts[2], NumberStyles.None,
+                            CultureInfo.InvariantCulture, out entityId) || entityId <= 0)
+                        return Error("bad_entity", parts[2]);
+                    return UseInteractionTarget(null, entityId);
+                }
+                return Error("bad_selector", parts[1]);
+            }
+            if (parts[0] == "interact.release" && parts.Length == 1)
+                return ReleaseInteraction();
 
             switch (command)
             {
@@ -361,6 +399,8 @@ namespace WorldsAdriftReborn.Patching.Automation
                 + ",\"localPlayer\":" + JsonBool(localPlayer)
                 + playerFields
                 + ",\"timedInteraction\":" + JsonBool(timedInteraction)
+                + ",\"syntheticInteractHeld\":"
+                    + JsonBool(SyntheticInput.IsHeld(InputButtons.Interact))
                 + ",\"interactionTarget\":" + interactionTarget
                 + ",\"helmStateAvailable\":" + JsonBool(helmStateAvailable)
                 + ",\"helmAttached\":" + JsonBool(helmAttached)
@@ -414,6 +454,247 @@ namespace WorldsAdriftReborn.Patching.Automation
                 // command fail; null truthfully means no stable target sample.
                 return "null";
             }
+        }
+
+        private static string InteractionListJson(string kind)
+        {
+            if (!LocalPlayer.Exists)
+                return Error("wrong_state", "local player is not initialized");
+
+            var observer = LocalPlayer.Instance.interactAgentObserver;
+            bool inputAvailable = observer != null && observer.CanInteract();
+            bool driving = IsHelmAttached();
+            List<InteractionCandidate> candidates = driving
+                ? new List<InteractionCandidate>() : FindInteractionCandidates(kind, 0);
+            StringBuilder json = new StringBuilder(256);
+            json.Append("{\"ok\":true,\"action\":\"interact.list\",\"inputAvailable\":")
+                .Append(JsonBool(inputAvailable))
+                .Append(",\"driving\":").Append(JsonBool(driving))
+                .Append(",\"targets\":[");
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (i > 0)
+                    json.Append(',');
+                json.Append(InteractionCandidateJson(candidates[i]));
+            }
+            json.Append("]}");
+            return json.ToString();
+        }
+
+        private static string UseInteractionTarget(string kind, long entityId)
+        {
+            if (!LocalPlayer.Exists)
+                return Error("wrong_state", "local player is not initialized");
+            if (IsHelmAttached())
+                return Error("wrong_state", "release the current helm before selecting a target");
+
+            var observer = LocalPlayer.Instance.interactAgentObserver;
+            TimedInteractionController timer = LocalPlayer.Instance.timedInteractionController;
+            if (observer == null || timer == null || CheckInteractionMethod == null
+                || InteractionTotalTimeField == null)
+                return Error("client_state_unavailable", "native interaction seam is unavailable");
+            if (!observer.CanInteract())
+                return Error("input_blocked", "native interact input is currently captured by UI");
+            if (timer.IsInteracting())
+                return Error("busy", "a native timed interaction is already active");
+
+            List<InteractionCandidate> candidates = FindInteractionCandidates(kind, entityId);
+            InteractionCandidate selected = null;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (entityId == 0 || candidates[i].EntityId == entityId)
+                {
+                    selected = candidates[i];
+                    break;
+                }
+            }
+            if (selected == null)
+                return Error("no_target", entityId == 0
+                    ? "no enabled in-range " + kind + " target"
+                    : "entity is not an enabled in-range helm or sail target");
+
+            // CheckInteraction is the native client seam used by a physical E
+            // press. It performs friendliness/lock checks, starts the real
+            // TimedInteractionController, calls AttemptInteraction, and emits
+            // the ordinary 1211 request. We only replace camera target choice.
+            SyntheticInput.Pulse(InputButtons.Interact, MaxPulseSeconds);
+            try
+            {
+                CheckInteractionMethod.Invoke(observer,
+                    new object[] { selected.Visualizer, selected.Collider });
+            }
+            catch (Exception e)
+            {
+                SyntheticInput.Hold(InputButtons.Interact, false);
+                return Error("interaction_failed", e.GetType().Name + ": " + e.Message);
+            }
+
+            bool timed = timer.IsInteracting();
+            float holdSeconds = timed
+                ? (float)InteractionTotalTimeField.GetValue(timer) : 0f;
+            float releaseAfter = timed
+                ? holdSeconds + InteractionReleaseMarginSeconds : 0.05f;
+            if (releaseAfter > MaxPulseSeconds)
+            {
+                timer.CancelInteraction();
+                SyntheticInput.Hold(InputButtons.Interact, false);
+                return Error("hold_too_long", "native hold exceeds bounded automation limit");
+            }
+            SyntheticInput.ReleaseAfter(InputButtons.Interact, releaseAfter);
+
+            return "{\"ok\":true,\"action\":\"interact.use\",\"target\":"
+                + InteractionCandidateJson(selected)
+                + ",\"timed\":" + JsonBool(timed)
+                + ",\"nativeHoldSeconds\":" + JsonNumber(holdSeconds)
+                + ",\"releaseAfterSeconds\":" + JsonNumber(releaseAfter) + "}";
+        }
+
+        private static string ReleaseInteraction()
+        {
+            if (!LocalPlayer.Exists || LocalPlayer.Instance.interactAgentObserver == null)
+                return Error("wrong_state", "local player is not initialized");
+            TimedInteractionController timer = LocalPlayer.Instance.timedInteractionController;
+            if (timer != null && timer.IsInteracting())
+                timer.CancelInteraction();
+            SyntheticInput.Hold(InputButtons.Interact, false);
+            LocalPlayer.Instance.interactAgentObserver.ReleaseInteractiveObject();
+            return Ok("interact.release");
+        }
+
+        private static List<InteractionCandidate> FindInteractionCandidates(string kind,
+            long requiredEntityId)
+        {
+            var result = new List<InteractionCandidate>();
+            if (!LocalPlayer.Exists || LocalPlayer.Instance.interactAgentObserver == null)
+                return result;
+
+            Vector3 playerPosition = LocalPlayer.Instance.interactAgentObserver.transform.position;
+            UnityEngine.Object[] objects =
+                Resources.FindObjectsOfTypeAll(typeof(InteractiveObjectVisualizer));
+            var seen = new HashSet<long>();
+            for (int i = 0; i < objects.Length; i++)
+            {
+                InteractiveObjectVisualizer visualizer =
+                    objects[i] as InteractiveObjectVisualizer;
+                if (visualizer == null || !visualizer.gameObject.activeInHierarchy
+                    || !visualizer.gameObject.scene.IsValid() || !visualizer.InteractionEnabled)
+                    continue;
+
+                string candidateKind = GetInteractionKind(visualizer);
+                if (!IsSupportedInteractionKind(candidateKind)
+                    || (kind != null && candidateKind != kind))
+                    continue;
+                EntityId candidateEntity = visualizer.EntityId;
+                if (!EntityId.IsValidEntityId(candidateEntity)
+                    || (requiredEntityId != 0 && candidateEntity.Id != requiredEntityId))
+                    continue;
+
+                float distance = Vector3.Distance(visualizer.transform.position, playerPosition);
+                // Exact initial native rule from PlayerLookingAt.InRange(..., 0):
+                // distance + a 0.5 m body allowance must be strictly below 1210 radius.
+                if (distance + 0.5f >= visualizer.InteractRange)
+                    continue;
+                if (!seen.Add(candidateEntity.Id))
+                    continue;
+
+                Collider collider = FindInteractionCollider(visualizer, playerPosition);
+                if (collider == null)
+                    continue;
+                result.Add(new InteractionCandidate
+                {
+                    Visualizer = visualizer,
+                    Collider = collider,
+                    EntityId = candidateEntity.Id,
+                    Kind = candidateKind,
+                    Verb = visualizer.GetVerb(collider),
+                    Distance = distance,
+                    Range = visualizer.InteractRange,
+                    HoldSeconds = visualizer.GetInteractTime(collider),
+                    SailUnfurled = candidateKind == "sail"
+                        ? (bool?)visualizer.GetComponent<SailVisualizer>().Unfurled : null
+                });
+            }
+            result.Sort(delegate(InteractionCandidate left, InteractionCandidate right)
+            {
+                int distance = left.Distance.CompareTo(right.Distance);
+                return distance != 0 ? distance : left.EntityId.CompareTo(right.EntityId);
+            });
+            if (result.Count > MaxInteractionTargets)
+                result.RemoveRange(MaxInteractionTargets, result.Count - MaxInteractionTargets);
+            return result;
+        }
+
+        private static Collider FindInteractionCollider(
+            InteractiveObjectVisualizer visualizer, Vector3 playerPosition)
+        {
+            Collider[] colliders = visualizer.GetComponentsInChildren<Collider>(true);
+            Collider closest = null;
+            float closestDistance = float.MaxValue;
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                Collider collider = colliders[i];
+                if (collider == null || !collider.enabled
+                    || !collider.gameObject.activeInHierarchy
+                    || !collider.gameObject.IsInLayerMask(Layers.Interactables))
+                    continue;
+                float distance = Vector3.Distance(collider.transform.position, playerPosition);
+                if (distance < closestDistance)
+                {
+                    closest = collider;
+                    closestDistance = distance;
+                }
+            }
+            return closest;
+        }
+
+        private static bool IsHelmAttached()
+        {
+            try
+            {
+                if (PilotIsDrivingMethod != null
+                    && (bool)PilotIsDrivingMethod.Invoke(null, null))
+                    return true;
+                ShipControlsBehaviour controls = ShipControlsBehaviour.Instance;
+                if (controls == null || Patching.Flight.LocalHelmFeedback_Patch.PilotField == null)
+                    return false;
+                PilotStateReader pilot = Patching.Flight.LocalHelmFeedback_Patch.PilotField
+                    .GetValue(controls) as PilotStateReader;
+                return pilot != null && EntityId.IsValidEntityId(pilot.DrivingEntityId);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string GetInteractionKind(InteractiveObjectVisualizer visualizer)
+        {
+            if (visualizer.GetComponent<HelmVisualizer>() != null)
+                return "helm";
+            if (visualizer.GetComponent<SailVisualizer>() != null)
+                return "sail";
+            return "interactive";
+        }
+
+        private static bool IsSupportedInteractionKind(string kind)
+        {
+            return kind == "helm" || kind == "sail";
+        }
+
+        private static string InteractionCandidateJson(InteractionCandidate candidate)
+        {
+            string sailField = candidate.SailUnfurled.HasValue
+                ? ",\"sailUnfurled\":" + JsonBool(candidate.SailUnfurled.Value)
+                : string.Empty;
+            return "{\"entityId\":" + candidate.EntityId.ToString(CultureInfo.InvariantCulture)
+                + ",\"name\":\"" + JsonEscape(candidate.Visualizer.gameObject.name) + "\""
+                + ",\"collider\":\"" + JsonEscape(candidate.Collider.gameObject.name) + "\""
+                + ",\"kind\":\"" + candidate.Kind + "\""
+                + ",\"verb\":\"" + JsonEscape(candidate.Verb.ToString()) + "\""
+                + ",\"distance\":" + JsonNumber(candidate.Distance)
+                + ",\"range\":" + JsonNumber(candidate.Range)
+                + ",\"holdSeconds\":" + JsonNumber(candidate.HoldSeconds)
+                + sailField + "}";
         }
 
         private static T FindActive<T>() where T : Component
@@ -654,6 +935,19 @@ namespace WorldsAdriftReborn.Patching.Automation
             {
                 Command = command;
             }
+        }
+
+        private sealed class InteractionCandidate
+        {
+            internal InteractiveObjectVisualizer Visualizer;
+            internal Collider Collider;
+            internal long EntityId;
+            internal string Kind;
+            internal InteractVerb Verb;
+            internal float Distance;
+            internal float Range;
+            internal float HoldSeconds;
+            internal bool? SailUnfurled;
         }
     }
 }

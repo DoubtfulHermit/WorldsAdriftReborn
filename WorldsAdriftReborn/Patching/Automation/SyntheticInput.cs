@@ -66,6 +66,15 @@ namespace WorldsAdriftReborn.Patching.Automation
             state.AutoReleaseRealtime = Time.realtimeSinceStartup + seconds;
         }
 
+        internal static void ReleaseAfter(InputButtons button, float seconds)
+        {
+            ButtonState state;
+            if (!Buttons.TryGetValue(button, out state) || !state.Held)
+                return;
+            state.AutoReleaseFrame = -1;
+            state.AutoReleaseRealtime = Time.realtimeSinceStartup + seconds;
+        }
+
         internal static void Hold(InputButtons button, bool held)
         {
             ButtonState state = StateFor(button);
@@ -109,6 +118,12 @@ namespace WorldsAdriftReborn.Patching.Automation
         {
             Buttons.Clear();
             Axes.Clear();
+        }
+
+        internal static bool IsHeld(InputButtons button)
+        {
+            ButtonState state;
+            return _enabled && Buttons.TryGetValue(button, out state) && state.Held;
         }
 
         internal static void Tick()

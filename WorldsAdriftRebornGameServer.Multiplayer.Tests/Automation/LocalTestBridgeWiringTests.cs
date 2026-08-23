@@ -102,7 +102,8 @@ public sealed class LocalTestBridgeWiringTests
                  {
                      "menu.continue", "menu.play", "menu.enter-world",
                      "input.tap", "input.hold", "input.pulse", "axis.set", "axis.pulse",
-                     "axis.clear", "input.clear"
+                     "axis.clear", "input.clear", "interact.list", "interact.use",
+                     "interact.release"
                  })
         {
             Assert.Contains(command, bridge, StringComparison.Ordinal);
@@ -124,5 +125,34 @@ public sealed class LocalTestBridgeWiringTests
         Assert.Contains("AutoReleaseRealtime", input, StringComparison.Ordinal);
         Assert.Contains("PulseAxis", input, StringComparison.Ordinal);
         Assert.Contains("Axes.Remove(expiredAxes[i])", input, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Aim_independent_ship_interaction_keeps_native_proximity_and_lifecycle()
+    {
+        string bridge = Source("WorldsAdriftReborn", "Patching", "Automation",
+            "LocalTestBridge.cs");
+
+        Assert.Contains("distance + 0.5f >= visualizer.InteractRange", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("visualizer.InteractionEnabled", bridge, StringComparison.Ordinal);
+        Assert.Contains("EntityId.IsValidEntityId(candidateEntity)", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("FindInteractionCollider(visualizer, playerPosition)", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("IsInLayerMask(Layers.Interactables)", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("if (collider == null)", bridge, StringComparison.Ordinal);
+        Assert.Contains("CheckInteractionMethod.Invoke(observer", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("InteractionTotalTimeField.GetValue(timer)", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("ReleaseAfter(InputButtons.Interact, releaseAfter)", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("interactAgentObserver.ReleaseInteractiveObject()", bridge,
+            StringComparison.Ordinal);
+        Assert.Contains("kind == \"helm\" || kind == \"sail\"", bridge,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("TriggerInteractWithObject", bridge, StringComparison.Ordinal);
     }
 }
