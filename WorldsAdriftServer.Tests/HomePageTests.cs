@@ -19,7 +19,9 @@ namespace WorldsAdriftServer.Tests
         public void HomeOwnsOnlyTheExactRoot()
         {
             Assert.True(HomeHandler.Owns("/"));
+            Assert.True(HomeHandler.Owns("/?from=discord"));
             Assert.False(HomeHandler.Owns("/signup"));
+            Assert.False(HomeHandler.Owns("//signup"));
             Assert.False(HomeHandler.Owns("/admin"));
             Assert.False(HomeHandler.Owns("/map"));
             Assert.False(HomeHandler.Owns(null));
@@ -64,6 +66,10 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.OrdinalIgnoreCase);
             Assert.Contains("active parity testing", HomePage.Html,
                 StringComparison.Ordinal);
+            Assert.Contains("vector flight and collision models remain observation-only",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.DoesNotContain("invitation", HomePage.Html,
+                StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]

@@ -9,7 +9,8 @@ namespace WorldsAdriftServer.Handlers.PublicSite
         internal const string Route = "/";
 
         internal static bool Owns(string? path) =>
-            string.Equals(path, Route, StringComparison.Ordinal);
+            string.Equals(path, Route, StringComparison.Ordinal)
+            || (path != null && path.StartsWith("/?", StringComparison.Ordinal));
 
         internal static bool TryHandle(HttpSession session, HttpRequest request)
         {
