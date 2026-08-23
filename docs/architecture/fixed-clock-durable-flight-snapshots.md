@@ -166,3 +166,14 @@ Pack C remains **NO-GO** until an evidence-backed correction repeats the first
 sail mutation and corrected C0 with `droppedSteps=0` and `pressureEvents=0`.
 C3's deliberate stall is not allowed to hide or normalize this ordinary-load
 event.
+
+The instrumented clean-boot reproduction at 10:40 on the same production hull
+completed the first sail mutation without a persistence warning (therefore in
+less than 100 ms), and the fixed-clock counters remained at zero dropped steps
+and zero pressure events. This falsifies a slow `AtomicJsonFile.Write` as the
+cause of the earlier 680 ms gap; it does not make the intermittent gap disappear.
+The next diagnostic boundary reports any server-loop turn over 100 ms split into
+pre-flight timers, flight, post-flight services, ENet polling/packet handling and
+spawn synchronization. It is observation only and stays silent on ordinary
+turns. A repeat corrected-C0 run must either stay clean or name the responsible
+stage before Pack C advances.

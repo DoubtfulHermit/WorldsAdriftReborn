@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Improbable.Worker;
@@ -5102,6 +5104,7 @@ namespace WorldsAdriftRebornGameServer
 
             while (keepRunning)
             {
+                long loopStartedAt = Stopwatch.GetTimestamp();
                 // Fallback flush for parked mirror ops. The ack-driven flush only
                 // fires when the target sends an asset-load ack - which an ALREADY-
                 // IN-WORLD, idle player never does (it finished loading), so its
@@ -5143,7 +5146,9 @@ namespace WorldsAdriftRebornGameServer
                 // plus the mounted parts' 190602 wakes. Off unless
                 // WAREBORN_HELM_FLIGHT=1; cheap when off (an env check) or when no
                 // helm was ever manned (an empty dictionary). See Game.ShipFlightService.
+                long flightStartedAt = Stopwatch.GetTimestamp();
                 IReadOnlySet<ulong> domainFrameSenders = Flight.Tick();
+                long flightFinishedAt = Stopwatch.GetTimestamp();
                 // SHIP FUEL: burn what the pilot's throttle costs, push the fuel
                 // gauge when its needle would actually move, and cut the engines of
                 // a hull that just ran dry. Off unless WAREBORN_FUEL is unset or
@@ -5247,6 +5252,7 @@ namespace WorldsAdriftRebornGameServer
                 // keeps the timers above from starving under flood. Only the first
                 // poll may block (50 ms as before); the rest are zero-wait catch-up.
                 // See PollDrainPolicy.
+                long networkStartedAt = Stopwatch.GetTimestamp();
                 for (int drained = 0; drained < DrainBudget; drained++)
                 {
                     EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, PollDrainPolicy.WaitMsFor(drained), Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
@@ -5293,6 +5299,7 @@ namespace WorldsAdriftRebornGameServer
                         EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
                     }
                 }
+                long networkFinishedAt = Stopwatch.GetTimestamp();
 
                 // dont wait for GetOplist and then for the Dispatch call as we are the ones who would dispatch the work anyways.
                 // sync up players
@@ -5431,12 +5438,41 @@ namespace WorldsAdriftRebornGameServer
                         DrainRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                     }
                 }
+
+                long loopFinishedAt = Stopwatch.GetTimestamp();
+                double loopMs = StopwatchTicksToMilliseconds(loopFinishedAt - loopStartedAt);
+                if (loopMs >= 100.0)
+                {
+                    Console.WriteLine("[warning] server loop slow: totalMs="
+                        + loopMs.ToString("0.0", CultureInfo.InvariantCulture)
+                        + " preFlightMs="
+                        + StopwatchTicksToMilliseconds(flightStartedAt - loopStartedAt)
+                            .ToString("0.0", CultureInfo.InvariantCulture)
+                        + " flightMs="
+                        + StopwatchTicksToMilliseconds(flightFinishedAt - flightStartedAt)
+                            .ToString("0.0", CultureInfo.InvariantCulture)
+                        + " servicesMs="
+                        + StopwatchTicksToMilliseconds(networkStartedAt - flightFinishedAt)
+                            .ToString("0.0", CultureInfo.InvariantCulture)
+                        + " networkMs="
+                        + StopwatchTicksToMilliseconds(networkFinishedAt - networkStartedAt)
+                            .ToString("0.0", CultureInfo.InvariantCulture)
+                        + " syncMs="
+                        + StopwatchTicksToMilliseconds(loopFinishedAt - networkFinishedAt)
+                            .ToString("0.0", CultureInfo.InvariantCulture)
+                        + ".");
+                }
             }
 
             TerrainInterest?.Dispose();
             server.Dispose();
 
             Console.WriteLine("[info] shutting down.");
+        }
+
+        private static double StopwatchTicksToMilliseconds(long ticks)
+        {
+            return ticks * 1000.0 / Stopwatch.Frequency;
         }
     }
 }

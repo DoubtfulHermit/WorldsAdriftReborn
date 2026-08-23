@@ -153,6 +153,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Main_loop_slow_path_reports_bounded_stage_timings()
+        {
+            string server = Source("WorldsAdriftRebornGameServer",
+                "WorldsAdriftRebornGameServer.cs");
+
+            Assert.Contains("server loop slow: totalMs=", server, StringComparison.Ordinal);
+            Assert.Contains("preFlightMs=", server, StringComparison.Ordinal);
+            Assert.Contains("flightMs=", server, StringComparison.Ordinal);
+            Assert.Contains("servicesMs=", server, StringComparison.Ordinal);
+            Assert.Contains("networkMs=", server, StringComparison.Ordinal);
+            Assert.Contains("syncMs=", server, StringComparison.Ordinal);
+            Assert.Contains("if (loopMs >= 100.0)", server, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void Durable_restore_uses_version_validation_and_rotates_authority()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
