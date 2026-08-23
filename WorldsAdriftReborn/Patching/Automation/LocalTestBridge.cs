@@ -25,8 +25,9 @@ namespace WorldsAdriftReborn.Patching.Automation
     ///
     /// The bridge deliberately translates semantic commands on Unity's main
     /// thread instead of injecting desktop input through Wayland/Wine. It is
-    /// inert unless WAREBORN_TEST_BRIDGE=1 and a non-empty per-run token are
-    /// both present. Normal players therefore do not open a listener.
+    /// inert unless the environment opt-in or an owner-created one-shot token
+    /// file supplies a non-empty per-run token. Normal players therefore do
+    /// not open a listener.
     /// </summary>
     internal sealed class LocalTestBridge : MonoBehaviour
     {
@@ -34,6 +35,9 @@ namespace WorldsAdriftReborn.Patching.Automation
         private const int MaxLineLength = 512;
         private const int MaxCommandsPerFrame = 8;
         private const float MaxPulseSeconds = 10f;
+        private const string OneShotTokenFileName = ".wareborn-test-bridge-token";
+
+        private static string _startupToken;
 
         private static readonly Type PlayerLookingAtType =
             AccessTools.TypeByName("Assets.Scripts.Player.PlayerLookingAt");
@@ -52,14 +56,53 @@ namespace WorldsAdriftReborn.Patching.Automation
 
         internal static bool ShouldStart()
         {
-            return string.Equals(Environment.GetEnvironmentVariable("WAREBORN_TEST_BRIDGE"),
-                "1", StringComparison.Ordinal);
+            string environmentToken = Environment.GetEnvironmentVariable(
+                "WAREBORN_TEST_BRIDGE_TOKEN");
+            if (string.Equals(Environment.GetEnvironmentVariable("WAREBORN_TEST_BRIDGE"),
+                    "1", StringComparison.Ordinal)
+                && IsValidToken(environmentToken))
+            {
+                _startupToken = environmentToken;
+                return true;
+            }
+
+            // Wine can reparent/re-exec the Unity process and, on some launch
+            // paths, strip non-Wine environment variables. A root-owned test
+            // orchestrator may therefore place one 0600 token beside the exe.
+            // Presence is the opt-in. Consume it before opening the listener so
+            // a later ordinary launch cannot inherit automation accidentally.
+            string path = Path.Combine(Environment.CurrentDirectory, OneShotTokenFileName);
+            try
+            {
+                FileInfo file = new FileInfo(path);
+                if (!file.Exists)
+                    return false;
+
+                string token = file.Length > 0 && file.Length <= MaxLineLength
+                    ? File.ReadAllText(path).Trim()
+                    : null;
+                File.Delete(path);
+                if (!IsValidToken(token))
+                {
+                    Debug.LogError("[WAR][test-bridge] invalid one-shot token file consumed; disabled.");
+                    return false;
+                }
+                _startupToken = token;
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[WAR][test-bridge] could not consume one-shot token; disabled: "
+                    + e.GetType().Name);
+                return false;
+            }
         }
 
         private void Awake()
         {
-            _token = Environment.GetEnvironmentVariable("WAREBORN_TEST_BRIDGE_TOKEN");
-            if (string.IsNullOrEmpty(_token))
+            _token = _startupToken;
+            _startupToken = null;
+            if (!IsValidToken(_token))
             {
                 Debug.LogError("[WAR][test-bridge] requested without WAREBORN_TEST_BRIDGE_TOKEN; disabled.");
                 Destroy(this);
@@ -465,6 +508,18 @@ namespace WorldsAdriftReborn.Patching.Automation
                 difference |= actualChar ^ expectedChar;
             }
             return difference == 0;
+        }
+
+        private static bool IsValidToken(string token)
+        {
+            if (string.IsNullOrEmpty(token) || token.Length < 32 || token.Length > 256)
+                return false;
+            for (int i = 0; i < token.Length; i++)
+            {
+                if (char.IsWhiteSpace(token[i]) || char.IsControl(token[i]))
+                    return false;
+            }
+            return true;
         }
 
         private static string ReadBoundedLine(TextReader reader, int maximumLength,

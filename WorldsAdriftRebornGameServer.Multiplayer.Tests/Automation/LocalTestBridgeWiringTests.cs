@@ -40,6 +40,10 @@ public sealed class LocalTestBridgeWiringTests
             "LocalTestBridge.cs");
 
         Assert.Contains("WAREBORN_TEST_BRIDGE_TOKEN", bridge, StringComparison.Ordinal);
+        Assert.Contains(".wareborn-test-bridge-token", bridge, StringComparison.Ordinal);
+        Assert.Contains("File.Delete(path)", bridge, StringComparison.Ordinal);
+        Assert.Contains("file.Length <= MaxLineLength", bridge, StringComparison.Ordinal);
+        Assert.Contains("IsValidToken", bridge, StringComparison.Ordinal);
         Assert.Contains("new TcpListener(IPAddress.Loopback, port)", bridge,
             StringComparison.Ordinal);
         Assert.Contains("private const int MaxLineLength = 512", bridge,

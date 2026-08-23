@@ -13,6 +13,11 @@ export WAREBORN_TEST_BRIDGE_TOKEN='<per-run random token>'
 ~/Games/WAReborn-servers/run-client.sh
 ```
 
+If Wine strips those variables during a reparent/re-exec launch, place the same
+random token in `.wareborn-test-bridge-token` beside `UnityClient@Windows.exe`
+with mode `0600` before launching. The plugin consumes and deletes this bounded
+file before opening the listener, so a later ordinary launch remains inert.
+
 Send one bounded command with:
 
 ```sh
