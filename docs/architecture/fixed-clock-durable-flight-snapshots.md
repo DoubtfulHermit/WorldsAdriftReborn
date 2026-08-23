@@ -206,8 +206,32 @@ runner was corrected to wait five seconds on the landing screen before pressing
 Play; pressing immediately can race character-list loading ahead of remembered
 authentication.
 
-Join-time traffic can still produce long aggregate `networkMs` observations,
-but those occurred while the hull was inactive and did not create fixed-clock
-pressure. The current network bucket includes both native `ENet_Poll` wait and
-packet processing; it must be split before attributing those observations to the
-socket wait itself. Pack C is **C0 PASS / C1 PASS / C2–C4 pending**.
+The C2 moving restart used the native semantic sail interaction on hull 3639.
+Immediately before restart its v1 checkpoint had both sails furled, no pilot,
+neutral input, generation 18 and velocity `(1.050, 0, -1.304)` m/s (speed
+1.674 m/s) at `(17398.391, -283.309, -1361.612)`. The backed-up source is
+`/opt/wareborn/backups/pack-c2-moving-20260823T093803Z/world-state.json`. Boot
+restored that exact checkpoint, advanced generation once to 19, kept aboard and
+pilot state empty, and resumed the coast. Three seconds later it was at
+`(17407.192, -283.309, -1372.550)` with speed 1.209 m/s, then settled normally
+at `(17420.388, -283.309, -1388.948)`. C2 therefore passes the durable flight
+contract. The player's stored logout point no longer lay inside the coasting
+hull envelope, so reconnect truthfully fell back to Haven while the ship
+continued separately; the rollout script explicitly says this is not yet a
+guaranteed relative restore.
+
+C3's controlled process suspension ran from `09:42:04.427Z` to
+`09:42:05.443Z`. Recovery executed the cap of 25 catch-up steps, dropped 25
+excess steps, recorded one pressure event, emitted no packet burst and retained
+the connected peer. The camera was not aboard the ship after the documented C2
+spawn split, so freeze/component visual quality remains **REAL EYES** rather
+than an automated visual pass. Separately, ordinary reconnect work produced a
+1.582-second `networkMs` turn and 54 dropped steps. That is not counted as the
+controlled C3 proof and remains a real performance finding: the current network
+bucket combines native poll wait and packet processing and needs finer staging.
+
+Pack C is now **C0 PASS / C1 PASS / C2 PASS / C3 mechanical PASS with visual
+REAL EYES / C4 pending**. Track 3–6 shadow evaluators are present, pure and
+unwired, which proves zero gameplay effect but does not provide the scalar vs
+vector/collision observations C4 asks Codex to compare. Do not silently call
+that missing comparison a pass.

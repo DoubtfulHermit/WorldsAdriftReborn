@@ -1996,12 +1996,22 @@ Never apply hull rotation twice. Use `ShipPartTransform`,
 
 ### Fixed-clock Pack C and VPS security incident — 2026-08-23
 
-- Production game/login build is `b4e92f6`; fixed flight stepping and world
-  bounds remain enabled. Public `/patchnotes` reports 740 commits.
+- Production game/login binary build is `b4e92f6`; fixed flight stepping and
+  world bounds remain enabled. Client manifest `2026.08.23-3` publishes the
+  aim-independent native helm/sail acceptance bridge; all 54 public hashes were
+  verified and the local plugin is byte-identical.
 - Corrected C0 on hull 3639 passed 19,877 fixed steps with zero dropped steps
   and zero pressure events. C1 stationary restart preserved exact pose, zero
   velocity, 16 decks, 10 mounted parts and both furled sails; authority advanced
-  exactly once from generation 17 to 18. C2–C4 remain pending. The combined
+  exactly once from generation 17 to 18. C2 moving restart also passed: a
+  neutral, unpiloted, sails-furled 1.674 m/s checkpoint resumed after restart,
+  authority advanced 18 to 19, and the ship settled normally. The player fell
+  back to Haven because its stored logout point was outside the coasting hull
+  envelope; this limitation was expected and recorded separately. C3's exact
+  1.016-second suspension recovered with 25 catch-up and 25 dropped steps, no
+  disconnect or packet burst; its aboard visual remains **REAL EYES**. C4 is
+  pending because Tracks 3–6 are pure/unwired and publish no comparison
+  telemetry. The combined
   moving sail-plus-turn view is explicitly **REAL EYES**, not an automated pass.
 - The earlier intermittent 680 ms clock gap was not world persistence: the
   instrumented first sail save completed below 100 ms. Loop-stage telemetry then
