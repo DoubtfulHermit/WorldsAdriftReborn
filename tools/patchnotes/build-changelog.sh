@@ -24,10 +24,10 @@
 #
 # WHERE THE LOG STARTS. This repository carries the ORIGINAL WorldsAdriftReborn
 # project's history from 2021 - 135 commits by killzoms, sp00ktober, mmjr-x, Cat
-# and others - and Wareborn's own work begins on top of it on 2026-08-07. This
-# page is Wareborn's changelog, so it starts there and credits the foundation in
-# a line at the end rather than listing other people's commits as if they were
-# ours. Change SINCE only if that fork point is wrong.
+# and others - and Wareborn's own work begins at b7f7329 on 2026-08-07. This
+# page is Wareborn's changelog, so it starts at that exact moment and credits
+# the foundation in a line at the end rather than listing other people's
+# commits as if they were ours. Change SINCE only if that boundary is wrong.
 #
 # THE BOOKKEEPING COMMITS ARE EXCLUDED, and that is not cosmetic - it is what
 # makes this converge. Regenerating and committing the result is itself a
@@ -38,7 +38,11 @@
 # nothing about the game.
 set -euo pipefail
 
-since="2026-08-07"
+# Git's approxidate parser treats a bare YYYY-MM-DD as that date at the current
+# clock time. There are inherited and Wareborn commits on the same day, so pin
+# the precise instant immediately before b7f7329. The explicit offset also
+# makes the result independent of the machine's current time zone.
+since="2026-08-07 21:05:54 +0200"
 
 # Subjects that are bookkeeping about this page rather than work on the server.
 exclude_grep=(--invert-grep --grep='^Regenerate the patch notes')
