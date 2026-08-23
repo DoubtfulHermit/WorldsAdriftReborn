@@ -20,8 +20,7 @@ namespace WorldsAdriftReborn.Patching.Ship
     {
         private static void Postfix(MeshGenerator __instance, IPromise<GameObject> __result)
         {
-            if (__instance == null || __result == null || !WorldsAdrift.IsClient
-                || __instance.GetComponent("CustomShipFrameVisualizer") == null)
+            if (__instance == null || __result == null || !WorldsAdrift.IsClient)
             {
                 return;
             }
