@@ -120,6 +120,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Local_pilot_carry_tracks_the_authored_helm_anchor_only_for_the_exact_drive()
+        {
+            string client = Source("WorldsAdriftReborn", "Patching", "Flight",
+                "PilotBodyAnchor_Patch.cs");
+
+            Assert.Contains("FindDescendant(reference, PilotAnchorName)", client,
+                StringComparison.Ordinal);
+            Assert.Contains("PilotBodyAnchorFollower.StartOrRefresh(root, anchor, pilot, drivenEntityId.Id)",
+                client, StringComparison.Ordinal);
+            Assert.Contains("PilotBodyAnchorFollower.StopActive()", client,
+                StringComparison.Ordinal);
+            Assert.Contains("_pilot.DrivingEntityId.Id == _hullEntityId", client,
+                StringComparison.Ordinal);
+            Assert.Contains("transform.position = _anchor.position", client,
+                StringComparison.Ordinal);
+            Assert.Contains("_body.velocity = velocity", client, StringComparison.Ordinal);
+            Assert.Contains("velocity.sqrMagnitude >= 3600f", client, StringComparison.Ordinal);
+            Assert.DoesNotContain("DrivingEntityId =", client, StringComparison.Ordinal);
+            Assert.DoesNotContain("FinishAndSend", client, StringComparison.Ordinal);
+
+            string bridge = Source("WorldsAdriftReborn", "Patching", "Automation",
+                "LocalTestBridge.cs");
+            Assert.Contains("pilotAnchorCarryActive", bridge, StringComparison.Ordinal);
+            Assert.Contains("pilotAnchorGapMeters", bridge, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void Fixed_clock_is_opt_in_and_does_not_replace_the_024_wire_cadence()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");

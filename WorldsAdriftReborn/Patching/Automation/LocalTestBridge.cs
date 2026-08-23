@@ -404,6 +404,10 @@ namespace WorldsAdriftReborn.Patching.Automation
                 + ",\"interactionTarget\":" + interactionTarget
                 + ",\"helmStateAvailable\":" + JsonBool(helmStateAvailable)
                 + ",\"helmAttached\":" + JsonBool(helmAttached)
+                + ",\"pilotAnchorCarryActive\":"
+                    + JsonBool(Patching.Flight.PilotBodyAnchorFollower.IsActive)
+                + ",\"pilotAnchorGapMeters\":"
+                    + JsonNumber(Patching.Flight.PilotBodyAnchorFollower.CurrentGapMeters)
                 + ",\"hullEntityId\":" + hullEntityId.ToString(CultureInfo.InvariantCulture)
                 + ",\"controlEntityId\":" + controlEntityId.ToString(CultureInfo.InvariantCulture)
                 + ",\"throttle\":" + JsonNumber(throttle)

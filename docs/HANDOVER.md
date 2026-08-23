@@ -2042,6 +2042,16 @@ blast-radius assessment and ordered response plan are in
   screen appears before pressing Play. Immediate Play can race the remembered
   authentication response and send a 401 character-list request. Only the
   DPAPI-protected record remains; the temporary plaintext handoff was shredded.
+- A repeatable 5–10 second pilot/helm separation during acceleration was traced
+  to a topology mismatch, not packet loss or fixed-clock pressure: retail
+  disables moving-ground correction while piloting because its local ship
+  Rigidbody carries the body, whereas Wareborn's hull is a kinematic
+  `PathFollower` and its helm is a separate `"~"` follower. The client now keeps
+  the local body on the helm prefab's authored `#PilotPosition` for the exact
+  driving lifecycle and exposes the live anchor gap through the acceptance
+  bridge. Automated tests/build pass; live acceptance remains pending. See
+  `docs/architecture/local-pilot-anchor-carry.md`. Bare-hull throttle drift is
+  intentional and unchanged.
 
 ## 12. Completion standard
 
