@@ -21,16 +21,16 @@ namespace WorldsAdriftServer.Web
 <html lang=""en""><head>
 <meta charset=""utf-8"">
 <meta name=""viewport"" content=""width=device-width, initial-scale=1"">
-<meta name=""theme-color"" content=""#07131b"">
+<meta name=""theme-color"" content=""#08131c"">
 <meta name=""description"" content=""WAReborn is a fan-run revival rebuilding a persistent shared sky, one recovered system at a time."">
 <link rel=""canonical"" href=""https://wareborn.ratlabs.cc/"">
 <meta property=""og:type"" content=""website"">
-<meta property=""og:title"" content=""WAReborn — The sky remembers"">
+<meta property=""og:title"" content=""WAReborn — Bring the shared sky back online"">
 <meta property=""og:description"" content=""A fan-run Worlds Adrift revival with persistent ships, real island topology, a live world map, and public development notes."">
 <meta name=""twitter:card"" content=""summary_large_image"">
-<meta name=""twitter:title"" content=""WAReborn — The sky remembers"">
+<meta name=""twitter:title"" content=""WAReborn — Bring the shared sky back online"">
 <meta name=""twitter:description"" content=""Rebuilding a persistent shared sky, one recovered system at a time."">
-<title>WAReborn — The sky remembers</title>
+<title>WAReborn — Bring the shared sky back online</title>
 <script>document.documentElement.classList.add('js')</script>
 <style>");
             page.Append(WebAssets.Read("home.css"));
