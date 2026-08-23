@@ -415,8 +415,12 @@ namespace WorldsAdriftServer.Tests
         {
             PortalView view = View(Alliance(new AllianceRights(false, false, true, false)));
 
-            Assert.Contains(WebAssets.Read("emblem-editor.css"),
-                Html(view, PortalTabs.Emblem), StringComparison.Ordinal);
+            string emblem = Html(view, PortalTabs.Emblem);
+            Assert.Contains(WebAssets.Read("emblem-editor.css"), emblem, StringComparison.Ordinal);
+            Assert.Contains("<body class=\"wa-player wa-portal wide\">", emblem,
+                StringComparison.Ordinal);
+            Assert.Contains("body.wa-player.wa-portal.wide main { max-width: 78rem; }",
+                WebAssets.Read("site-player.css"), StringComparison.Ordinal);
 
             foreach (string other in new[]
             {

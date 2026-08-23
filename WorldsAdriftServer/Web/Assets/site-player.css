@@ -48,6 +48,14 @@ body.wa-player main {
   box-shadow: 0 24px 70px rgba(0,0,0,.22);
   backdrop-filter: none;
 }
+/* The emblem editor is intentionally wider than every other player-portal
+   panel. Its desktop layout has two fixed 17rem tool rails around a fluid
+   square canvas; constraining that to the ordinary 54rem account measure makes
+   the canvas collapse and the controls overlap. This selector deliberately
+   outranks the shared main rule above while leaving every other account tab at
+   the normal reading width. The editor's own 62rem breakpoint still stacks the
+   rails on smaller screens. */
+body.wa-player.wa-portal.wide main { max-width: 78rem; }
 body.wa-player main::before { display: none; }
 body.wa-auth main { max-width: 32rem; text-align: left; }
 body.wa-player .mark {
