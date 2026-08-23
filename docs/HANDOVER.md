@@ -1996,6 +1996,10 @@ Never apply hull rotation twice. Use `ShipPartTransform`,
 
 ### Fixed-clock Pack C and VPS security incident — 2026-08-23
 
+The complete forensic timeline, unredacted attacker indicators, evidence paths,
+blast-radius assessment and ordered response plan are in
+[`security/gitea-miner-incident-handover-2026-08-23.md`](security/gitea-miner-incident-handover-2026-08-23.md).
+
 - Production game/login binary build is `b4e92f6`; fixed flight stepping and
   world bounds remain enabled. Client manifest `2026.08.23-3` publishes the
   aim-independent native helm/sail acceptance bridge; all 54 public hashes were
