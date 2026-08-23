@@ -177,3 +177,37 @@ pre-flight timers, flight, post-flight services, ENet polling/packet handling an
 spawn synchronization. It is observation only and stays silent on ordinary
 turns. A repeat corrected-C0 run must either stay clean or name the responsible
 stage before Pack C advances.
+
+## Infrastructure root cause and corrected acceptance — 2026-08-23
+
+The loop-stage diagnostic exposed an infrastructure incident rather than a
+flight or persistence defect. An unauthorized Monero miner disguised as
+`kmod-cache-update` had been running four threads inside the VPS Gitea container
+since August 10, consuming about four CPU cores continuously. Four watchdog
+shells kept it alive. Evidence was preserved under
+`/opt/wareborn/backups/security-miner-20260823T085500Z`; the miner and watchdogs
+were stopped and their directory was moved to the recoverable quarantine
+`kmod-cache.quarantined-20260823T085500Z`. Idle CPU immediately recovered from
+approximately zero to 93–95 percent. No cron persistence was found, but the Gitea
+exposure and credentials still require a separate security audit.
+
+After containment, corrected C0 on hull 3639 completed 19,877 fixed steps with
+`droppedSteps=0` and `pressureEvents=0`. Forward/neutral/reverse input lifecycle,
+yaw in both directions with recentering, climb/descent, a one-sail cruise and
+clean settling all remained finite. The aim-independent combined sail-plus-turn
+camera check is still marked **REAL EYES** because the local bridge could not
+reliably reacquire a moving helm; it is not silently counted as automated proof.
+
+C1 stationary restart then preserved exact XYZ/yaw, zero velocity, 16 decks, 10
+mounted parts and two furled sails. The restored hull had no pilot or aboard
+member until reconnect, and authority generation advanced exactly once from 17
+to 18. The protected remembered login completed unattended after the acceptance
+runner was corrected to wait five seconds on the landing screen before pressing
+Play; pressing immediately can race character-list loading ahead of remembered
+authentication.
+
+Join-time traffic can still produce long aggregate `networkMs` observations,
+but those occurred while the hull was inactive and did not create fixed-clock
+pressure. The current network bucket includes both native `ENet_Poll` wait and
+packet processing; it must be split before attributing those observations to the
+socket wait itself. Pack C is **C0 PASS / C1 PASS / C2–C4 pending**.

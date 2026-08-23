@@ -1994,6 +1994,32 @@ Keep coordinate frames explicit:
 Never apply hull rotation twice. Use `ShipPartTransform`,
 `BuiltShipPlacement`, `ShipHullMetrics`, and the existing orientation probe.
 
+### Fixed-clock Pack C and VPS security incident — 2026-08-23
+
+- Production game/login build is `b4e92f6`; fixed flight stepping and world
+  bounds remain enabled. Public `/patchnotes` reports 740 commits.
+- Corrected C0 on hull 3639 passed 19,877 fixed steps with zero dropped steps
+  and zero pressure events. C1 stationary restart preserved exact pose, zero
+  velocity, 16 decks, 10 mounted parts and both furled sails; authority advanced
+  exactly once from generation 17 to 18. C2–C4 remain pending. The combined
+  moving sail-plus-turn view is explicitly **REAL EYES**, not an automated pass.
+- The earlier intermittent 680 ms clock gap was not world persistence: the
+  instrumented first sail save completed below 100 ms. Loop-stage telemetry then
+  exposed an unauthorized Monero miner in the `gitea` container consuming about
+  four VPS CPU cores. Four watchdogs and the miner were stopped. Evidence is at
+  `/opt/wareborn/backups/security-miner-20260823T085500Z`; the exact directory is
+  quarantined inside the container as
+  `/data/gitea/home/.cache/kmod-cache.quarantined-20260823T085500Z`. It is
+  recoverable and was not deleted. No cron persistence was found.
+- Treat Gitea as compromised until its access logs, accounts/tokens/SSH keys and
+  host exposure are audited. The container remains online; stopping it or
+  rotating unrelated service credentials requires an explicit operator decision.
+  Monitor for `kmod-cache`, `moneroocean`, `xmrig`, or new high-CPU children.
+- Unattended login works, but the runner must wait five seconds after the landing
+  screen appears before pressing Play. Immediate Play can race the remembered
+  authentication response and send a 401 character-list request. Only the
+  DPAPI-protected record remains; the temporary plaintext handoff was shredded.
+
 ## 12. Completion standard
 
 A change is not complete merely because it compiles or a green phantom appears.
