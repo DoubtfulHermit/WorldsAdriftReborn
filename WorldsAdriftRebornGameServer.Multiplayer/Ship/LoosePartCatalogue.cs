@@ -343,9 +343,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // NEW branch is needed - this is the one safe functional add beyond the
             // lamp, reusing the lamp's own 1236 serve.
             //
-            // Their exact retail server-refdata strings are unavailable, but generated
-            // ships expose one broad usable mounting surface: ShipDeck. Author all five
-            // there rather than retaining the known-broken generic Environment raycast.
+            // Their exact retail server-refdata strings are unavailable, but the shipped
+            // ShipInstrument overlap rule plus the purpose-built Bar Pipe geometry settle
+            // the behaviour: these use ShipSurfaces, which hits Environment-layer attached
+            // parts and poses the dial from the hit normal. MountedPartHierarchy makes the
+            // two pipe recipes real hull children, satisfying the scanner's ship walk.
             new Row("altimeter",          ShipInstruments.ItemType, "Altimeter",           "Altimeter",         ShipInstruments.MountSurface, new uint[] { IsTooDamagedToWorkState }),
             new Row("fuelGauge",          ShipInstruments.ItemType, "Fuel Gauge",          "FuelGauge",         ShipInstruments.MountSurface, new uint[] { FuelGaugeState, IsTooDamagedToWorkState }),
             new Row("headingIndicator",   ShipInstruments.ItemType, "Heading Indicator",   "HeadingIndicator",  ShipInstruments.MountSurface, new uint[] { IsTooDamagedToWorkState }),

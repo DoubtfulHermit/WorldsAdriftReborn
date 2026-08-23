@@ -1934,10 +1934,15 @@ of the ship.** Ours are not, and that is the whole difference.
 
 ---
 
-#### PHASE SC5 — Mounted parts join the ship's transform hierarchy *(BAR PIPES SHIPPED on `feat/part-hierarchy-key`; AWAITING LIVE CONFIRMATION)*
+#### PHASE SC5 — Mounted parts join the ship's transform hierarchy *(BAR PIPES + AUTHENTIC INSTRUMENT SURFACE IMPLEMENTED; AWAITING DEPLOYMENT/LIVE PLACEMENT)*
 
-> **STATUS 2026-08-20.** The bar-pipe half is implemented, gated and soaked;
-> nothing else in this phase has moved. `Multiplayer/Ship/MountedPartHierarchy.cs`
+> **STATUS 2026-08-23.** The bar-pipe hierarchy half is implemented, gated and soaked,
+> and production persistence now proves a player successfully mounted a `barPipe` on
+> built ship 4. The follow-on flips all five instruments from `deck` to the recovered
+> `shipSurfaces` path and fixes the item-type classifier that previously rewrote that
+> value back to `deck`. Existing persisted instruments migrate through
+> `LoosePartDefinition` on restore; no world-state rewrite and no client patch are
+> required. `Multiplayer/Ship/MountedPartHierarchy.cs`
 > is the one per-part decision, and all three mounted-part transform sites read it:
 > the checkout seed (`ComponentsSerializer`), the mount commit (`PartMountService`)
 > and the in-flight republish (`ShipFlightService`). The fourth listed site,
@@ -1953,9 +1958,10 @@ of the ship.** Ours are not, and that is the whole difference.
 > an unparentable prefab ignores the key and behaves exactly as today — which also
 > means the server cannot tell whether they held. Only a player crafting a pipe,
 > bolting it to a ship and trying to mount a gauge on it answers that.
-> `ShipInstruments.MountSurface` stays `"deck"` until it does, and even then the
-> flip is a design call, not a free win: `shipSurfaces` masks `Layers.Environment`
-> and so LOSES the `ShipAttachmentSolid` deck.
+> `ShipInstruments.MountSurface` is now `"shipSurfaces"`: it masks
+> `Layers.Environment`, hits the mounted pipe/railing colliders, uses their hit normal
+> for the authentic dial pose, and intentionally no longer treats the bare
+> `ShipAttachmentSolid` deck as an instrument stand.
 >
 > **Soak: four 10-minute runs on port 7807, three FLAT at 100% delivery and 0%
 > missed ticks (p50 0.25–0.3 ms), one ABORTED on a transport disconnect of botB at

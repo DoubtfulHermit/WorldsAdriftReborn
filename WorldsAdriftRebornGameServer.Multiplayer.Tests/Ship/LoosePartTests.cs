@@ -391,7 +391,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                 "helm", "sail", "deck", "stairs", "railing", "railingCorner",
                 "trunk", "mountedBox", "storageContainer", "shippingContainer",
                 "barrel", "cupboard", "horn", "lamp", "personalReviver",
-                "altimeter", "fuelGauge", "headingIndicator", "artificialHorizon", "airspeedIndicator",
                 "powerGenerator", "powerGenerator01",
                 // The sky-core BASE: the only prefab with authored module sockets
                 // (see SkyCoreSocketsTests), so IT stands on the deck and the eight
@@ -405,15 +404,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void No_catalogue_part_uses_the_broken_generic_ship_surface()
+        public void Only_flight_instruments_use_the_generic_ship_surface()
         {
-            // Generated ships have no Environment-layer ShipSurfaces skin. Any row
-            // authored with that value would regress to incidental frame-only placement.
+            // Ordinary parts cannot use ShipSurfaces because the generated hull has no
+            // Environment-layer skin. Instruments are the exact exception: they target
+            // attached Environment-layer Bar Pipes rather than the deck itself.
             foreach (LoosePartDefinition part in LoosePartCatalogue.All)
             {
-                Assert.NotEqual("shipSurfaces", part.AttachmentType);
-                Assert.NotEqual(PartMountSurface.ShipSurfaces,
+                if (ShipInstruments.IsInstrument(part.ItemType))
+                {
+                    Assert.Equal("shipSurfaces", part.AttachmentType);
+                    Assert.Equal(PartMountSurface.ShipSurfaces,
+                        PartMountSurfaces.ForAttachmentType(part.AttachmentType));
+                }
+                else
+                {
+                    Assert.NotEqual("shipSurfaces", part.AttachmentType);
+                    Assert.NotEqual(PartMountSurface.ShipSurfaces,
+                        PartMountSurfaces.ForAttachmentType(part.AttachmentType));
+                }
+            }
+        }
+
+        [Fact]
+        public void Every_flight_instrument_targets_attached_ship_surfaces_not_the_deck()
+        {
+            Assert.Equal(5, ShipInstruments.SchematicIds.Count);
+            foreach (string id in ShipInstruments.SchematicIds)
+            {
+                LoosePartDefinition part = LoosePartCatalogue.ForSchematic(id)!;
+                Assert.True(ShipInstruments.IsInstrument(part.ItemType));
+                Assert.Equal(ShipInstruments.MountSurface, part.AttachmentType);
+                Assert.Equal(PartMountSurface.ShipSurfaces,
                     PartMountSurfaces.ForAttachmentType(part.AttachmentType));
+                Assert.False(PartMountSurfaces.MountsOnDeckSurface(part.AttachmentType));
             }
         }
 
@@ -425,6 +449,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
             Assert.Equal("deck", restored.AttachmentType);
             Assert.Equal(PartMountSurface.ShipDeck,
+                PartMountSurfaces.ForAttachmentType(restored.AttachmentType));
+        }
+
+        [Theory]
+        [InlineData("deck")]
+        [InlineData("shipSurfaces")]
+        public void Persisted_instrument_metadata_migrates_to_the_pipe_surface(string oldSurface)
+        {
+            var restored = new LoosePartDefinition(
+                "fuelGauge", "fuelGauge", "Fuel Gauge", "FuelGauge", oldSurface,
+                new uint[] { 1105, 1236 });
+
+            Assert.Equal(ShipInstruments.MountSurface, restored.AttachmentType);
+            Assert.Equal(PartMountSurface.ShipSurfaces,
                 PartMountSurfaces.ForAttachmentType(restored.AttachmentType));
         }
 

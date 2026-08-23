@@ -75,7 +75,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         {
             if (ShipInstruments.IsInstrument(itemType))
             {
-                return attachmentType ?? "none";
+                // Migrate both freshly-authored definitions and persisted pre-SC5
+                // records. Existing instruments were saved as "deck" while Bar Pipes
+                // still used the no-parent "~" transform; after a restart they must
+                // receive the same retail surface as a newly-crafted instrument or a
+                // player would have to throw the old gauges away and recraft them.
+                return ShipInstruments.MountSurface;
             }
             return attachmentType == "shipSurfaces" ? "deck" : attachmentType ?? "none";
         }

@@ -23,7 +23,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         [InlineData("atlasSkyCore", "CoreMain", "deck", ShipPartKinds.Core)]
         [InlineData("skyCoreGenerator", "CoreGenerator", "coreModule", ShipPartKinds.Core)]
         [InlineData("barrel", "Barrel01", "deck", ShipPartKinds.Other)]
-        [InlineData("altimeter", "Altimeter", "deck", ShipPartKinds.Other)]
+        [InlineData("altimeter", "Altimeter", "shipSurfaces", ShipPartKinds.Other)]
         public void The_catalogue_parts_classify_the_way_a_reader_would_name_them(
             string schematicId, string prefab, string attachment, string expected)
         {

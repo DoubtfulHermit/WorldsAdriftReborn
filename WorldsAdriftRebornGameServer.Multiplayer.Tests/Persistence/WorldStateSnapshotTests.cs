@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Persistence;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
@@ -230,6 +231,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             Assert.Equal("6f9619ff-8b86-d011-b42d-00c04fc964ff", r.OwnerCharacterUid);
             Assert.Equal("Lamp01", r.Definition().PrefabName);
             Assert.Equal("deck", r.Definition().AttachmentType);
+        }
+
+        [Theory]
+        [InlineData("deck")]
+        [InlineData("shipSurfaces")]
+        public void Existing_mounted_instruments_restore_with_the_pipe_mount_surface(string persistedSurface)
+        {
+            var record = new MountedPartRecord
+            {
+                PartUid = "existing-gauge",
+                BuiltShipIndex = 4,
+                SchematicId = "fuelGauge",
+                ItemType = "fuelGauge",
+                Title = "Fuel Gauge",
+                PrefabName = "FuelGauge",
+                AttachmentType = persistedSurface,
+                PartSpecificComponents = new uint[] { 1105u, 1236u },
+            };
+
+            LoosePartDefinition restored = record.Definition();
+            Assert.Equal("shipSurfaces", restored.AttachmentType);
+            Assert.True(ShipInstruments.IsInstrument(restored.ItemType));
         }
 
         [Fact]

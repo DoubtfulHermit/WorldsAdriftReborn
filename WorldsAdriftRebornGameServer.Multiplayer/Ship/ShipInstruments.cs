@@ -84,10 +84,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <summary>
         /// The <c>1120 attachmentType</c> string a flight instrument is authored with.
         ///
-        /// **STILL <c>"deck"</c>, AND THAT IS DELIBERATE.** Everything above argues that
-        /// <c>shipSurfaces</c> is retail's value, and it is - but flipping it TODAY
-        /// makes instruments unmountable ENTIRELY, which is worse than the complaint it
-        /// answers. One line is in the way, and it is not gated on the attachment type:
+        /// <c>shipSurfaces</c>, matching the recovered client placement contract. This
+        /// was deliberately held at <c>deck</c> until mounted Bar Pipes became real Unity
+        /// children of the hull: the scanner's unconditional <c>flag4</c> parent walk
+        /// otherwise classified a correctly-hit pipe as not belonging to any ship.
         ///
         /// <code>
         /// // PlayerScannerTool.cs:502
@@ -106,34 +106,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <c>ShipSurfaces</c> mask is <c>Layers.Environment</c> and the deck collider
         /// is <c>ShipAttachmentSolid</c>. Net effect: nowhere left to put an instrument.
         ///
-        /// **THE PRECONDITION, exactly.** Flip this to <c>"shipSurfaces"</c> the moment a
-        /// mounted part is seeded a REAL hierarchy key instead of
-        /// <see cref="BoltedPartTransform.RelativeSlotKey"/> - i.e. when
-        /// <c>GetComponentInParents</c> can find the hull from a bolted part. That is
-        /// PHASE SC5 (docs/plans/feature-roadmap.md 11.11.4), it is four call sites plus
-        /// one filter, and it fixes FIVE separate client walks at once. This string is
-        /// the last step of that change, not a substitute for it.
-        ///
-        /// **STATUS: the first half of SC5 has LANDED, and this string still does not
-        /// move yet.** <see cref="MountedPartHierarchy"/> now seeds the two BAR PIPES a
-        /// real hierarchy key at all three mounted-part transform sites, so the Unity
-        /// walk <c>flag4</c> depends on can climb from a mounted pipe to the hull. Two
-        /// things still stand between that and this line, and both need a live client,
-        /// not another read of the decompile:
-        /// <list type="number">
-        /// <item>The parenting itself rests on two PREFAB-BAKED flags that are invisible
-        ///   offline - BarPipe's authored <c>GameObjectCanBeParented</c> and
-        ///   <c>ShouldRemoveRigidbodyOnParented</c>. They fail SAFE (an unparentable
-        ///   prefab ignores the key and behaves exactly as today), which also means the
-        ///   server cannot tell whether they held. Only a player craft-and-bolt shows
-        ///   it.</item>
-        /// <item>Even with pipes working, <c>shipSurfaces</c> still LOSES the deck: its
-        ///   mask is <c>Layers.Environment</c> and the deck collider is
-        ///   <c>ShipAttachmentSolid</c>. So the flip is not purely additive - it MOVES
-        ///   instruments from the deck onto pipes and railings, which is retail's
-        ///   layout but is a design call for the maintainer, not a bug fix.</item>
-        /// </list>
-        /// What the flip buys, and why it is still worth doing after a live confirm: the
+        /// That precondition is now present at every mounted-part transform site through
+        /// <see cref="MountedPartHierarchy"/>. Production now contains a persisted,
+        /// successfully mounted Bar Pipe while the reported instruments remain deck-only;
+        /// that is the acceptance trigger the preceding phase required. What this flip buys: the
         /// <c>shipSurfaces</c> branch of <c>PlacementPreview.PositionOnShip</c> poses off
         /// <c>Quaternion.LookRotation(forward, hitNormal)</c>, whereas the <c>deck</c>
         /// branch throws the hit normal away for <c>LookRotation(ship.forward,
@@ -146,9 +122,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <c>StreamingAssets/GameDB</c> finds NONE of those literals anywhere. The
         /// authored per-part values lived in Improbable's server-side templates and are
         /// unrecoverable. Picking one is supplying a value retail also supplied - the
-        /// only question is which one WORKS, and today the answer is "deck".
+        /// only question is which one matches the recovered placement path; for the five
+        /// instrument prefabs that answer is <c>shipSurfaces</c>.
         /// </summary>
-        public const string MountSurface = "deck";
+        public const string MountSurface = "shipSurfaces";
 
         /// <summary>
         /// The catalogue <c>itemType</c> that marks a row as a flight instrument. One
@@ -161,9 +138,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public const string ItemType = "instruments";
 
         /// <summary>
+        /// The five catalogue item types whose prefabs carry <c>ShipInstrument</c>.
+        /// Catalogue definitions intentionally publish their schematic id as 1120
+        /// <c>itemType</c> (for salvage and persistence), not the recipe category string
+        /// <see cref="ItemType"/>. Keeping the exact ids here prevents the old bug where
+        /// <c>IsInstrument("altimeter")</c> returned false and the generic-surface
+        /// normalizer silently changed its retail surface back to <c>deck</c>.
+        /// </summary>
+        public static readonly System.Collections.Generic.IReadOnlyList<string> SchematicIds = new[]
+        {
+            "altimeter",
+            "fuelGauge",
+            "headingIndicator",
+            "artificialHorizon",
+            "airspeedIndicator",
+        };
+
+        /// <summary>
         /// Whether a catalogue row of this <c>itemType</c> is a flight instrument, and
         /// therefore mounts on ship SURFACES rather than on the deck.
         /// </summary>
-        public static bool IsInstrument(string? itemType) => itemType == ItemType;
+        public static bool IsInstrument(string? itemType)
+        {
+            if (itemType == null)
+            {
+                return false;
+            }
+            for (int i = 0; i < SchematicIds.Count; i++)
+            {
+                if (string.Equals(SchematicIds[i], itemType, System.StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }

@@ -136,12 +136,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         public void An_instrument_is_not_made_a_unity_child_by_this_phase()
         {
             // Instruments are what MOUNTS ON a pipe; they are not themselves the
-            // surface, and they are already bolted to live ships. Flipping them is the
-            // documented follow-on, gated on a live confirmation - see
-            // ShipInstruments.MountSurface. Listed by schematic id, because a catalogue
-            // definition's ItemType IS its schematic id ("altimeter"), not its
-            // ShipInstruments.ItemType category - so IsInstrument would answer false
-            // here and the loop would pass vacuously.
+            // surface. They remain hull-relative followers after placement; only the
+            // inert pipe that must answer the scanner's Unity parent walk is made a
+            // real child. Listed by schematic id because that is the 1120 itemType.
             string[] instruments =
             {
                 "altimeter", "fuelGauge", "headingIndicator", "artificialHorizon", "airspeedIndicator",
@@ -149,14 +146,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             foreach (string instrument in instruments)
             {
                 Assert.NotNull(LoosePartCatalogue.ForSchematic(instrument));
+                Assert.True(ShipInstruments.IsInstrument(instrument));
                 Assert.False(MountedPartHierarchy.IsUnityChild(instrument));
             }
 
-            // The instrument mount surface stays "deck" in this branch. shipSurfaces
-            // would raycast Layers.Environment - which the bar pipe now finally answers
-            // - but it also LOSES the ShipAttachmentSolid deck, so the flip is a
-            // deliberate follow-on and not a side effect of this one.
-            Assert.Equal("deck", ShipInstruments.MountSurface);
+            Assert.Equal("shipSurfaces", ShipInstruments.MountSurface);
         }
     }
 }
