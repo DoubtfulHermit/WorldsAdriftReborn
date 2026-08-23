@@ -1,9 +1,10 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 741 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 739 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-23 | 14 commits
+## 2026-08-23 | 15 commits
 
+* 009060f Keep local pilots anchored during ship acceleration
 * 20a1209 Fail closed without live sail yaw state
 * 6ab5996 Expose live flight shadow comparisons
 * bc32c54 Document the Gitea miner intrusion investigation
@@ -755,7 +756,7 @@ Every commit, newest first. 741 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 36 commits
+## 2026-08-07 | 33 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -790,10 +791,7 @@ Every commit, newest first. 741 of them since 2026-08-07. Merges are left out - 
 * a984cfa Client: stop remote rigs from simulating - display only
 * aeef3a7 Shrink remote avatar seed to the minimum the body-builder requires
 * edc1348 Seed remote avatars with the game's own second-stage player component set
-* d7ea4b4 Client: keep the camera on the first Traveller rig that claims it
-* be36bed Client: disable cameras and audio listeners on remote player rigs
-* ae8971b Client: never let a second Traveller steal the local-player singletons
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 141 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 144 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
