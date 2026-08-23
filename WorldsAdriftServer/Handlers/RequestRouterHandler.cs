@@ -6,6 +6,7 @@ using WorldsAdriftServer.Handlers.Download;
 using WorldsAdriftServer.Handlers.Patch;
 using WorldsAdriftServer.Handlers.CharacterScreen;
 using WorldsAdriftServer.Handlers.ServerStatus;
+using WorldsAdriftServer.Handlers.PublicSite;
 using WorldsAdriftServer.Persistence;
 
 namespace WorldsAdriftServer.Handlers
@@ -26,6 +27,14 @@ namespace WorldsAdriftServer.Handlers
         {
             if(request != null)
             {
+                // The public front door is deliberately separate from /signup:
+                // no session state, registration post, or operator payload is
+                // present in the landing page.
+                if (HomeHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
                 // The operator dashboard takes any /admin* URL. Checked first and
                 // self-contained: it is auth-gated end to end and shares nothing
                 // with the player-facing routes below.
@@ -202,6 +211,12 @@ namespace WorldsAdriftServer.Handlers
                 else if(request.Method == "POST" && request.Url.Contains("/character/") && request.Url.Contains("/steam/1234/"))
                 {
                     CharacterSaveHandler.HandleCharacterSave(this, request, "community_server");
+                }
+                else
+                {
+                    // Every owned namespace has already had first refusal. End
+                    // anything left over instead of leaving its socket open.
+                    NotFoundHandler.Handle(this, request);
                 }
             }
         }

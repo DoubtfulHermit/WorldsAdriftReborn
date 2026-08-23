@@ -38,6 +38,7 @@ namespace WorldsAdriftServer
             PublicMap.ViewerSampler.Start();
 
             Console.WriteLine("[info] login/REST server listening on TCP " + restPort + ".");
+            Console.WriteLine("[info] public website at http://<this host>:" + restPort + "/");
             Console.WriteLine("[info] sign-up page at http://<this host>:" + restPort + "/signup");
 
             // Say out loud where alliance crests will be fetched from, and shout
