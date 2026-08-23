@@ -512,10 +512,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// here in two horizontal dimensions.
         ///
         /// The one modelling assumption is that the sail is TRIMMED, i.e. the yaw
-        /// joint has reached its target. Retail slerped toward it at 6/s, so it
-        /// arrives inside ~0.2 s, well under the 0.24 s control-point cadence this
-        /// runs at. Assuming the settled angle is therefore accurate at the only
-        /// resolution the client can observe.
+        /// joint has reached its target. Retail used
+        /// <c>Slerp(current,target,6*deltaTime)</c>, an asymptotic render-step
+        /// transition rather than an authoritative snapped state. The server does
+        /// not own that render cadence, so this is explicitly the equilibrium
+        /// force approximation, not a claim that the joint settles in one 0.24 s
+        /// control interval.
         ///
         /// Returns a SIGNED value along the heading: a sail can push a ship
         /// backwards when the wind is dead ahead of it, which is correct and is

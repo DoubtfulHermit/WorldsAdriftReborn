@@ -95,9 +95,60 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.True(VectorRigidBodyShadow.TryEvaluate(
                 800.0, HullHalfExtents, parts, 0.0, ShadowVector3.Forward, out var result));
 
-            Assert.Equal(100.0, result.ForceNewtons.Z, 9);
+            ShadowVector3 left = VectorRigidBodyShadow.TrimmedSailForce(
+                parts[0], ShadowVector3.Forward);
+            ShadowVector3 right = VectorRigidBodyShadow.TrimmedSailForce(
+                parts[1], ShadowVector3.Forward);
+            Assert.Equal(left.Z, right.Z, 9);
+            Assert.Equal(left.Z + right.Z, result.ForceNewtons.Z, 9);
             Assert.Equal(0.0, result.ForceNewtons.X, 9);
             Assert.Equal(0.0, result.RawTorqueNewtonMetres.Y, 9);
+        }
+
+        [Theory]
+        [InlineData(1.0, 0.0)]
+        [InlineData(0.7071067811865475, 0.7071067811865475)]
+        [InlineData(0.0, 1.0)]
+        [InlineData(-0.7071067811865475, 0.7071067811865475)]
+        [InlineData(-1.0, 0.0)]
+        [InlineData(0.0, -1.0)]
+        public void Trimmed_vector_matches_scalar_forward_force_at_cardinal_and_representative_headings(
+            double windX, double windZ)
+        {
+            const double power = 840.0;
+            var sail = new ShadowPropulsor(ShadowPartKind.Sail, ShadowVector3.Zero,
+                ShadowQuaternion.Identity, power, 50.0);
+            var wind = new ShadowVector3(windX * ShipForceModel.DefaultWindSpeedMps, 0.0,
+                windZ * ShipForceModel.DefaultWindSpeedMps);
+
+            ShadowVector3 vector = VectorRigidBodyShadow.TrimmedSailForce(sail, wind);
+            double scalar = ShipForceModel.SailForwardNewtons(
+                1, 0.0, power, wind.X, wind.Z);
+
+            Assert.Equal(scalar, vector.Z, 9);
+            Assert.Equal(0.0, vector.X, 9);
+            Assert.Equal(0.0, vector.Y, 9);
+        }
+
+        [Fact]
+        public void Trimmed_vector_exposes_scalar_upwind_minimum_projection_approximation()
+        {
+            const double power = 840.0;
+            var sail = new ShadowPropulsor(ShadowPartKind.Sail, ShadowVector3.Zero,
+                ShadowQuaternion.Identity, power, 50.0);
+            double component = ShipForceModel.DefaultWindSpeedMps / Math.Sqrt(2.0);
+            var wind = new ShadowVector3(component, 0.0, -component);
+
+            ShadowVector3 vector = VectorRigidBodyShadow.TrimmedSailForce(sail, wind);
+            double scalar = ShipForceModel.SailForwardNewtons(
+                1, 0.0, power, wind.X, wind.Z);
+
+            // Retail floors the already keel-projected force. The scalar model's
+            // settled 2-D shortcut floors efficiency before projection, so this
+            // diagonal-upwind case is intentionally reported as a C4 delta.
+            Assert.True(vector.Z > scalar);
+            Assert.True(double.IsFinite(vector.Z));
+            Assert.Equal(0.0, vector.X, 9);
         }
 
         [Fact]

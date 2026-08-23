@@ -387,7 +387,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 ShadowPropulsor part = parts[i];
                 ShadowVector3 force = part.Kind == ShadowPartKind.Engine
                     ? EngineForce(part, engineSpin)
-                    : SailForce(part, hullLocalWind);
+                    : TrimmedSailForce(part, hullLocalWind);
                 bool ok = accumulator.TryAdd(force, part.LocalPosition, mass.CentreOfMass,
                     part.Kind == ShadowPartKind.Engine && part.Torqueless);
                 if (ok) accepted++; else rejected++;
@@ -448,6 +448,67 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             {
                 ShadowVector3 normal = force.NormalizedOrZero();
                 force = normal * minimum;
+            }
+            return force;
+        }
+
+        /// <summary>
+        /// RECOVERED equilibrium sail trim. SailBehaviour turns the yaw joint
+        /// toward LookRotation(base.forward*1.01-wind.normalized), flattened in
+        /// the mounted sail's local frame with Slerp(current,target,6*deltaTime).
+        /// The server does not own that render-step state. The scalar force model
+        /// and this comparison shadow therefore evaluate the same final target;
+        /// this is not a claim to reproduce transient joint motion or flutter.
+        /// </summary>
+        public static ShadowVector3 TrimmedSailForce(
+            ShadowPropulsor sail, ShadowVector3 localWind)
+        {
+            if (!sail.IsValid || sail.Kind != ShadowPartKind.Sail || !localWind.IsFinite)
+            {
+                return ShadowVector3.Zero;
+            }
+
+            ShadowVector3 effectiveWind = localWind;
+            if (effectiveWind.SqrMagnitude < 1.0)
+            {
+                effectiveWind = effectiveWind.SqrMagnitude < 1e-5
+                    ? ShadowVector3.Forward
+                    : effectiveWind.NormalizedOrZero();
+            }
+
+            ShadowVector3 windNormal = effectiveWind.NormalizedOrZero();
+            ShadowVector3 baseRight = sail.LocalRotation.Rotate(ShadowVector3.Right);
+            ShadowVector3 baseUp = sail.LocalRotation.Rotate(ShadowVector3.Up);
+            ShadowVector3 baseForward = sail.LocalRotation.Rotate(ShadowVector3.Forward);
+
+            // InverseTransformDirection without constructing another quaternion:
+            // the components in an orthonormal basis are its three dot products.
+            ShadowVector3 windInSail = new(
+                ShadowVector3.Dot(windNormal, baseRight),
+                ShadowVector3.Dot(windNormal, baseUp),
+                ShadowVector3.Dot(windNormal, baseForward));
+            ShadowVector3 targetForward = new ShadowVector3(
+                -windInSail.X, 0.0, 1.01 - windInSail.Z).NormalizedOrZero();
+            if (targetForward.Equals(ShadowVector3.Zero))
+            {
+                return ShadowVector3.Zero;
+            }
+
+            ShadowVector3 trimmedLocalRight = new(
+                targetForward.Z, 0.0, -targetForward.X);
+            ShadowVector3 trimmedRight = sail.LocalRotation.Rotate(trimmedLocalRight)
+                .NormalizedOrZero();
+            double windMagnitude = effectiveWind.Magnitude;
+            double efficiency = Math.Abs(ShadowVector3.Dot(windNormal, trimmedRight));
+            ShadowVector3 lift = trimmedRight * (efficiency * windMagnitude * sail.Power);
+            if (ShadowVector3.Dot(effectiveWind, lift) < 0.0) lift = -lift;
+
+            ShadowVector3 force = lift
+                - ShadowVector3.Right * ShadowVector3.Dot(ShadowVector3.Right, lift);
+            double minimum = ShipForceModel.SailMinEfficiency * windMagnitude * sail.Power;
+            if (force.SqrMagnitude < minimum * minimum)
+            {
+                force = force.NormalizedOrZero() * minimum;
             }
             return force;
         }

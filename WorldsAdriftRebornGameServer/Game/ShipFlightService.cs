@@ -1548,7 +1548,6 @@ namespace WorldsAdriftRebornGameServer.Game
 
             var parts = new List<ShadowPropulsor>();
             int propulsorCount = 0;
-            bool liveSailYawUnavailable = false;
             foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry in
                 Crafting.MountedParts.OnHull(hullEntityId).OrderBy(x => x.Key))
             {
@@ -1564,7 +1563,6 @@ namespace WorldsAdriftRebornGameServer.Game
                 bool isEngine = kind == Multiplayer.Ship.ShipPartKinds.Engine;
                 bool sailUnfurled = !isEngine
                     && WorldsAdriftRebornGameServer.Sails.IsUnfurled(entry.Key);
-                if (sailUnfurled) liveSailYawUnavailable = true;
                 double power = isEngine
                     ? (WorldsAdriftRebornGameServer.ShipFuel.EnginesPowered(hullEntityId)
                         ? _tuning.EngineThrustNewtons : 0.0)
@@ -1596,19 +1594,6 @@ namespace WorldsAdriftRebornGameServer.Game
                     ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
                     0, parts.Count, true, default, false);
 
-            // Retail rotates a sail through a live YawJoint. The server currently
-            // persists the static mount quaternion only. Publishing that static
-            // pose as the live sail force produced a demonstrably false zero beside
-            // 1852.81 N scalar force in the first C4 production run. Fail closed
-            // until the yaw-joint state is authoritative and durable.
-            if (liveSailYawUnavailable)
-                return new Multiplayer.ShipFlightShadowStat(true, false,
-                    "live-sail-yaw-state-unavailable",
-                    scalar.EngineForceNewtons + scalar.SailForceNewtons,
-                    ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
-                    vector.AcceptedParts, vector.RejectedParts,
-                    vector.Mass.IsApproximation, default, false);
-
             FlightState state = domain.Flight.State;
             CollisionProxy subject = new(domain.Id.ToString(), CollisionProxyKind.ShipHull,
                 CollisionAabb.FromCentreHalfExtents(new ShadowVector3(state.X, state.Y, state.Z), half),
@@ -1616,7 +1601,7 @@ namespace WorldsAdriftRebornGameServer.Game
             CollisionShadowResult collision = CollisionShadowEvaluator.Evaluate(
                 new[] { subject }, Array.Empty<CollisionProxy>(), FixedFlightClock.StepSeconds);
             return new Multiplayer.ShipFlightShadowStat(true, true,
-                "vector-live; collision-hull-only; terrain-proxies-unwired",
+                "vector-equilibrium-trim-shadow; dynamic-sail-yaw-unavailable; collision-hull-only; terrain-proxies-unwired",
                 scalar.EngineForceNewtons + scalar.SailForceNewtons,
                 vector.ForceNewtons, vector.RawTorqueNewtonMetres,
                 vector.RetailTorqueNewtonMetres, vector.AcceptedParts,
