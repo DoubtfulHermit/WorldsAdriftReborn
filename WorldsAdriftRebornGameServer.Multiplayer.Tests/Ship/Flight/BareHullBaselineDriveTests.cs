@@ -288,5 +288,59 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 n => n == "WAREBORN_FLIGHT_WIND_SPEED" ? "1e9" : null).WindSpeedMps, 9);
         }
 
+        [Fact]
+        public void Bare_hull_multiplier_is_explicit_bounded_and_defaults_to_parity()
+        {
+            Assert.Equal(1.0, FlightTuning.FromEnvironment(_ => null).BareHullDriveMultiplier, 9);
+            Assert.Equal(2.0, FlightTuning.FromEnvironment(
+                n => n == "WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER" ? "2" : null)
+                .BareHullDriveMultiplier, 9);
+            Assert.Equal(4.0, FlightTuning.FromEnvironment(
+                n => n == "WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER" ? "999" : null)
+                .BareHullDriveMultiplier, 9);
+            Assert.Equal(1.0, FlightTuning.FromEnvironment(
+                n => n == "WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER" ? "NaN" : null)
+                .BareHullDriveMultiplier, 9);
+        }
+
+        [Fact]
+        public void Bare_hull_multiplier_doubles_only_throttle_requested_baseline_carry()
+        {
+            const double massKg = 3094.0;
+            var propulsion = new ShipPropulsion(massKg, 0.0, 0);
+            var input = new FlightControlInput(1f, 0f, 0f, 0f, 0f);
+            var one = new FlightTuning(bareHullDriveMultiplier: 1.0);
+            var two = new FlightTuning(bareHullDriveMultiplier: 2.0);
+
+            ShipForceEvaluation baseline = ShipForceEvaluator.Evaluate(
+                0, 0, 0, input, propulsion, one, 0);
+            ShipForceEvaluation doubled = ShipForceEvaluator.Evaluate(
+                0, 0, 0, input, propulsion, two, 0);
+
+            Assert.Equal(2.0 * baseline.WindAlongHeadingMps,
+                doubled.WindAlongHeadingMps, 9);
+            Assert.Equal(0.0, doubled.EngineForceNewtons, 9);
+            Assert.Equal(0.0, doubled.SailForceNewtons, 9);
+        }
+
+        [Fact]
+        public void Bare_hull_multiplier_does_not_change_canvas_wind()
+        {
+            const double massKg = 3094.0;
+            var sailed = new ShipPropulsion(massKg, 0.0, 1);
+            var input = new FlightControlInput(1f, 0f, 0f, 0f, 0f);
+            var one = new FlightTuning(bareHullDriveMultiplier: 1.0);
+            var two = new FlightTuning(bareHullDriveMultiplier: 2.0);
+
+            ShipForceEvaluation sailedOne = ShipForceEvaluator.Evaluate(
+                0, 0, System.Math.PI, input, sailed, one, 0);
+            ShipForceEvaluation sailedTwo = ShipForceEvaluator.Evaluate(
+                0, 0, System.Math.PI, input, sailed, two, 0);
+
+            Assert.NotEqual(0.0, sailedOne.SailForceNewtons);
+            Assert.Equal(sailedOne.WindAlongHeadingMps, sailedTwo.WindAlongHeadingMps, 9);
+            Assert.Equal(sailedOne.SailForceNewtons, sailedTwo.SailForceNewtons, 9);
+        }
+
     }
 }

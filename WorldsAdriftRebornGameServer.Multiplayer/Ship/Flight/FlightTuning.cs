@@ -184,20 +184,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// value that system used to mean "there is no weather here" is a defensible
         /// starting point and an odd permanent choice.
         ///
-        /// It is also the ONLY lever on the bare-hull tier.
+        /// It is also the physical wind lever on the bare-hull tier.
         /// WAREBORN_FLIGHT_ENGINE_THRUST moves engines and
         /// WAREBORN_FLIGHT_SAIL_POWER moves canvas, but a hull with neither is
         /// driven purely by the wind, so without this a live "the bare hull is too
         /// slow" verdict would need a rebuild. It moves sails and the baseline
         /// TOGETHER, which is correct rather than convenient: both are the same wind
         /// in retail's equations, and a world where the air moves faster should
-        /// carry a bare hull faster AND fill a sail harder.
+        /// carry a bare hull faster AND fill a sail harder. A separate explicit
+        /// WAReborn-only bare-hull balance multiplier exists below for deployments
+        /// that must tune drift without lying about the shared physical wind.
         ///
         /// Speed scales LINEARLY in this for the baseline and as its SQUARE ROOT for
         /// sails, so doubling it doubles a bare hull's drift but only multiplies a
         /// sailed ship's speed by about 1.4.
         /// </summary>
         public double WindSpeedMps { get; }
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER - WAReborn balance tuning applied
+        /// only to the throttle-requested, no-canvas baseline wind carry. It does
+        /// not alter the wind field, sail force, engine force, wall influence or
+        /// drag. Retail's ordinary weather magnitudes are lost, so the default is
+        /// compatibility-preserving 1 and live deployments must record any change.
+        /// </summary>
+        public double BareHullDriveMultiplier { get; }
 
         /// <summary>
         /// WAREBORN_FLIGHT_WIND_FIELD - 0 (the default, and production today) to 1.
@@ -283,7 +294,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double engineThrustNewtons = ShipForceModel.DefaultEngineThrustNewtons,
             double sailPowerNewtons = ShipForceModel.DefaultSailPowerNewtonsPerWind,
             double windSpeedMps = -1.0,
-            double windFieldVariation = 0.0)
+            double windFieldVariation = 0.0,
+            double bareHullDriveMultiplier = 1.0)
         {
             MaxSpeedMps = Clamp(maxSpeedMps, 1.0, ShipMotionPolicy.MaxSpeedMetresPerSecond, DefaultMaxSpeedMps);
             AccelMps2 = Clamp(accelMps2, 0.5, 30.0, DefaultAccelMps2);
@@ -322,6 +334,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // Clamps to [0,1] inside the struct rather than here, because the same
             // clamp has to hold for a caller that constructs one directly.
             WindVariation = new WindFieldVariation(windFieldVariation);
+            BareHullDriveMultiplier = Clamp(bareHullDriveMultiplier, 0.0, 4.0, 1.0);
         }
 
         /// <summary>
@@ -374,7 +387,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // Default 0 = OFF. The wind is a constant until an operator says
                 // otherwise, because turning it into a field makes what a player
                 // FEELS diverge from what the client DRAWS - see WindVariation.
-                Parse(getenv("WAREBORN_FLIGHT_WIND_FIELD"), 0.0));
+                Parse(getenv("WAREBORN_FLIGHT_WIND_FIELD"), 0.0),
+                Parse(getenv("WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER"), 1.0));
         }
 
         private static double Parse(string? env, double fallback)
@@ -405,6 +419,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             + " m/s pitchRate=" + PitchRateMps.ToString("0.#", CultureInfo.InvariantCulture)
             + " m/s rollTurn=" + RollTurnFactor.ToString("0.##", CultureInfo.InvariantCulture)
             + " sailBonus=" + SailBonusPerUnfurled.ToString("0.##", CultureInfo.InvariantCulture) + "/sail"
+            + " bareHull=" + BareHullDriveMultiplier.ToString("0.##", CultureInfo.InvariantCulture) + "x"
             + " reverse=" + ReverseFactor.ToString("0.##", CultureInfo.InvariantCulture)
             + " keepalive=" + RestKeepaliveSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s"
             + (InvertYaw ? " (yaw inverted)" : "")

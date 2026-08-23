@@ -80,7 +80,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     ? WindField.AlongHeading(in wind, headingRadians)
                         * ShipForceModel.WindMultiplier(ship.MassKg)
                     : ShipForceModel.BaselineDriveSpeedMps(ship.MassKg, tuning.WindSpeedMps);
-                windAlongHeading = canvasIsDriving ? alongMps : alongMps * throttle;
+                // This explicit WAReborn balance knob belongs only to the
+                // throttle-requested bare-hull tier. Applying it before this
+                // branch would silently retune canvas as well.
+                windAlongHeading = canvasIsDriving
+                    ? alongMps
+                    : alongMps * throttle * tuning.BareHullDriveMultiplier;
             }
 
             return new ShipForceEvaluation(

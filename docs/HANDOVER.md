@@ -2049,9 +2049,18 @@ blast-radius assessment and ordered response plan are in
   `PathFollower` and its helm is a separate `"~"` follower. The client now keeps
   the local body on the helm prefab's authored `#PilotPosition` for the exact
   driving lifecycle and exposes the live anchor gap through the acceptance
-  bridge. Automated tests/build pass; live acceptance remains pending. See
-  `docs/architecture/local-pilot-anchor-carry.md`. Bare-hull throttle drift is
-  intentional and unchanged.
+  bridge. Automated tests/build passed, and the 2026-08-23 live run confirmed
+  that the startup snapping, vibrating helm and growing pilot/helm separation
+  were gone through acceleration and settling. See
+  `docs/architecture/local-pilot-anchor-carry.md`.
+- The same run measured the 3094 kg, zero-sail, zero-engine hull at an exact
+  stable 0.73 m/s under full forward throttle. This matched the model and ruled
+  out lost input, but the player judged it too slow. A dedicated
+  `WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER` now tunes only positive-throttle
+  baseline carry, leaving canvas, engines, walls, drag and visible wind alone.
+  Default is 1x; the proposed production trial is 2x (about 1.46 m/s for that
+  hull). Evidence and the single remaining REAL-EYES comparison are in
+  `docs/architecture/bare-hull-drive-calibration.md`.
 
 ## 12. Completion standard
 
