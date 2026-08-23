@@ -412,5 +412,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             }
         }
 
+        [Fact]
+        public void Live_six_cell_hull_suppresses_the_four_contained_side_panels()
+        {
+            // Production hull 3639, captured 2026-08-23. Its irregular two-deck
+            // topology exposes four smaller y=3.4 panels wholly inside wider port and
+            // starboard panels. Sixteen Deck01 entities were rendered, and those four
+            // overlaps formed the two continuous side strips the player saw flicker.
+            // Twelve panels preserve the exact union with no coplanar overlap.
+            byte[] bytes = System.Convert.FromBase64String(
+                "BgAAAAAA9gAACgAA/AAABAAAAAAAAAABAAAA8QAADwAA/AAABAAAAAAAAAACAAAA9gAACgAA/HAABHAAAAAAAAD//wAA9gAACgAA/AAABAAAAAAAAAH2AAAKAAD8cAAEcAAAAAAA//8BAPIAAA4AAPAAABAAAAAAAAAB/AAABAAA9gAACgAAAAAAAAAAAQD2AAAKAADwAAAQAAAAAAAAAA==");
+
+            IReadOnlyList<DeckPanel> panels = DeckGenerator.Generate(ShipPlanModel.Decode(bytes));
+
+            Assert.Equal(12, panels.Count);
+            Assert.Equal(12, panels.Select(WorldPolygonKey).Distinct().Count());
+        }
+
+        private static string WorldPolygonKey(DeckPanel panel)
+        {
+            return string.Join(";", panel.LocalVertices
+                .Select(v => new
+                {
+                    X = System.Math.Round(v.X + panel.HullLocalPositionMetres.X / 2f, 3),
+                    Y = System.Math.Round(v.Y + panel.HullLocalPositionMetres.Y / 2f, 3),
+                    Z = System.Math.Round(v.Z + panel.HullLocalPositionMetres.Z / 2f, 3),
+                })
+                .OrderBy(v => v.X).ThenBy(v => v.Y).ThenBy(v => v.Z)
+                .Select(v => $"{v.X},{v.Y},{v.Z}"));
+        }
+
     }
 }

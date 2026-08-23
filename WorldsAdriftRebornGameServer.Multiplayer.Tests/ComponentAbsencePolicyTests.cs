@@ -43,8 +43,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // A guard on growth. Adding an id here is a decision about what our
             // entities ARE, and it must not happen by drive-by edit - anything
             // that is merely unseeded belongs in the loud path instead. The two
-            // weather ids (1139/1269) plus the four loose-ship-part physics/cosmetic
-            // states this server authors for no entity (1257/1121/1225/1235), plus
+            // weather ids (1139/1269), lightning (1225), plus
             // a ship entity's ShipAtlasPulseState (1306), off any render/lift path
             // so the ship hull's interest batch serializes instead of dropping on it.
             Assert.Equal(
@@ -68,13 +67,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 //     hinge physics, and the visualizer touches only transforms.
                 //   4323 ContactFixedDamageState - the jelly shock; the reader is
                 //     100% event-driven and nothing here ever raises the event.
-                new uint[] { 1139, 1269, 1225, 1235, 1306, 1259, 1304, 4323 },
+                new uint[] { 1139, 1269, 1225, 1306, 1259, 1304, 4323 },
                 ComponentAbsencePolicy.KnownAbsentComponentIds);
         }
 
         [Theory]
         [InlineData(1225u)] // LightningStrikableState
-        [InlineData(1235u)] // DetachFromParentWhenUnderHealthThresholdState
         [InlineData(1306u)] // ShipAtlasPulseState (ship entity, cosmetic core pulse)
         public void Loose_ship_part_physics_states_are_absent_so_a_part_checkout_is_clean(uint componentId)
         {
@@ -85,6 +83,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // batch-drop risk; the reader visualizers just stay disabled, and none is on
             // the lift path.
             Assert.True(ComponentAbsencePolicy.IsKnownAbsent(componentId));
+        }
+
+        [Fact]
+        public void Engine_damage_threshold_is_entity_aware_not_globally_absent()
+        {
+            Assert.False(ComponentAbsencePolicy.IsKnownAbsent(1235));
         }
 
         [Fact]

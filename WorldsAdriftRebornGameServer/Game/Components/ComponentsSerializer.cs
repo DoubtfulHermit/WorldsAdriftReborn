@@ -14,6 +14,7 @@ using Bossa.Travellers.Loot;
 using Bossa.Travellers.Misc;
 using Bossa.Travellers.Motion.Prediction;
 using Bossa.Travellers.Player;
+using Bossa.Travellers.Physical;
 using Bossa.Travellers.Refdata;
 using Bossa.Travellers.Rope;
 using Bossa.Travellers.Salvaging;
@@ -43,6 +44,26 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 {
     internal class ComponentsSerializer
     {
+        private static bool TryMountedEngine(long entityId,
+            out Game.Crafting.MountedParts.Mount mount)
+        {
+            Game.Crafting.MountedParts.Mount? found =
+                Game.Crafting.MountedParts.MountFor(entityId);
+            if (found.HasValue
+                && Multiplayer.Ship.ShipPartKinds.Classify(
+                    found.Value.ItemType,
+                    found.Value.PrefabName,
+                    found.Value.AttachmentType)
+                    == Multiplayer.Ship.ShipPartKinds.Engine)
+            {
+                mount = found.Value;
+                return true;
+            }
+
+            mount = default;
+            return false;
+        }
+
         /// <summary>
         /// Maps the engine-free 1099 material specs onto the gencode
         /// <c>SlottedMaterial</c> the wire wants. The customization material (a paint
@@ -2268,6 +2289,43 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         }
                         }
                     }
+                    else if (componentId == 1235)
+                    {
+                        // The shipped EngineVisualizer [Require]s this reader. A zero
+                        // health threshold is a neutral presentation state: it cannot
+                        // request damage-detach, a system this server does not yet run.
+                        if (TryMountedEngine(entityId, out _))
+                            obj = new DetachFromParentWhenUnderHealthThresholdState.Data(0f);
+                        else
+                            decidedAbsentForThisEntity = true;
+                    }
+                    else if (componentId == 1252)
+                    {
+                        // Stock engine VFX requires TemperatureState even while cold.
+                        // Temperature zero is truthful; cooling is present and neutral.
+                        if (TryMountedEngine(entityId, out _))
+                            obj = new TemperatureState.Data(0f, new Option<float>(0f));
+                        else
+                            decidedAbsentForThisEntity = true;
+                    }
+                    else if (componentId == 1251)
+                    {
+                        // Stock EngineVisualizer and EngineVFX dereference both limits
+                        // without checking Option.HasValue. The client itself restores
+                        // an absent engine VFX limit to 100 C on disable; 80/100 keeps a
+                        // cold engine neutral without claiming live heat simulation.
+                        if (TryMountedEngine(entityId, out _))
+                        {
+                            obj = new OverheatingShipPartState.Data(
+                                new Option<bool>(false),
+                                new Option<float>(100f),
+                                new Option<float>(80f),
+                                new Option<bool>(false),
+                                new Option<bool>(false));
+                        }
+                        else
+                            decidedAbsentForThisEntity = true;
+                    }
                     else if (componentId == ShipEngineStateWire.ComponentId)
                     {
                         // 1116 ShipEngineState exists only on a mounted engine. The
@@ -2275,20 +2333,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // throttle/currentPercentSpin for propeller rotation, VFX and
                         // audio. Flight remains authoritative; this is its visual
                         // projection, not a second force model.
-                        Game.Crafting.MountedParts.Mount? engineMount =
-                            Game.Crafting.MountedParts.MountFor(entityId);
-                        if (engineMount.HasValue
-                            && Multiplayer.Ship.ShipPartKinds.Classify(
-                                engineMount.Value.ItemType,
-                                engineMount.Value.PrefabName,
-                                engineMount.Value.AttachmentType)
-                                == Multiplayer.Ship.ShipPartKinds.Engine)
+                        if (TryMountedEngine(entityId, out Game.Crafting.MountedParts.Mount engineMount))
                         {
                             double power = Multiplayer.Ship.Flight.FlightTuning
                                 .FromEnvironment(Environment.GetEnvironmentVariable)
                                 .EngineThrustNewtons;
                             obj = ShipEngineStateWire.BuildData(
-                                engineMount.Value.HullEntityId, power);
+                                engineMount.HullEntityId, power);
                         }
                         else
                         {

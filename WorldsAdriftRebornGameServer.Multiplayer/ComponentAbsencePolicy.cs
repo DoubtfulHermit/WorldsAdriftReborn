@@ -202,9 +202,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // ShipPartVisualizer's [Require] set) - the helm renders and lifts as a loose part with
         // HelmVisualizer simply disabled - so it is KNOWN-ABSENT like the four above.
         //
-        // This server simulates none of that physics (mass aggregation, lightning,
-        // damage-detach), so it authors NO such state for ANY entity - there is not a
-        // single serve branch or seed for these four ids. Left unhandled, each logs a
+        // This server does not simulate lightning or damage-detach. It now authors a
+        // neutral 1235 reader only for mounted engines because the stock engine visual
+        // requires it; every other 1235 request is declined per entity. Left unhandled,
+        // these requests log a
         // loud "[ToDo] unhandled component id ... (entity NN)" on every loose-part and
         // hull checkout, and any that rides a client all-or-nothing interest batch
         // risks dropping it. Declaring them KNOWN-ABSENT is the honest statement - our
@@ -223,7 +224,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>1225 LightningStrikableState - no weather/lightning simulation, so our parts are not strikable.</summary>
         public const uint LightningStrikableStateComponentId = 1225;
 
-        /// <summary>1235 DetachFromParentWhenUnderHealthThresholdState - no damage/detach model on our parts.</summary>
+        /// <summary>
+        /// 1235 DetachFromParentWhenUnderHealthThresholdState. Mounted engines now
+        /// receive a neutral threshold because the retail EngineVisualizer requires
+        /// this reader before it can enable; other entities remain absent per entity.
+        /// </summary>
         public const uint DetachFromParentWhenUnderHealthThresholdStateComponentId = 1235;
 
         /// <summary>
@@ -343,9 +348,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         ///   supported state of the shipped client.
         /// * 1269 - every consumer is gated behind a local flag component our
         ///   entities never receive.
-        /// * 1257 / 1121 / 1225 / 1235 - loose-ship-part physics/cosmetic states
-        ///   this server authors for no entity; the visualizers that read them are
-        ///   off the lift path and safe disabled (see the block above).
+        /// * 1225 - lightning state; its visualizer is off the render/lift path.
+        ///   1235 is decided per entity because mounted engines require a neutral
+        ///   reader before their stock visualizer can enable.
         /// * 1294 / 1306 - a ship entity's UidState (information-only UidVisualizer)
         ///   and ShipAtlasPulseState (cosmetic core-pulse ShipAtlasPulseVisualizer);
         ///   both readers are off any render/lift path and safe disabled, so the ship
@@ -376,7 +381,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // and killed the flight input loop outright (and the sky-core glow before
             // it). Both are now SERVED with modest reconstructed masses.
             LightningStrikableStateComponentId,
-            DetachFromParentWhenUnderHealthThresholdStateComponentId,
+            // 1235 left the global set: mounted engines require a neutral reader for
+            // their stock visualizer. ComponentsSerializer decides absence per entity.
             // 1111 ShipControlInput is NO LONGER absent - it is SERVED (neutral
             // zero input). Helm flight made the old "no piloting" rationale
             // false, and absence on the HULL was never actually safe once a

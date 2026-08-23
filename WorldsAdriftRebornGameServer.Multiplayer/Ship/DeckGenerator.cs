@@ -264,7 +264,106 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 quadIndex++;
             }
 
-            return result;
+            return SuppressContainedCoplanarPanels(result);
+        }
+
+        private static IReadOnlyList<DeckPanel> SuppressContainedCoplanarPanels(
+            IReadOnlyList<DeckPanel> panels)
+        {
+            // An irregular multi-deck topology can emit a narrow panel and later emit
+            // a wider panel over the exact same plane. The production six-cell hull
+            // did this on both outer deck strips: the narrow mesh was wholly inside
+            // the wide one, producing visible z-fighting. Remove only a polygon whose
+            // entire perimeter is contained by another coplanar polygon. Adjacent
+            // panels merely sharing an edge remain untouched.
+            var keep = new bool[panels.Count];
+            Array.Fill(keep, true);
+            var world = new ShipVector3[panels.Count][];
+            var areas = new double[panels.Count];
+            for (int i = 0; i < panels.Count; i++)
+            {
+                DeckPanel p = panels[i];
+                world[i] = new ShipVector3[p.LocalVertices.Count];
+                for (int v = 0; v < p.LocalVertices.Count; v++)
+                {
+                    world[i][v] = p.LocalVertices[v]
+                        + p.HullLocalPositionMetres / 2f;
+                }
+                areas[i] = PolygonAreaXZ(world[i]);
+            }
+
+            const double tolerance = 0.001;
+            for (int i = 0; i < panels.Count; i++)
+            {
+                for (int j = 0; j < panels.Count; j++)
+                {
+                    if (i == j
+                        || Math.Abs(world[i][0].Y - world[j][0].Y) > tolerance
+                        || areas[j] + tolerance < areas[i]
+                        || (Math.Abs(areas[j] - areas[i]) <= tolerance && j > i))
+                    {
+                        continue;
+                    }
+
+                    bool contained = true;
+                    for (int v = 0; v < world[i].Length; v++)
+                    {
+                        if (!PointInPolygonXZ(world[i][v], world[j], tolerance))
+                        {
+                            contained = false;
+                            break;
+                        }
+                    }
+                    if (contained)
+                    {
+                        keep[i] = false;
+                        break;
+                    }
+                }
+            }
+
+            var filtered = new List<DeckPanel>(panels.Count);
+            for (int i = 0; i < panels.Count; i++)
+                if (keep[i]) filtered.Add(panels[i]);
+            return filtered;
+        }
+
+        private static double PolygonAreaXZ(IReadOnlyList<ShipVector3> polygon)
+        {
+            double twice = 0;
+            for (int i = 0; i < polygon.Count; i++)
+            {
+                ShipVector3 a = polygon[i];
+                ShipVector3 b = polygon[(i + 1) % polygon.Count];
+                twice += (double)a.X * b.Z - (double)b.X * a.Z;
+            }
+            return Math.Abs(twice) * 0.5;
+        }
+
+        private static bool PointInPolygonXZ(
+            ShipVector3 point, IReadOnlyList<ShipVector3> polygon, double tolerance)
+        {
+            bool inside = false;
+            for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
+            {
+                ShipVector3 a = polygon[j];
+                ShipVector3 b = polygon[i];
+                double cross = (point.X - a.X) * (b.Z - a.Z)
+                    - (point.Z - a.Z) * (b.X - a.X);
+                double minX = Math.Min(a.X, b.X) - tolerance;
+                double maxX = Math.Max(a.X, b.X) + tolerance;
+                double minZ = Math.Min(a.Z, b.Z) - tolerance;
+                double maxZ = Math.Max(a.Z, b.Z) + tolerance;
+                if (Math.Abs(cross) <= tolerance
+                    && point.X >= minX && point.X <= maxX
+                    && point.Z >= minZ && point.Z <= maxZ)
+                    return true;
+
+                bool crosses = (b.Z > point.Z) != (a.Z > point.Z)
+                    && point.X < (a.X - b.X) * (point.Z - b.Z) / (a.Z - b.Z) + b.X;
+                if (crosses) inside = !inside;
+            }
+            return inside;
         }
 
         // ------------------------------------------------------------------

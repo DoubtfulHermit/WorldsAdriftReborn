@@ -64,6 +64,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 StringComparison.Ordinal);
             Assert.Contains("ShipPartKinds.Engine", serializer, StringComparison.Ordinal);
             Assert.Contains("ShipEngineStateWire.BuildData(", serializer, StringComparison.Ordinal);
+            Assert.Contains("componentId == 1235", serializer, StringComparison.Ordinal);
+            Assert.Contains("DetachFromParentWhenUnderHealthThresholdState.Data(0f)", serializer,
+                StringComparison.Ordinal);
+            Assert.Contains("componentId == 1252", serializer, StringComparison.Ordinal);
+            Assert.Contains("new TemperatureState.Data(0f", serializer, StringComparison.Ordinal);
+            Assert.Contains("componentId == 1251", serializer, StringComparison.Ordinal);
+            Assert.Contains("new OverheatingShipPartState.Data(", serializer, StringComparison.Ordinal);
             Assert.Contains("ShipEngineStateWire.BuildUpdate(", flight, StringComparison.Ordinal);
             Assert.Contains("ShipEngineStateWire.ComponentId", flight, StringComparison.Ordinal);
             Assert.Contains("PropulsionDemandFor(hullEntityId)", wire, StringComparison.Ordinal);
