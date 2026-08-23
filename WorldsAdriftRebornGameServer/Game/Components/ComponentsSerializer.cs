@@ -2268,6 +2268,35 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         }
                         }
                     }
+                    else if (componentId == ShipEngineStateWire.ComponentId)
+                    {
+                        // 1116 ShipEngineState exists only on a mounted engine. The
+                        // shipped EngineVisualizer [Require]s it and uses its live
+                        // throttle/currentPercentSpin for propeller rotation, VFX and
+                        // audio. Flight remains authoritative; this is its visual
+                        // projection, not a second force model.
+                        Game.Crafting.MountedParts.Mount? engineMount =
+                            Game.Crafting.MountedParts.MountFor(entityId);
+                        if (engineMount.HasValue
+                            && Multiplayer.Ship.ShipPartKinds.Classify(
+                                engineMount.Value.ItemType,
+                                engineMount.Value.PrefabName,
+                                engineMount.Value.AttachmentType)
+                                == Multiplayer.Ship.ShipPartKinds.Engine)
+                        {
+                            double power = Multiplayer.Ship.Flight.FlightTuning
+                                .FromEnvironment(Environment.GetEnvironmentVariable)
+                                .EngineThrustNewtons;
+                            obj = ShipEngineStateWire.BuildData(
+                                engineMount.Value.HullEntityId, power);
+                        }
+                        else
+                        {
+                            // Loose engines deliberately remain inert and other
+                            // mounted part types do not have this component.
+                            decidedAbsentForThisEntity = true;
+                        }
+                    }
                     else if (componentId == 1120)
                     {
                         // ShipPartState: the logical part metadata ShipPartVisualizer

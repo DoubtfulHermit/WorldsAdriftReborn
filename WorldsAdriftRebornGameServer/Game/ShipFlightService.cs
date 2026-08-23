@@ -1300,7 +1300,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// plus a rigidbody destroy/re-add, the exact trap ShipPartMotionService
         /// documents for the static deck.
         /// </summary>
-        private static ShipPartWakeBundle BuildHullAndPartWakes(
+        private ShipPartWakeBundle BuildHullAndPartWakes(
             long hullEntityId, FlightEmit emit)
         {
             long sample = PartMountService.NextTimelineSample();
@@ -1314,6 +1314,22 @@ namespace WorldsAdriftRebornGameServer.Game
             var members = new List<ShipDomainComponentUpdate>();
             foreach ((long partEntityId, Crafting.MountedParts.Mount mount) in Crafting.MountedParts.OnHull(hullEntityId))
             {
+                string partKind =
+                    Multiplayer.Ship.ShipPartKinds.Classify(
+                        mount.ItemType, mount.PrefabName, mount.AttachmentType);
+                if (partKind == Multiplayer.Ship.ShipPartKinds.Engine)
+                {
+                    // The same coherent domain frame that moves the hull also tells
+                    // every mounted engine what the authoritative lever is doing.
+                    // 1116 drives only client propeller/VFX/audio; force was already
+                    // evaluated by this FlightSession before this point.
+                    members.Add(new ShipDomainComponentUpdate(
+                        partEntityId,
+                        ShipEngineStateWire.ComponentId,
+                        ShipEngineStateWire.BuildUpdate(
+                            hullEntityId, _tuning.EngineThrustNewtons)));
+                }
+
                 // A mounted part seeded as a REAL Unity CHILD of the hull (a bar pipe) is
                 // dragged along by the hull's own transform and needs no wake. Sending one
                 // is actively harmful: the wake carries the parent field, every
