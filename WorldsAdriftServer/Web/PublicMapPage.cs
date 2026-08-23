@@ -116,8 +116,8 @@ namespace WorldsAdriftServer.Web
 <meta charset=""utf-8""><meta name=""viewport"" content=""width=device-width, initial-scale=1"">
 <meta name=""color-scheme"" content=""dark"">
 <meta name=""description"" content=""A live map of the Worlds Adrift Reborn world: islands, zones, wildlife, and the ships and travellers currently aloft."">
-<title>Live world map - Worlds Adrift Reborn</title>" + AdminPage.Style + @"</head>
-<body><div class=""wrap"">
+<title>Live world map - Worlds Adrift Reborn</title>" + AdminPage.Style + PublicSiteChrome.Style + @"</head>
+<body class=""wa-public wa-map"">" + PublicSiteChrome.Header("map", false) + @"<div class=""wrap"">
 " + WebAssets.Fill(WebAssets.Read("public-map-body.html"),
         ("mapBody", MapBody()),
         // The viewer count's explanation, in the About panel with the rest of

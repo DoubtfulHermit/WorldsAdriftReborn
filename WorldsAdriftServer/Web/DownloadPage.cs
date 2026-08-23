@@ -162,9 +162,10 @@ footer {
   margin-top: 2rem; font-size: .72rem; line-height: 1.5;
   color: var(--ink-faint);
 }
-</style>
+</style>" + PublicSiteChrome.Style + PublicSiteChrome.PlayerStyle + @"
 </head>
-<body>
+<body class=""wa-player wa-download"">
+" + PublicSiteChrome.Header("download", true) + @"
 <main>
   <p class=""mark"">Worlds Adrift Reborn</p>
   <h1>WAReborn Patcher</h1>

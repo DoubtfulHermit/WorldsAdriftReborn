@@ -1,0 +1,124 @@
+body.wa-player {
+  --ink: var(--wa-text);
+  --ink-soft: #aebbbc;
+  --ink-faint: #829397;
+  --field: #091720;
+  --field-edge: #37505c;
+  --field-ink: var(--wa-text);
+  --field-hint: #708286;
+  --timber-lo: var(--wa-warm);
+  --timber-mid: var(--wa-warm);
+  --timber-hi: var(--wa-warm);
+  --timber-ink: #21160d;
+  --batten: var(--wa-warm);
+  --batten-lo: var(--wa-warm);
+  --batten-edge: var(--wa-warm);
+  --rust: #f29a86;
+  --good: var(--wa-mint);
+  --veil: #0e202b;
+  --pane: #091821;
+  --input-bg: #091720;
+  --rule: var(--wa-line);
+  --card-edge: var(--wa-line);
+  --wash: rgba(255,255,255,.045);
+  --wash-good: rgba(139,211,199,.08);
+  --wash-bad: rgba(242,154,134,.08);
+  display: block;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0 1.25rem 4rem;
+  color: var(--wa-text);
+  background: radial-gradient(60rem 30rem at 68% -10%, rgba(79,126,153,.2), transparent 62%), var(--wa-night-2);
+  font-family: var(--wa-sans);
+}
+body.wa-player::before { background: none; }
+body.wa-player #sky { display: none; }
+body.wa-player > .wa-sitebar { margin-inline: -1.25rem; }
+body.wa-player main {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 54rem;
+  margin: clamp(2.5rem, 7vw, 6rem) auto 0;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  color: var(--wa-text);
+  background: #0e202b;
+  border: 1px solid var(--wa-line);
+  border-radius: 0;
+  box-shadow: 0 24px 70px rgba(0,0,0,.22);
+  backdrop-filter: none;
+}
+body.wa-player main::before { display: none; }
+body.wa-auth main { max-width: 32rem; text-align: left; }
+body.wa-player .mark {
+  color: var(--wa-warm);
+  text-shadow: none;
+  font: 750 .58rem var(--wa-sans);
+  letter-spacing: .18em;
+}
+body.wa-player h1 {
+  color: white;
+  text-shadow: none;
+  text-transform: uppercase;
+  font: 800 clamp(2.6rem, 8vw, 4.6rem)/.9 var(--wa-display);
+  letter-spacing: -.02em;
+}
+body.wa-player .lede, body.wa-player .greet, body.wa-player .alt {
+  color: #aebbbc;
+  text-shadow: none;
+}
+body.wa-player label { color: #9caaac; text-shadow: none; }
+body.wa-player input, body.wa-player textarea, body.wa-player select {
+  min-height: 2.9rem;
+  color: var(--wa-text);
+  background: #091720;
+  border: 1px solid #37505c;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+body.wa-player input:hover, body.wa-player textarea:hover, body.wa-player select:hover {
+  background: #0c1c26;
+  border-color: var(--wa-mint);
+}
+body.wa-player input:focus-visible, body.wa-player textarea:focus-visible,
+body.wa-player select:focus-visible, body.wa-player button:focus-visible,
+body.wa-player a:focus-visible { outline: 2px solid var(--wa-warm); outline-offset: 3px; }
+body.wa-player button, body.wa-player .plank {
+  min-height: 3rem;
+  padding: .85rem 1.2rem;
+  color: #21160d;
+  background: var(--wa-warm);
+  background-image: none;
+  border: 1px solid var(--wa-warm);
+  border-radius: 0;
+  box-shadow: none;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+body.wa-player button::before, body.wa-player button::after,
+body.wa-player .plank::before, body.wa-player .plank::after { display: none; }
+body.wa-player button:hover:not(:disabled), body.wa-player .plank:hover {
+  color: var(--wa-night);
+  background: white;
+  border-color: white;
+  filter: none;
+}
+body.wa-player .quiet {
+  color: #aebbbc;
+  background: transparent;
+  border-color: var(--wa-line);
+}
+body.wa-player .card { border-radius: 0; background: #10222d; box-shadow: none; backdrop-filter: none; }
+body.wa-player nav.tabs { border-color: var(--wa-line); border-radius: 0; background: #091720; }
+body.wa-player nav.tabs a { border-radius: 0; }
+body.wa-player nav.tabs a.on { color: #21160d; background: var(--wa-warm); background-image: none; border-color: var(--wa-warm); }
+body.wa-player footer { color: #7f9093; text-shadow: none; }
+body.wa-player footer a, body.wa-player .alt a { color: var(--wa-warm); }
+
+@media (max-width: 640px) {
+  body.wa-player { padding-inline: .8rem; }
+  body.wa-player > .wa-sitebar { margin-inline: -.8rem; }
+  body.wa-player main { margin-top: 1.4rem; padding: 1.25rem; }
+}

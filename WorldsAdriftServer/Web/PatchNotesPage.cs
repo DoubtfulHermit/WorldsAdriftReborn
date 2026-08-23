@@ -44,8 +44,8 @@ namespace WorldsAdriftServer.Web
 <meta charset=""utf-8""><meta name=""viewport"" content=""width=device-width, initial-scale=1"">
 <meta name=""color-scheme"" content=""dark"">
 <meta name=""description"" content=""What has changed on the Wareborn server: a fan-run revival of Worlds Adrift, written down release by release."">
-<title>Patch notes - Worlds Adrift Reborn</title>" + Style + @"</head>
-<body><div class=""wrap pn-wrap"">
+<title>Patch notes - Worlds Adrift Reborn</title>" + Style + PublicSiteChrome.Style + @"</head>
+<body class=""wa-public wa-build-log"">" + PublicSiteChrome.Header("build", false) + @"<div class=""wrap pn-wrap"">
 " + body + @"</div></body></html>";
         }
     }

@@ -94,6 +94,9 @@ namespace WorldsAdriftServer.Tests
             string html = Html(View());
 
             Assert.Contains(WebAssets.Read("account.css"), html, StringComparison.Ordinal);
+            Assert.Contains(WebAssets.Read("site-shell.css"), html, StringComparison.Ordinal);
+            Assert.Contains(WebAssets.Read("site-player.css"), html, StringComparison.Ordinal);
+            Assert.Contains("class=\"wa-sitebar\"", html, StringComparison.Ordinal);
 
             // The script is the asset with its one placeholder filled, so what
             // ships is the file plus the server's emblem version and nothing else.

@@ -9,7 +9,7 @@ namespace WorldsAdriftServer.Web
     {
         internal const string ContentType = "text/html; charset=utf-8";
 
-        internal const string Html = @"<!DOCTYPE html>
+        internal static readonly string Html = @"<!DOCTYPE html>
 <html lang=""en"">
 <head>
 <meta charset=""utf-8"">
@@ -280,9 +280,10 @@ footer {
   }
   button:active:not(:disabled) { transform: none; }
 }
-</style>
+</style>" + PublicSiteChrome.Style + PublicSiteChrome.PlayerStyle + @"
 </head>
-<body>
+<body class=""wa-player wa-auth"">
+" + PublicSiteChrome.Header("signup", false) + @"
 <canvas id=""sky"" aria-hidden=""true""></canvas>
 <main class=""card"">
   <p class=""mark"">Worlds Adrift Reborn</p>

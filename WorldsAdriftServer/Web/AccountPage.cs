@@ -793,8 +793,10 @@ namespace WorldsAdriftServer.Web
 <title>Your account - Worlds Adrift Reborn</title>
 <style>
 " + WebAssets.Read("account.css") + (onEmblemTab ? WebAssets.Read("emblem-editor.css") : string.Empty) + @"</style>
+" + PublicSiteChrome.Style + PublicSiteChrome.PlayerStyle + @"
 </head>
-<body" + (onEmblemTab ? " class=\"wide\"" : string.Empty) + @">
+<body class=""wa-player wa-portal" + (onEmblemTab ? " wide" : string.Empty) + @""">
+" + PublicSiteChrome.Header("account", true) + @"
 <main>
   <p class=""mark"">Worlds Adrift Reborn</p>
   <h1>Your account</h1>
