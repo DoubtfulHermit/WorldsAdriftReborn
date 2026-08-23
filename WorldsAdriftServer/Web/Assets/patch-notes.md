@@ -1,9 +1,18 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 696 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 737 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-22 | 35 commits
+## 2026-08-23 | 4 commits
 
+* 8fafd3e Remember protected game sessions for unattended tests
+* c3877e5 Preserve test bridge opt-in across Wine handoff
+* 8645515 Harden semantic client acceptance bridge
+* 8fcb1ff Add opt-in semantic client test bridge
+
+## 2026-08-22 | 37 commits
+
+* 6ca11d9 Decouple fixed flight physics from publication
+* e663e8f Prepare fixed-step flight acceptance
 * e17cc53 Increase sail power within recovered balance bracket
 * 68ba949 Restore retail residual ship drag
 * fcd7fb0 Complete ship restores on authoritative boarding
@@ -736,7 +745,7 @@ Every commit, newest first. 696 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 7 commits
+## 2026-08-07 | 42 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -745,7 +754,42 @@ Every commit, newest first. 696 of them since 2026-08-07. Merges are left out - 
 * 4f95743 Hide the remote grapple tube unconditionally, not just while the rope is up
 * 754cade Hide the remote grapple tube continuously while grappling, not once at bind
 * 4ea6f7e Hide the game's GrapplingHookTube on remote rigs; add local-player fall telemetry
+* 3a49c50 Style the remote grapple line: thin dark rope, not a magenta wedge
+* 0044868 Make the anti-yeet neutralize deterministic: run it in FixedUpdate
+* fc765fa Phase 4a: replicate the grapple rope line
+* 0c6e860 Roadmap: mark Phases 1a/2/3 + yeet fix done; flag Phase 4 as the hard frontier
+* 4d06732 Fix 'yeet into the sky on second join': neutralize remote rig physics on frame one
+* deeb606 Phase 3: replicate the glider via UtilitySlotActivatedState (6910)
+* 69e5148 Fix asymmetric visibility: fallback flush for parked mirror ops
+* 4d37822 Phase 2: relay worn gear to other players
+* 5399f04 Phase 1a: adopt PlayerVisualizer's interpolator for smooth remote movement
+* b7f7329 Roadmap: add phased remote-player fidelity plan (smoothing, gear, glider, grapple/VFX)
+* e4325bc RemoteRigMover: always position globally, never yield to unresolved parenting
+* 7bf0b49 Fix remote rigs falling: keep RemoteRigMover authoritative, suppress PlayerVisualizer
+* e7b9754 Sync remote player animation via 1073, and adopt the native positioner
+* 70c9df6 Appearance hardening: forget on disconnect, re-arm publish on re-entry
+* b4d15da Relay real player appearance
+* b745a8e Document the working multiplayer: architecture, operations, roadmap
+* c44ac3b Move plain remote rigs from TransformState; sample-decode relayed transforms
+* 9f47d2b Give every client the same island entity id so Parent references resolve
+* 92d1cd0 Diagnose the plain remote rig and un-cull its render layer
+* 5c56086 Two-phase mirror: request the plain Traveller asset before AddEntityOp
+* 55bbd19 Mirror remote players with prefab context Default, not Player
+* 0e69621 Only run first-time setup and authority grant against the sender's own entity
+* 3ffe069 Fix rig tamer freezing the LOCAL player
+* a984cfa Client: stop remote rigs from simulating - display only
+* aeef3a7 Shrink remote avatar seed to the minimum the body-builder requires
+* edc1348 Seed remote avatars with the game's own second-stage player component set
+* d7ea4b4 Client: keep the camera on the first Traveller rig that claims it
+* be36bed Client: disable cameras and audio listeners on remote player rigs
+* ae8971b Client: never let a second Traveller steal the local-player singletons
+* de6124f Client: let only the first CameraBinder drive the camera
+* 892cfee Seed remote avatars with TransformState only, and document component ids
+* f6b0cff Support multiple simultaneous players
+* 0a40ecf Add mingw-w64 cross-compile build for CoreSdkDll
+* 6a110bd Add pure multiplayer policy modules with unit tests
+* 7b93a5c Fix fatal CLR abort when registering component update handlers
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 170 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 135 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
