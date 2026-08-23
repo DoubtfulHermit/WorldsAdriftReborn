@@ -1548,6 +1548,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             var parts = new List<ShadowPropulsor>();
             int propulsorCount = 0;
+            bool liveSailYawUnavailable = false;
             foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry in
                 Crafting.MountedParts.OnHull(hullEntityId).OrderBy(x => x.Key))
             {
@@ -1561,10 +1562,13 @@ namespace WorldsAdriftRebornGameServer.Game
                 if (!ShadowQuaternion.TryNormalized(w, x, y, z, out ShadowQuaternion rotation))
                     continue;
                 bool isEngine = kind == Multiplayer.Ship.ShipPartKinds.Engine;
+                bool sailUnfurled = !isEngine
+                    && WorldsAdriftRebornGameServer.Sails.IsUnfurled(entry.Key);
+                if (sailUnfurled) liveSailYawUnavailable = true;
                 double power = isEngine
                     ? (WorldsAdriftRebornGameServer.ShipFuel.EnginesPowered(hullEntityId)
                         ? _tuning.EngineThrustNewtons : 0.0)
-                    : (WorldsAdriftRebornGameServer.Sails.IsUnfurled(entry.Key)
+                    : (sailUnfurled
                         ? _tuning.SailPowerNewtons : 0.0);
                 parts.Add(new ShadowPropulsor(isEngine ? ShadowPartKind.Engine : ShadowPartKind.Sail,
                     new ShadowVector3(mount.LocalOffset.MetresX, mount.LocalOffset.MetresY,
@@ -1591,6 +1595,19 @@ namespace WorldsAdriftRebornGameServer.Game
                     scalar.EngineForceNewtons + scalar.SailForceNewtons,
                     ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
                     0, parts.Count, true, default, false);
+
+            // Retail rotates a sail through a live YawJoint. The server currently
+            // persists the static mount quaternion only. Publishing that static
+            // pose as the live sail force produced a demonstrably false zero beside
+            // 1852.81 N scalar force in the first C4 production run. Fail closed
+            // until the yaw-joint state is authoritative and durable.
+            if (liveSailYawUnavailable)
+                return new Multiplayer.ShipFlightShadowStat(true, false,
+                    "live-sail-yaw-state-unavailable",
+                    scalar.EngineForceNewtons + scalar.SailForceNewtons,
+                    ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
+                    vector.AcceptedParts, vector.RejectedParts,
+                    vector.Mass.IsApproximation, default, false);
 
             FlightState state = domain.Flight.State;
             CollisionProxy subject = new(domain.Id.ToString(), CollisionProxyKind.ShipHull,

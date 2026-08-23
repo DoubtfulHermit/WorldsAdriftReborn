@@ -2022,6 +2022,10 @@ blast-radius assessment and ordered response plan are in
   vector motion or collision response. The checklist is in
   `docs/architecture/flight-pack-c4-shadow-observer.md`. The combined
   moving sail-plus-turn view is explicitly **REAL EYES**, not an automated pass.
+  The first live C4 sample exposed the expected Track-3 dependency: one unfurled
+  sail produced 1852.81 N in scalar flight but zero in the static-rotation shadow
+  because retail uses a live sail `YawJoint`. Telemetry now fails closed as
+  `live-sail-yaw-state-unavailable`; C4 is not passed until that state is owned.
 - The earlier intermittent 680 ms clock gap was not world persistence: the
   instrumented first sail save completed below 100 ms. Loop-stage telemetry then
   exposed an unauthorized Monero miner in the `gitea` container consuming about

@@ -2,6 +2,14 @@
 
 Status: implemented behind `WAREBORN_FLIGHT_SHADOW_OBSERVE=1`; observation only.
 
+First production observation found a required dependency: an unfurled sail's
+retail force uses the live `YawJoint` angle, while the server currently owns only
+its static packed mount rotation. The static adapter reported zero vector force
+beside 1852.81 N scalar force. Schema 19 therefore fails closed with
+`vectorAvailable=false` and `live-sail-yaw-state-unavailable` whenever any sail
+is unfurled. This is the first useful C4 result, not a pass: authoritative,
+durable sail-yaw state is required before sail force/torque comparison can pass.
+
 The adapter feeds the existing pure `VectorRigidBodyShadow` with the live hull's
 measured dimensions, authoritative mounted-part offsets and packed rotations,
 current sail states, engine availability, throttle, and the exact retained wind
