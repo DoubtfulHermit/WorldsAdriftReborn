@@ -117,28 +117,28 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("linear-gradient(90deg, #744d8c", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Fuelled engines fly. Final ship-relative motion remains open",
+            Assert.Contains("The post-settle authority fight is isolated",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("One familiar address", HomePage.Html, StringComparison.Ordinal);
         }
 
         [Fact]
-        public void CurrentFlightClaimSeparatesLivePassesFromThePendingAcceptance()
+        public void CurrentFlightClaimSeparatesTheProvenRestFixFromOpenTurnRendering()
         {
-            Assert.Contains("data-game-status-through=\"safe-deck-restore-and-moving-helm-pending-acceptance\"",
+            Assert.Contains("data-game-status-through=\"rest-heartbeat-correction-and-render-phase-trace\"",
                 HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("Engine and generator-fuel path", HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("visual spin, authoritative burn, empty cutoff and partial-fuel restart passed live checks",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("entering the helm while already moving manufactured a 240 ms position rewind",
+            Assert.Contains("a five-second server heartbeat revived stale retail PathFollower velocity",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("both server corrections are built and awaiting one combined live check",
+            Assert.Contains("despite zero authoritative speed",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("relocates crowded logout coordinates to deterministic clear deck panels",
+            Assert.Contains("active-turn component rendering is still being measured separately",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("low-speed drift and turn vibration under diagnosis",
+            Assert.Contains("turn render timing remains under trace",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.DoesNotContain("turn and low-speed acceptance passed", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
