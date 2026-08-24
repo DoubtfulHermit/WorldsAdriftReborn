@@ -998,27 +998,31 @@ namespace WorldsAdriftRebornGameServer.Game
                 bool wakeDue = !session.State.IsAtRest
                     || !_lastWakeAt.TryGetValue(hullEntityId, out TimeSpan lastWake)
                     || _clock.Elapsed - lastWake >= WakeInterval;
-                ShipDomainComponentUpdate? hullWake = null;
                 IReadOnlyList<ShipDomainComponentUpdate> memberWakes = Array.Empty<ShipDomainComponentUpdate>();
                 if (wakeDue)
                 {
                     _lastWakeAt[hullEntityId] = _clock.Elapsed;
-                    ShipPartWakeBundle wakes = BuildHullAndPartWakes(hullEntityId, emit);
-                    hullWake = wakes.Root;
-                    memberWakes = wakes.Members;
+                    memberWakes = BuildMountedPartWakes(hullEntityId);
                 }
 
                 // ONE domain frame per flight tick. On wake ticks this is ordered
-                // hull 1130 -> hull 190602 -> member 190602; between wakes it is the
-                // same root stream with an empty member set. Relevance is evaluated
-                // once for the whole ship by ShipPublisher.
+                // hull 1130 -> member 190602. Do NOT also publish the hull's absolute
+                // 190602 pose here: the stock client enables both PathFollower and
+                // FixedUpdateLerpLocalTransformBehaviour on that root, so an absolute
+                // transform update races the delayed/splined 1130 authority. Live E0
+                // acceptance exposed the race as vibration while turning and small
+                // forward corrections below 1 m/s. Mounted "~" followers still need
+                // their own value updates to remain awake, but they compose each frame
+                // against SSPDeadReckoningVisualizer.NextFramePosition/Rotation and do
+                // not need a duplicate root pose. Relevance is evaluated once for the
+                // whole ship by ShipPublisher.
                 ShipDomainDeliveryResult delivery = ShipPublisher.BroadcastDomainMotion(
                     hullEntityId, hullPosition, (long)domain.Generation.Value,
                     new ShipDomainComponentUpdate(
                         hullEntityId, ShipMotionPolicy.ComponentId,
                         ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation)),
-                    hullWake,
-                    memberWakes);
+                    rootAuxiliary: null,
+                    members: memberWakes);
                 if (latencyTrace != null)
                 {
                     Console.WriteLine("[flight-latency] event=S" + latencyTrace.Sequence
@@ -1289,28 +1293,24 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
-        /// The wake bundle, on every moving root point and the resting heartbeat
-        /// (<see cref="WakeInterval"/>): the hull's own 190602 timeline advance (the
-        /// moving pose + the next shared stamp) and one 190602 wake per mounted
-        /// "~" part carrying its UNCHANGED hull-local offset/rotation at the same
-        /// stamp. Real Unity children - the built ship's decks, and any mounted part
+        /// The mounted-member wakes sent on every moving root point and the resting
+        /// heartbeat (<see cref="WakeInterval"/>). Active flight deliberately builds
+        /// no hull TransformState update: its hull pose has one authority, the 1130
+        /// PathFollower stream. Each mounted "~" part receives a 190602 wake carrying
+        /// its UNCHANGED hull-local offset/rotation. Real Unity
+        /// children - the built ship's decks, and any mounted part
         /// <see cref="Multiplayer.Ship.MountedPartHierarchy.IsUnityChild"/> names (the
         /// bar pipes) - are never woken: they ride the hull through the scene graph,
         /// and waking them would re-fire ParentUpdated and churn an unparent/reparent
         /// plus a rigidbody destroy/re-add, the exact trap ShipPartMotionService
         /// documents for the static deck.
         /// </summary>
-        private ShipPartWakeBundle BuildHullAndPartWakes(
-            long hullEntityId, FlightEmit emit)
+        private IReadOnlyList<ShipDomainComponentUpdate> BuildMountedPartWakes(
+            long hullEntityId)
         {
             long sample = PartMountService.NextTimelineSample();
             float stamp = ShipPartMotionPolicy.StampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
 
-            FixedPointPosition hullPos = FixedPointPosition.FromMetres(emit.Spec.X, emit.Spec.Y, emit.Spec.Z);
-            var hullUpdate = ShipPartTransform.BuildParentlessWakeUpdate(
-                hullPos,
-                new Improbable.Corelibrary.Math.Quaternion32(emit.PackedRotation),
-                ShipPartMotionPolicy.ParentStampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds));
             var members = new List<ShipDomainComponentUpdate>();
             foreach ((long partEntityId, Crafting.MountedParts.Mount mount) in Crafting.MountedParts.OnHull(hullEntityId))
             {
@@ -1352,10 +1352,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     partEntityId, ShipPartMotionPolicy.TransformStateComponentId, wake));
             }
 
-            return new ShipPartWakeBundle(
-                new ShipDomainComponentUpdate(
-                    hullEntityId, ShipPartMotionPolicy.TransformStateComponentId, hullUpdate),
-                members);
+            return members;
         }
 
         /// <summary>

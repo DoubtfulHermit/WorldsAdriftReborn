@@ -115,7 +115,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 StringComparison.Ordinal);
             Assert.Contains("ShipPublisher.BroadcastDomainMotion(", service,
                 StringComparison.Ordinal);
-            Assert.Contains("hullWake,\n                    memberWakes", service,
+            Assert.Contains("rootAuxiliary: null,\n                    members: memberWakes", service,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain("hullWake = wakes.Root", service,
+                StringComparison.Ordinal);
+            Assert.Contains("memberWakes = BuildMountedPartWakes(hullEntityId)", service,
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Active_flight_has_one_hull_pose_authority()
+        {
+            string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
+
+            Assert.Contains("Do NOT also publish the hull's absolute", service,
+                StringComparison.Ordinal);
+            Assert.Contains("ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation)", service,
+                StringComparison.Ordinal);
+            Assert.Contains("rootAuxiliary: null", service,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain("BuildHullAndPartWakes", service,
                 StringComparison.Ordinal);
         }
 
