@@ -134,7 +134,7 @@ namespace WorldsAdriftServer.Tests
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("mounted entity roots remain aligned to the hull to about one millimetre",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("sometimes contained 11, 12 or 13 fixed physics steps",
+            Assert.Contains("remaining snap begins below roughly 0.5 m/s",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("publishes only on exact 12-step boundaries",
                 HomePage.Html, StringComparison.Ordinal);
