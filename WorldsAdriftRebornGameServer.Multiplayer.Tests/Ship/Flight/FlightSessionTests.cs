@@ -129,6 +129,78 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Client_Hermite_path_never_reverses_during_the_final_settle()
+        {
+            var session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            var propulsion = new ShipPropulsion(
+                3094.0, ShipForceModel.DefaultEngineThrustNewtons, 0);
+            session.Man();
+            session.SetInput(Throttle(1f));
+
+            long now = 1_000_000;
+            var points = new List<ShipControlPointSpec>();
+            for (int i = 0; i < 60; i++)
+            {
+                now += StepMs;
+                FlightEmit emit = session.AdvanceFixed(now, Step, 12,
+                    (now / 1000.0) - 0.22, Tuning,
+                    agilityScale: 0.51, propulsion: propulsion,
+                    fixedStepSeconds: 0.02);
+                if (emit.Emit) points.Add(emit.Spec);
+            }
+
+            session.SetInput(Throttle(0f));
+            session.Dismount();
+            for (int i = 0; i < 500 && !session.State.IsAtRest; i++)
+            {
+                now += StepMs;
+                FlightEmit emit = session.AdvanceFixed(now, Step, 12,
+                    (now / 1000.0) - 0.22, Tuning,
+                    agilityScale: 0.51, propulsion: propulsion,
+                    fixedStepSeconds: 0.02);
+                if (emit.Emit) points.Add(emit.Spec);
+            }
+
+            double worstAlong = 0.0;
+            int worstInterval = -1;
+            for (int i = 1; i < points.Count; i++)
+            {
+                ShipControlPointSpec a = points[i - 1];
+                ShipControlPointSpec b = points[i];
+                double dx = b.X - a.X, dy = b.Y - a.Y, dz = b.Z - a.Z;
+                double distance = System.Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                if (distance <= 1e-12) continue;
+                double ux = dx / distance, uy = dy / distance, uz = dz / distance;
+                double dt = (b.TimestampMs - a.TimestampMs) / 1000.0;
+                for (int sample = 0; sample <= 100; sample++)
+                {
+                    double t = sample / 100.0;
+                    double t2 = t * t;
+                    double dh00 = (6 * t2) - (6 * t);
+                    double dh10 = (3 * t2) - (4 * t) + 1;
+                    double dh01 = (-6 * t2) + (6 * t);
+                    double dh11 = (3 * t2) - (2 * t);
+                    double vx = ((dh00 * a.X) + (dh10 * dt * a.Vx)
+                        + (dh01 * b.X) + (dh11 * dt * b.Vx)) / dt;
+                    double vy = ((dh00 * a.Y) + (dh10 * dt * a.Vy)
+                        + (dh01 * b.Y) + (dh11 * dt * b.Vy)) / dt;
+                    double vz = ((dh00 * a.Z) + (dh10 * dt * a.Vz)
+                        + (dh01 * b.Z) + (dh11 * dt * b.Vz)) / dt;
+                    double along = (vx * ux) + (vy * uy) + (vz * uz);
+                    if (along < worstAlong)
+                    {
+                        worstAlong = along;
+                        worstInterval = i;
+                    }
+                }
+            }
+
+            Assert.True(worstAlong >= -1e-9,
+                "client spline reverses at interval " + worstInterval
+                + " by " + worstAlong + " m/s");
+        }
+
+        [Fact]
         public void A_manned_idle_session_keeps_the_client_playback_buffer_alive()
         {
             // PathFollower starts its halting/spline-correction path as soon as
