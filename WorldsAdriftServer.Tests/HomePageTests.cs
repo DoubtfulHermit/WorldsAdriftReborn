@@ -117,7 +117,7 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("linear-gradient(90deg, #744d8c", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Fuelled engines fly. The hull now has one pose authority",
+            Assert.Contains("Fuelled engines fly. Ship presentation is converging",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("One familiar address", HomePage.Html, StringComparison.Ordinal);
         }
@@ -125,13 +125,13 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void CurrentFlightClaimSeparatesLivePassesFromThePendingRetest()
         {
-            Assert.Contains("data-game-status-through=\"93ab672\"", HomePage.Html,
+            Assert.Contains("data-game-status-through=\"de984f9\"", HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("Engine and generator-fuel path", HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("visual spin, authoritative burn, empty cutoff and partial-fuel restart passed live checks",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("turn and low-speed settling need the final visual retest",
+            Assert.Contains("sub-centimetre coast and mounted-turn batching have a client correction awaiting final visual acceptance",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.DoesNotContain("5 ships", HomePage.Html, StringComparison.Ordinal);
             Assert.DoesNotContain("3,788", HomePage.Html, StringComparison.Ordinal);
