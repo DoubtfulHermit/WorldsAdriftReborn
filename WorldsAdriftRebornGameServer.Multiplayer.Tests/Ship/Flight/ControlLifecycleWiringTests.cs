@@ -115,7 +115,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 StringComparison.Ordinal);
             Assert.Contains("ShipPublisher.BroadcastDomainMotion(", service,
                 StringComparison.Ordinal);
-            Assert.Contains("rootAuxiliary: null,\n                    members: memberWakes", service,
+            Assert.Contains("rootAuxiliary: null,\n                members: memberWakes", service,
                 StringComparison.Ordinal);
             Assert.DoesNotContain("hullWake = wakes.Root", service,
                 StringComparison.Ordinal);
@@ -128,7 +128,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
 
-            Assert.Contains("Do NOT also publish the hull's absolute", service,
+            Assert.Contains("Do not also publish an absolute 190602 root pose", service,
                 StringComparison.Ordinal);
             Assert.Contains("ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation)", service,
                 StringComparison.Ordinal);
@@ -210,7 +210,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Fixed_clock_is_opt_in_and_does_not_replace_the_024_wire_cadence()
+        public void Fixed_clock_is_opt_in_and_phase_locks_the_024_wire_cadence()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
             Assert.Contains("WAREBORN_FLIGHT_FIXED_STEP", service, StringComparison.Ordinal);
@@ -222,7 +222,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 StringComparison.Ordinal);
             Assert.Contains("if (!FixedStepEnabled && !publicationDue)", service,
                 StringComparison.Ordinal);
-            Assert.Contains("emitDue: publicationDue", service, StringComparison.Ordinal);
+            Assert.Contains("FixedFlightPublicationSchedule.Slice(fixedBatch)", service,
+                StringComparison.Ordinal);
+            Assert.Contains("emitDue: slice.PublishAfter", service, StringComparison.Ordinal);
+            Assert.Contains("phaseLockedEmit: true", service, StringComparison.Ordinal);
+            Assert.DoesNotContain("emitDue: publicationDue", service, StringComparison.Ordinal);
             Assert.DoesNotContain("if (!_cadence.Due(_clock.Elapsed))", service,
                 StringComparison.Ordinal);
         }

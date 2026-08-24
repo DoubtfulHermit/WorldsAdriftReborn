@@ -230,7 +230,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             IReadOnlyList<WeatherWallSegment>? walls = null,
             RetailWorldBoundsPolicy? worldBounds = null,
             double fixedStepSeconds = FixedFlightClock.StepSeconds,
-            bool emitDue = true)
+            bool emitDue = true,
+            bool phaseLockedEmit = false)
         {
             if (fixedStepCount < 0 || fixedStepCount > FixedFlightClock.DefaultMaxCatchUpSteps)
                 throw new ArgumentOutOfRangeException(nameof(fixedStepCount));
@@ -288,13 +289,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                         boundsHardClamped, boundsInvalid, boundsSubsteps);
                 }
 
-                // The fixed simulation clock runs independently of the stock
-                // 240 ms wire cadence. Intermediate 20 ms calls must advance
-                // authoritative state without manufacturing a network point or
-                // consuming the rest-repeat budget. Otherwise the service has to
-                // batch all elapsed physics behind the publication timer, which
-                // retroactively applies the newest control input to time that
-                // elapsed before that input arrived.
+                // Intermediate 20 ms calls advance authoritative state without
+                // manufacturing a point or consuming the rest-repeat budget. The
+                // service phase-locks fixed mode at exactly twelve such calls per
+                // 240 ms point; legacy mode retains its wall-clock publisher.
                 if (!emitDue)
                 {
                     return FlightEmit.Nothing;
@@ -317,7 +315,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     // step, invisible at the default 0).
                     if (tuning.IdleBobMetres > 0.0)
                     {
-                        return EmitBobbedAt(nowMs, emitStepSeconds, tuning);
+                        return EmitBobbedAt(nowMs, emitStepSeconds, tuning,
+                            phaseLockedEmit);
                     }
 
                     // Keep the 1130 playback buffer continuously populated while
@@ -335,7 +334,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     _restEmitted = 0;
                 }
 
-                return EmitAt(nowMs, emitStepSeconds);
+                return EmitAt(nowMs, emitStepSeconds, phaseLockedEmit);
             }
 
             // At rest, unmanned.
@@ -346,7 +345,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             if (_restEmitted <= RestRepeats)
             {
                 _restEmitted++;
-                return EmitAt(nowMs, emitStepSeconds);
+                return EmitAt(nowMs, emitStepSeconds, phaseLockedEmit);
             }
 
             // Do not send a perpetual zero-speed heartbeat. The shipped
@@ -435,9 +434,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 hardClamped, invalidState, substeps);
         }
 
-        private FlightEmit EmitAt(long nowMs, double stepSeconds)
+        private FlightEmit EmitAt(long nowMs, double stepSeconds,
+            bool phaseLocked = false)
         {
-            long stamp = NextStamp(nowMs, stepSeconds);
+            long stamp = NextStamp(nowMs, stepSeconds, phaseLocked);
             return new FlightEmit(
                 true,
                 FlightIntegrator.ToControlPoint(_state, stamp),
@@ -450,9 +450,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// tangents follow the bob instead of fighting it. Not Arrived - an
         /// arrived point claims zero velocity, and this one is honestly moving.
         /// </summary>
-        private FlightEmit EmitBobbedAt(long nowMs, double stepSeconds, FlightTuning tuning)
+        private FlightEmit EmitBobbedAt(long nowMs, double stepSeconds,
+            FlightTuning tuning, bool phaseLocked)
         {
-            long stamp = NextStamp(nowMs, stepSeconds);
+            long stamp = NextStamp(nowMs, stepSeconds, phaseLocked);
             double omega = 2.0 * System.Math.PI / FlightTuning.IdleBobPeriodSeconds;
             double phase = (nowMs / 1000.0) * omega;
             double bobY = tuning.IdleBobMetres * System.Math.Sin(phase);
@@ -466,10 +467,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 FlightIntegrator.PackedRotation(_state));
         }
 
-        private long NextStamp(long nowMs, double stepSeconds)
+        private long NextStamp(long nowMs, double stepSeconds,
+            bool phaseLocked = false)
         {
             long stepMs = (long)System.Math.Round(stepSeconds * 1000.0);
-            long stamp = _everEmitted && nowMs < _lastStampMs + stepMs ? _lastStampMs + stepMs : nowMs;
+            // A phase-locked point represents an exact amount of simulation time,
+            // so a late poll must not stretch its timestamp back to wall time.
+            // Legacy callers intentionally retain the old wall-clock behavior.
+            long stamp = _everEmitted && (phaseLocked || nowMs < _lastStampMs + stepMs)
+                ? _lastStampMs + stepMs
+                : nowMs;
             _lastStampMs = stamp;
             _everEmitted = true;
             return stamp;

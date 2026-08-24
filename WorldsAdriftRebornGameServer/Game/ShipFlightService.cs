@@ -881,8 +881,9 @@ namespace WorldsAdriftRebornGameServer.Game
 
         /// <summary>
         /// One call per main-loop turn. The optional fixed clock consumes elapsed
-        /// 20 ms physics steps on this cadence; the independent stock timer only
-        /// decides when a 1130 control point may be published.
+        /// 20 ms physics steps and phase-locks each 1130 point to twelve completed
+        /// steps. The stock timer remains the legacy publisher and paces the
+        /// lower-cost membership/docking/helm scans in fixed mode.
         /// </summary>
         public IReadOnlySet<ulong> Tick()
         {
@@ -941,19 +942,39 @@ namespace WorldsAdriftRebornGameServer.Game
                 // all from the pre-materials behaviour - for a ship of the reference
                 // mass, which is what every legacy birch-and-iron hull lands near.
                 double agility = AgilityScaleFor(hullEntityId);
-                FlightEmit emit;
+                bool emittedAny = false;
                 if (FixedStepEnabled)
                 {
-                    double lastStepTime = Math.Floor(
+                    double batchLastStepTime = Math.Floor(
                         _clock.Elapsed.TotalSeconds / FixedFlightClock.StepSeconds)
                         * FixedFlightClock.StepSeconds;
-                    double firstStepTime = lastStepTime
+                    double batchFirstStepTime = batchLastStepTime
                         - Math.Max(0, fixedBatch.Steps - 1) * FixedFlightClock.StepSeconds;
-                    emit = session.AdvanceFixed(
-                        nowMs, ShipMotionPolicy.SendIntervalSeconds,
-                        fixedBatch.Steps, firstStepTime, _tuning, unfurledSails, agility,
-                        PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
-                        _worldBounds, emitDue: publicationDue);
+                    int consumedSteps = 0;
+                    foreach (FixedFlightPublicationSlice slice in
+                        FixedFlightPublicationSchedule.Slice(fixedBatch))
+                    {
+                        FlightEmit emit = session.AdvanceFixed(
+                            nowMs, ShipMotionPolicy.SendIntervalSeconds,
+                            slice.Steps,
+                            batchFirstStepTime + consumedSteps * FixedFlightClock.StepSeconds,
+                            _tuning, unfurledSails, agility,
+                            PropulsionFor(hullEntityId, unfurledSails),
+                            _wallFlightInfluence.Segments, _worldBounds,
+                            emitDue: slice.PublishAfter,
+                            phaseLockedEmit: true);
+                        consumedSteps += slice.Steps;
+                        ObserveWorldBounds(hullEntityId, session.State,
+                            session.LastWorldBoundsTelemetry);
+                        CompleteDepartureIfOutside(hullEntityId, session.State);
+                        PersistPoseWhenDue(hullEntityId, domain);
+                        if (emit.Emit)
+                        {
+                            emittedAny = true;
+                            PublishFlightEmit(hullEntityId, domain, session, emit,
+                                domainFrameSenders);
+                        }
+                    }
                     if (fixedBatch.UnderPressure)
                     {
                         Console.WriteLine("[warning] flight fixed-clock pressure: hull " + hullEntityId
@@ -965,102 +986,24 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
                 else
                 {
-                    emit = session.Advance(
+                    FlightEmit emit = session.Advance(
                         nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility,
                         PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
                         _worldBounds);
+                    ObserveWorldBounds(hullEntityId, session.State,
+                        session.LastWorldBoundsTelemetry);
+                    CompleteDepartureIfOutside(hullEntityId, session.State);
+                    PersistPoseWhenDue(hullEntityId, domain);
+                    if (emit.Emit)
+                    {
+                        emittedAny = true;
+                        PublishFlightEmit(hullEntityId, domain, session, emit,
+                            domainFrameSenders);
+                    }
                 }
-                ObserveWorldBounds(hullEntityId, session.State,
-                    session.LastWorldBoundsTelemetry);
-                CompleteDepartureIfOutside(hullEntityId, session.State);
-                PersistPoseWhenDue(hullEntityId, domain);
-                if (!emit.Emit)
+                if (!emittedAny)
                 {
                     PublishRestingMemberTailIfDue(hullEntityId, session);
-                    continue;
-                }
-
-                if (session.State.IsAtRest && !session.IsManned)
-                {
-                    ArmRestingMemberTail(hullEntityId);
-                }
-                else
-                {
-                    _memberWakeTailUntil.Remove(hullEntityId);
-                }
-
-                _pendingLatencyByHull.TryGetValue(hullEntityId, out FlightLatencyTrace? latencyTrace);
-                if (latencyTrace != null)
-                {
-                    Console.WriteLine("[flight-latency] event=S" + latencyTrace.Sequence
-                        + " phase=1130-emit utc=" + DateTime.UtcNow.ToString("O")
-                        + " elapsedMs=" + (_clock.Elapsed - latencyTrace.ReceivedAt).TotalMilliseconds.ToString("0.0",
-                            System.Globalization.CultureInfo.InvariantCulture)
-                        + " player=" + latencyTrace.PlayerEntityId
-                        + " hull=" + hullEntityId
-                        + " inputAxisYaw=" + latencyTrace.AxisYaw.ToString("0.###",
-                            System.Globalization.CultureInfo.InvariantCulture)
-                        + " stateYawRad=" + session.State.YawRadians.ToString("0.######",
-                            System.Globalization.CultureInfo.InvariantCulture));
-                }
-
-                FixedPointPosition hullPosition = FixedPointPosition.FromMetres(
-                    emit.Spec.X, emit.Spec.Y, emit.Spec.Z);
-                // A moving ship is one replication domain: root and mounted members
-                // must publish in the SAME frame. The former every-other-point
-                // throttle was visible in live acceptance as sails/helm remaining
-                // behind, then snapping forward on their next 190602 wake. Only a
-                // fully resting domain uses only the bounded member drain below.
-                bool wakeDue = !session.State.IsAtRest
-                    || !_lastWakeAt.TryGetValue(hullEntityId, out TimeSpan lastWake)
-                    || _clock.Elapsed - lastWake >= WakeInterval;
-                IReadOnlyList<ShipDomainComponentUpdate> memberWakes = Array.Empty<ShipDomainComponentUpdate>();
-                if (wakeDue)
-                {
-                    _lastWakeAt[hullEntityId] = _clock.Elapsed;
-                    memberWakes = BuildMountedPartWakes(hullEntityId);
-                }
-
-                // ONE domain frame per flight tick. On wake ticks this is ordered
-                // hull 1130 -> member 190602. Do NOT also publish the hull's absolute
-                // 190602 pose here: the stock client enables both PathFollower and
-                // FixedUpdateLerpLocalTransformBehaviour on that root, so an absolute
-                // transform update races the delayed/splined 1130 authority. Live E0
-                // acceptance exposed the race as vibration while turning and small
-                // forward corrections below 1 m/s. Mounted "~" followers still need
-                // their own value updates to remain awake, but they compose each frame
-                // against SSPDeadReckoningVisualizer.NextFramePosition/Rotation and do
-                // not need a duplicate root pose. Relevance is evaluated once for the
-                // whole ship by ShipPublisher.
-                ShipDomainDeliveryResult delivery = ShipPublisher.BroadcastDomainMotion(
-                    hullEntityId, hullPosition, (long)domain.Generation.Value,
-                    new ShipDomainComponentUpdate(
-                        hullEntityId, ShipMotionPolicy.ComponentId,
-                        ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation)),
-                    rootAuxiliary: null,
-                    members: memberWakes);
-                if (latencyTrace != null)
-                {
-                    Console.WriteLine("[flight-latency] event=S" + latencyTrace.Sequence
-                        + " phase=1130-send utc=" + DateTime.UtcNow.ToString("O")
-                        + " elapsedMs=" + (_clock.Elapsed - latencyTrace.ReceivedAt).TotalMilliseconds.ToString("0.0",
-                            System.Globalization.CultureInfo.InvariantCulture)
-                        + " player=" + latencyTrace.PlayerEntityId
-                        + " hull=" + hullEntityId
-                        + " recipients=" + delivery.RootDeliveredPeerIds.Count);
-                    _pendingLatencyByHull.Remove(hullEntityId);
-                }
-                if (delivery.Stamp.HullEntityId == hullEntityId
-                    && delivery.RootDeliveredPeerIds.Count > 0)
-                {
-                    // The normal avatar relay remains 20 Hz. This set only forces
-                    // the latest aboard sample to follow the hull frame on THIS
-                    // loop turn when the independent 20 Hz cadence is not due.
-                    foreach (ulong aboardPeerId in domain.AboardPeerIds)
-                    {
-                        if (delivery.RootDeliveredPeerIds.Contains(aboardPeerId))
-                            domainFrameSenders.Add(aboardPeerId);
-                    }
                 }
             }
 
@@ -1093,6 +1036,85 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
             }
             return domainFrameSenders;
+        }
+
+        private void PublishFlightEmit(long hullEntityId, ShipDomain domain,
+            FlightSession session, FlightEmit emit,
+            HashSet<ulong> domainFrameSenders)
+        {
+            if (session.State.IsAtRest && !session.IsManned)
+            {
+                ArmRestingMemberTail(hullEntityId);
+            }
+            else
+            {
+                _memberWakeTailUntil.Remove(hullEntityId);
+            }
+
+            _pendingLatencyByHull.TryGetValue(hullEntityId,
+                out FlightLatencyTrace? latencyTrace);
+            if (latencyTrace != null)
+            {
+                Console.WriteLine("[flight-latency] event=S" + latencyTrace.Sequence
+                    + " phase=1130-emit utc=" + DateTime.UtcNow.ToString("O")
+                    + " elapsedMs=" + (_clock.Elapsed - latencyTrace.ReceivedAt).TotalMilliseconds.ToString("0.0",
+                        System.Globalization.CultureInfo.InvariantCulture)
+                    + " player=" + latencyTrace.PlayerEntityId
+                    + " hull=" + hullEntityId
+                    + " inputAxisYaw=" + latencyTrace.AxisYaw.ToString("0.###",
+                        System.Globalization.CultureInfo.InvariantCulture)
+                    + " stateYawRad=" + session.State.YawRadians.ToString("0.######",
+                        System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            FixedPointPosition hullPosition = FixedPointPosition.FromMetres(
+                emit.Spec.X, emit.Spec.Y, emit.Spec.Z);
+            // A moving ship is one replication domain: root and mounted members
+            // publish in the same frame. Fully resting domains use the bounded
+            // member drain instead.
+            bool wakeDue = !session.State.IsAtRest
+                || !_lastWakeAt.TryGetValue(hullEntityId, out TimeSpan lastWake)
+                || _clock.Elapsed - lastWake >= WakeInterval;
+            IReadOnlyList<ShipDomainComponentUpdate> memberWakes =
+                Array.Empty<ShipDomainComponentUpdate>();
+            if (wakeDue)
+            {
+                _lastWakeAt[hullEntityId] = _clock.Elapsed;
+                memberWakes = BuildMountedPartWakes(hullEntityId);
+            }
+
+            // Do not also publish an absolute 190602 root pose: stock clients run
+            // PathFollower for 1130 and a separate local-transform follower for
+            // 190602, and two root authorities visibly fight during turns.
+            ShipDomainDeliveryResult delivery = ShipPublisher.BroadcastDomainMotion(
+                hullEntityId, hullPosition, (long)domain.Generation.Value,
+                new ShipDomainComponentUpdate(
+                    hullEntityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation)),
+                rootAuxiliary: null,
+                members: memberWakes);
+            if (latencyTrace != null)
+            {
+                Console.WriteLine("[flight-latency] event=S" + latencyTrace.Sequence
+                    + " phase=1130-send utc=" + DateTime.UtcNow.ToString("O")
+                    + " elapsedMs=" + (_clock.Elapsed - latencyTrace.ReceivedAt).TotalMilliseconds.ToString("0.0",
+                        System.Globalization.CultureInfo.InvariantCulture)
+                    + " player=" + latencyTrace.PlayerEntityId
+                    + " hull=" + hullEntityId
+                    + " recipients=" + delivery.RootDeliveredPeerIds.Count);
+                _pendingLatencyByHull.Remove(hullEntityId);
+            }
+            if (delivery.Stamp.HullEntityId == hullEntityId
+                && delivery.RootDeliveredPeerIds.Count > 0)
+            {
+                // Avatar relay remains 20 Hz; only the latest aboard sample is
+                // forced to follow this exact hull-domain frame.
+                foreach (ulong aboardPeerId in domain.AboardPeerIds)
+                {
+                    if (delivery.RootDeliveredPeerIds.Contains(aboardPeerId))
+                        domainFrameSenders.Add(aboardPeerId);
+                }
+            }
         }
 
         // ------------------------------------------------------------------

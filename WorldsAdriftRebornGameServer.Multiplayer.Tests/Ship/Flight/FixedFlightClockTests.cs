@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using WorldsAdriftRebornGameServer.Multiplayer.Persistence;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains;
@@ -77,6 +79,103 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 1_000_240, 0.24, 0, 0.24, new FlightTuning(), emitDue: true);
             Assert.True(publication.Emit);
             Assert.Equal(session.State.Z, publication.Spec.Z, 12);
+        }
+
+        [Fact]
+        public void Publication_schedule_waits_for_exactly_twelve_steps()
+        {
+            IReadOnlyList<FixedFlightPublicationSlice> first =
+                FixedFlightPublicationSchedule.Slice(Batch(11, 1));
+            Assert.Single(first);
+            Assert.Equal(11, first[0].Steps);
+            Assert.False(first[0].PublishAfter);
+
+            IReadOnlyList<FixedFlightPublicationSlice> boundary =
+                FixedFlightPublicationSchedule.Slice(Batch(1, 12));
+            Assert.Single(boundary);
+            Assert.Equal(1, boundary[0].Steps);
+            Assert.True(boundary[0].PublishAfter);
+        }
+
+        [Fact]
+        public void Publication_schedule_splits_thirteen_step_jitter_at_boundary()
+        {
+            IReadOnlyList<FixedFlightPublicationSlice> slices =
+                FixedFlightPublicationSchedule.Slice(Batch(13, 1));
+
+            Assert.Equal(2, slices.Count);
+            Assert.Equal(12, slices[0].Steps);
+            Assert.Equal(1, slices[0].FirstStep);
+            Assert.True(slices[0].PublishAfter);
+            Assert.Equal(1, slices[1].Steps);
+            Assert.Equal(13, slices[1].FirstStep);
+            Assert.False(slices[1].PublishAfter);
+        }
+
+        [Fact]
+        public void Catch_up_batch_can_cross_two_exact_publication_boundaries()
+        {
+            IReadOnlyList<FixedFlightPublicationSlice> slices =
+                FixedFlightPublicationSchedule.Slice(Batch(25, 1));
+
+            Assert.Equal(3, slices.Count);
+            Assert.Equal(new[] { 12, 12, 1 },
+                Array.ConvertAll(slices.ToArray(), slice => slice.Steps));
+            Assert.Equal(new[] { true, true, false },
+                Array.ConvertAll(slices.ToArray(), slice => slice.PublishAfter));
+        }
+
+        [Fact]
+        public void Arbitrary_poll_jitter_emits_every_twelve_completed_steps()
+        {
+            int[] jitter = { 3, 9, 1, 11, 7, 17 };
+            long firstStep = 1;
+            var publishedAt = new System.Collections.Generic.List<long>();
+            foreach (int count in jitter)
+            {
+                foreach (FixedFlightPublicationSlice slice in
+                    FixedFlightPublicationSchedule.Slice(Batch(count, firstStep)))
+                {
+                    if (slice.PublishAfter)
+                        publishedAt.Add(slice.FirstStep + slice.Steps - 1);
+                }
+                firstStep += count;
+            }
+
+            Assert.Equal(new long[] { 12, 24, 36, 48 }, publishedAt);
+        }
+
+        [Fact]
+        public void Phase_locked_turn_points_are_exact_under_poll_jitter()
+        {
+            (List<double> emittedYaw, List<long> emittedStamps) =
+                RunEmissions(new[] { 3, 9, 1, 11, 7, 17 });
+            (List<double> referenceYaw, List<long> _) =
+                RunEmissions(Enumerable.Repeat(1, 48).ToArray());
+
+            Assert.Equal(referenceYaw.Count, emittedYaw.Count);
+            Assert.Equal(4, emittedYaw.Count);
+            for (int i = 0; i < emittedYaw.Count; i++)
+            {
+                Assert.Equal(referenceYaw[i], emittedYaw[i], 12);
+                if (i > 0)
+                    Assert.Equal(240, emittedStamps[i] - emittedStamps[i - 1]);
+            }
+        }
+
+        [Fact]
+        public void Legacy_non_phase_locked_emission_retains_wall_clock_spacing()
+        {
+            var session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            session.Man();
+            FlightEmit first = session.AdvanceFixed(
+                1_000_000, 0.24, 12, 0.02, new FlightTuning());
+            FlightEmit late = session.AdvanceFixed(
+                1_000_500, 0.24, 12, 0.26, new FlightTuning());
+
+            Assert.True(first.Emit);
+            Assert.True(late.Emit);
+            Assert.Equal(500, late.Spec.TimestampMs - first.Spec.TimestampMs);
         }
 
         [Fact]
@@ -238,6 +337,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 step += count;
             }
             return session.State;
+        }
+
+        private static FixedFlightStepBatch Batch(int steps, long firstStep) =>
+            new FixedFlightStepBatch(steps, firstStep, 0,
+                firstStep + steps - 1, 0, 0, 0);
+
+        private static (List<double> Yaw, List<long> Stamps) RunEmissions(int[] batches)
+        {
+            var session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            session.Man();
+            session.SetInput(new FlightControlInput(0, 0, 0, 1, 0));
+            long firstStep = 1;
+            var yaw = new List<double>();
+            var stamps = new List<long>();
+            foreach (int count in batches)
+            {
+                foreach (FixedFlightPublicationSlice slice in
+                    FixedFlightPublicationSchedule.Slice(Batch(count, firstStep)))
+                {
+                    FlightEmit emit = session.AdvanceFixed(
+                        1_000_000 + (firstStep * 31),
+                        ShipMotionPolicy.SendIntervalSeconds,
+                        slice.Steps, slice.FirstStep * FixedFlightClock.StepSeconds,
+                        new FlightTuning(), emitDue: slice.PublishAfter,
+                        phaseLockedEmit: true);
+                    if (emit.Emit)
+                    {
+                        yaw.Add(session.State.YawRadians);
+                        stamps.Add(emit.Spec.TimestampMs);
+                    }
+                }
+                firstStep += count;
+            }
+            return (yaw, stamps);
         }
 
         private static string Hash(FlightState s) => string.Join("|",
