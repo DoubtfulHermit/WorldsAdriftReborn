@@ -339,7 +339,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Bare_hull_multiplier_does_not_change_canvas_wind()
+        public void Canvas_retains_a_stronger_commanded_sky_core_baseline()
         {
             const double massKg = 3094.0;
             var sailed = new ShipPropulsion(massKg, 0.0, 1);
@@ -353,8 +353,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 0, 0, System.Math.PI, input, sailed, two, 0);
 
             Assert.NotEqual(0.0, sailedOne.SailForceNewtons);
-            Assert.Equal(sailedOne.WindAlongHeadingMps, sailedTwo.WindAlongHeadingMps, 9);
+            Assert.Equal(2.0 * sailedOne.WindAlongHeadingMps,
+                sailedTwo.WindAlongHeadingMps, 9);
             Assert.Equal(sailedOne.SailForceNewtons, sailedTwo.SailForceNewtons, 9);
+            Assert.True(sailedTwo.PredictedSettledSpeedMps
+                > sailedOne.PredictedSettledSpeedMps);
+        }
+
+        [Theory]
+        [InlineData(595.0)]
+        [InlineData(2044.0)]
+        [InlineData(3094.0)]
+        [InlineData(4000.0)]
+        public void Opening_canvas_never_deletes_the_commanded_baseline(double massKg)
+        {
+            var input = new FlightControlInput(1f, 0f, 0f, 0f, 0f);
+            var tuning = new FlightTuning(bareHullDriveMultiplier: 4.0);
+
+            for (int headingIndex = 0; headingIndex < 8; headingIndex++)
+            {
+                double heading = headingIndex * Math.PI / 4.0;
+                ShipForceEvaluation bare = ShipForceEvaluator.Evaluate(
+                    0, 0, heading, input,
+                    new ShipPropulsion(massKg, 0.0, 0), tuning, 0);
+                ShipForceEvaluation one = ShipForceEvaluator.Evaluate(
+                    0, 0, heading, input,
+                    new ShipPropulsion(massKg, 0.0, 1), tuning, 0);
+                ShipForceEvaluation two = ShipForceEvaluator.Evaluate(
+                    0, 0, heading, input,
+                    new ShipPropulsion(massKg, 0.0, 2), tuning, 0);
+
+                Assert.Equal(bare.WindAlongHeadingMps,
+                    one.WindAlongHeadingMps, 9);
+                Assert.Equal(bare.WindAlongHeadingMps,
+                    two.WindAlongHeadingMps, 9);
+                Assert.True(one.PredictedSettledSpeedMps
+                    >= bare.PredictedSettledSpeedMps);
+                Assert.True(two.PredictedSettledSpeedMps
+                    >= one.PredictedSettledSpeedMps);
+            }
         }
 
     }

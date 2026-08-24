@@ -80,12 +80,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     ? WindField.AlongHeading(in wind, headingRadians)
                         * ShipForceModel.WindMultiplier(ship.MassKg)
                     : ShipForceModel.BaselineDriveSpeedMps(ship.MassKg, tuning.WindSpeedMps);
-                // This explicit WAReborn balance knob belongs only to the
-                // throttle-requested bare-hull tier. Applying it before this
-                // branch would silently retune canvas as well.
+                // The sky-core baseline and canvas are separate propulsion tiers.
+                // Opening canvas must not remove an already-commanded baseline:
+                // doing so made a live two-sail ship slower than the same hull with
+                // its sails furled. Keep natural wind as the canvas floor, retain
+                // any stronger throttle-requested WAReborn baseline, and continue
+                // to add sail force independently above it.
+                double commandedBaseline = alongMps
+                    * throttle * tuning.BareHullDriveMultiplier;
                 windAlongHeading = canvasIsDriving
-                    ? alongMps
-                    : alongMps * throttle * tuning.BareHullDriveMultiplier;
+                    ? Math.Max(alongMps, commandedBaseline)
+                    : commandedBaseline;
             }
 
             return new ShipForceEvaluation(
