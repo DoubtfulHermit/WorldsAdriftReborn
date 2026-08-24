@@ -117,15 +117,15 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("linear-gradient(90deg, #744d8c", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("The remaining flight jitter has a proven clock cause",
+            Assert.Contains("The final slowdown batching is isolated to client playback",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("One familiar address", HomePage.Html, StringComparison.Ordinal);
         }
 
         [Fact]
-        public void CurrentFlightClaimSeparates_proven_phase_lock_from_pending_visual_gate()
+        public void CurrentFlightClaimSeparates_proven_phase_lock_from_client_candidate()
         {
-            Assert.Contains("data-game-status-through=\"flight-publication-phase-lock-candidate\"",
+            Assert.Contains("data-game-status-through=\"671c800\"",
                 HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("Engine and generator-fuel path", HomePage.Html,
@@ -138,8 +138,10 @@ namespace WorldsAdriftServer.Tests
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("publishes only on exact 12-step boundaries",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("combined real-eyes turn and slowdown check remains",
+            Assert.Contains("state-coherent client correction is built and entering one focused real-eyes test",
                 HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("turn shimmer remains open", HomePage.Html,
+                StringComparison.Ordinal);
             Assert.DoesNotContain("turn and low-speed acceptance passed", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("5 ships", HomePage.Html, StringComparison.Ordinal);
