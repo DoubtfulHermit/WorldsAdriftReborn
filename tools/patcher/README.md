@@ -48,6 +48,23 @@ committed `WorldsAdriftRebornCoreSdk/build-mingw/` tree, and its
 `WorldsAdriftReborn.dll` matches the live plugin build - so an equivalent pack
 can be assembled from those two locations for a fresh cut.
 
+Build the `net35` client plugin against the CLR **2.0** reference assemblies.
+The retail Unity 5.6 client runs CLR 2.0 even though the project targets .NET
+3.5. On the current Linux host the required build arguments are:
+
+```bash
+mono20=/opt/wine-cachyos/share/wine/mono/wine-mono-10.4.1/lib/mono/2.0-api
+dotnet restore WorldsAdriftReborn/WorldsAdriftReborn.csproj \
+  -p:FrameworkPathOverride="$mono20"
+dotnet build WorldsAdriftReborn/WorldsAdriftReborn.csproj -c Release --no-restore \
+  -p:FrameworkPathOverride="$mono20" \
+  -p:PluginOutputDirectory=/tmp/wareborn-client-release/
+```
+
+Do not use `4.5-api`: it produces an apparently successful build that BepInEx
+cannot load. `build-manifest.sh` inspects the assembly and refuses any CLR 4.0
+payload before generating a release.
+
 **Never shipped:** `steam_api64.dll` (the game's own) and `winhttp.dll`
 (BepInEx's loader). The tool drops them with a warning if a pack contains one.
 

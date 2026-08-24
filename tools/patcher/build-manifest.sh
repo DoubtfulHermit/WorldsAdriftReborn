@@ -107,6 +107,30 @@ fi
 [[ -d "$PACK/plugin"   ]] || { echo "ERROR: no plugin/ under pack '$PACK'"   >&2; exit 1; }
 [[ -d "$PACK/gameroot" ]] || { echo "ERROR: no gameroot/ under pack '$PACK'" >&2; exit 1; }
 
+# Unity 5.6 hosts this plugin on the CLR 2.0 runtime. A net35 project can still
+# be accidentally compiled against Mono's 4.5 reference directory when an
+# operator supplies the wrong FrameworkPathOverride; the build succeeds, but
+# BepInEx then throws TypeLoadException before any compatibility patches run.
+# Refuse that payload here, at the last boundary before it reaches players.
+CLIENT_DLL="$PACK/plugin/WorldsAdriftReborn.dll"
+[[ -f "$CLIENT_DLL" ]] || {
+  echo "ERROR: plugin/WorldsAdriftReborn.dll is required" >&2
+  exit 1
+}
+client_refs="$(strings "$CLIENT_DLL")"
+if grep -Fq 'mscorlib, Version=4.0.0.0' <<<"$client_refs"; then
+  cat >&2 <<'BADCLR'
+ERROR: WorldsAdriftReborn.dll targets mscorlib 4.0, but the shipped Unity client
+runs CLR 2.0. Rebuild net35 with FrameworkPathOverride pointing at Mono's
+2.0-api directory. Publishing this DLL would disable every client patch.
+BADCLR
+  exit 1
+fi
+if ! grep -Fq 'mscorlib, Version=2.0.0.0' <<<"$client_refs"; then
+  echo "ERROR: could not prove that WorldsAdriftReborn.dll targets CLR 2.0" >&2
+  exit 1
+fi
+
 # Auto version: date plus a per-day counter so two cuts on one day differ.
 if [[ -z "$VERSION" ]]; then
   today="$(date -u +%Y.%m.%d)"
