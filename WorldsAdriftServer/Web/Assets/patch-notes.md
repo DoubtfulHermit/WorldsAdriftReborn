@@ -4,7 +4,7 @@ Every commit, newest first. 741 of them since 2026-08-07. Merges are left out - 
 
 ## 2026-08-24 | 3 commits
 
-* da12f8b Keep public release status synchronized
+* f9731bd Keep public release status synchronized
 * 4969f0d Keep flight hull pose single-authority
 * 47f9b5d Restore players aboard durable ships
 
