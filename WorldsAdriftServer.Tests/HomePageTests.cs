@@ -132,7 +132,7 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.Ordinal);
             Assert.Contains("visual spin, authoritative burn, empty cutoff and partial-fuel restart passed live checks",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("mounted entity roots following the moving hull to about one millimetre",
+            Assert.Contains("mounted entity roots remain aligned to the hull to about one millimetre",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("sometimes contained 11, 12 or 13 fixed physics steps",
                 HomePage.Html, StringComparison.Ordinal);
