@@ -117,28 +117,28 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("linear-gradient(90deg, #744d8c", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("The post-settle authority fight is isolated",
+            Assert.Contains("The remaining component drift has a measured boundary",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("One familiar address", HomePage.Html, StringComparison.Ordinal);
         }
 
         [Fact]
-        public void CurrentFlightClaimSeparatesTheProvenRestFixFromOpenTurnRendering()
+        public void CurrentFlightClaimSeparatesLive_root_fix_candidate_drain_and_open_subroot_vibration()
         {
-            Assert.Contains("data-game-status-through=\"rest-heartbeat-correction-and-render-phase-trace\"",
+            Assert.Contains("data-game-status-through=\"mounted-follower-drain-candidate\"",
                 HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("Engine and generator-fuel path", HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("visual spin, authoritative burn, empty cutoff and partial-fuel restart passed live checks",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("a five-second server heartbeat revived stale retail PathFollower velocity",
+            Assert.Contains("mounted entity roots following the moving hull to about one millimetre",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("despite zero authoritative speed",
+            Assert.Contains("slept 10.52 cm behind only after the root stopped publishing",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("active-turn component rendering is still being measured separately",
+            Assert.Contains("member-drain correction is tested and awaiting its production restart",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("turn render timing remains under trace",
+            Assert.Contains("turn-only vibration below the entity root remains open",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.DoesNotContain("turn and low-speed acceptance passed", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
