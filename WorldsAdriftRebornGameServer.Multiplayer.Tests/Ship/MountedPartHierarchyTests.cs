@@ -20,8 +20,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
     /// </summary>
     public class MountedPartHierarchyTests
     {
-        /// <summary>The two parts SC5 deliberately scopes itself to.</summary>
+        /// <summary>The structural mounting surfaces deliberately scoped by SC5.</summary>
         private static readonly string[] BarPipes = { "barPipe", "barPipeBent" };
+
+        private static readonly string[] Instruments = ShipInstruments.SchematicIds.ToArray();
 
         [Fact]
         public void A_bar_pipe_gets_a_REAL_hierarchy_key_not_the_no_parent_sentinel()
@@ -39,7 +41,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void Every_other_catalogue_part_keeps_the_unchanged_tilde_follow()
+        public void Every_non_inert_catalogue_part_keeps_the_unchanged_tilde_follow()
         {
             // SC5 is scoped to bar pipes ON PURPOSE: no bar pipe exists in any player's
             // world, so this step cannot regress an existing ship. Every other part type
@@ -50,7 +52,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // what makes widening it a deliberate act rather than a slip.
             foreach (LoosePartDefinition def in LoosePartCatalogue.All)
             {
-                if (BarPipes.Contains(def.ItemType, StringComparer.Ordinal))
+                if (BarPipes.Contains(def.ItemType, StringComparer.Ordinal)
+                    || Instruments.Contains(def.ItemType, StringComparer.Ordinal))
                 {
                     continue;
                 }
@@ -77,10 +80,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void The_list_is_exactly_the_two_bar_pipes()
+        public void The_list_is_exactly_the_two_bar_pipes_and_five_instruments()
         {
             Assert.Equal(
-                BarPipes.OrderBy(x => x, StringComparer.Ordinal).ToArray(),
+                BarPipes.Concat(Instruments).OrderBy(x => x, StringComparer.Ordinal).ToArray(),
                 MountedPartHierarchy.UnityChildItemTypes.OrderBy(x => x, StringComparer.Ordinal).ToArray());
         }
 
@@ -133,21 +136,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void An_instrument_is_not_made_a_unity_child_by_this_phase()
+        public void Every_instrument_is_a_real_child_not_an_independent_rotation_follower()
         {
-            // Instruments are what MOUNTS ON a pipe; they are not themselves the
-            // surface. They remain hull-relative followers after placement; only the
-            // inert pipe that must answer the scanner's Unity parent walk is made a
-            // real child. Listed by schematic id because that is the 1120 itemType.
-            string[] instruments =
-            {
-                "altimeter", "fuelGauge", "headingIndicator", "artificialHorizon", "airspeedIndicator",
-            };
-            foreach (string instrument in instruments)
+            // A "~" instrument follows independently from the real-child pipe below it.
+            // FixedUpdateLerpLocalTransformBehaviour applies shallow rotation only after
+            // its quaternion delta reaches 0.01, so gauges visibly vibrate against the
+            // hull during a turn. Retail-mounted inert instruments shared the ship
+            // hierarchy; a real key removes the second pose clock and needs no wake.
+            foreach (string instrument in Instruments)
             {
                 Assert.NotNull(LoosePartCatalogue.ForSchematic(instrument));
                 Assert.True(ShipInstruments.IsInstrument(instrument));
-                Assert.False(MountedPartHierarchy.IsUnityChild(instrument));
+                Assert.True(MountedPartHierarchy.IsUnityChild(instrument));
+                Assert.Equal(MountedPartHierarchy.HierarchyKey,
+                    MountedPartHierarchy.HierarchyKeyFor(instrument));
             }
 
             Assert.Equal("shipSurfaces", ShipInstruments.MountSurface);

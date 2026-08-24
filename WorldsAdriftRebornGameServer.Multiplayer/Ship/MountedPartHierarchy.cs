@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 {
@@ -45,7 +46,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// .cs:195-201 and NotifyParentTransformOffsetUpdated:194-199), and the part then rides
     /// the hull through the Unity hierarchy instead of being composed against it.
     ///
-    /// WHY THE LIST IS TWO ROWS AND NOT "every mounted part". Two reasons, both hard:
+    /// WHY THE LIST IS NARROW AND NOT "every mounted part". Two reasons, both hard:
     /// <list type="bullet">
     /// <item><b>A real parent DESTROYS the part's client-side rigidbody</b> (VERIFIED,
     ///   TransformManageRigidbodyBehaviour.SaveAndRemoveRigidbody, :224-243, reached from
@@ -53,10 +54,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///   parent" first, :180-183). That is right and wanted for inert structure; it is NOT
     ///   right for the helm, engine and sail, which <see cref="BoltedPartTransform"/> says
     ///   in as many words must keep their own rigidbody.</item>
-    /// <item><b>Bar pipes cannot regress anything.</b> The two pipe recipes shipped hours
-    ///   before this change, so no bar pipe exists in any player's world. Every OTHER part
-    ///   type is already bolted to live ships; changing their transform model is a second,
-    ///   riskier step that wants its own live confirmation first.</item>
+    /// <item><b>Only inert structure belongs here.</b> Bar pipes must be real children so
+    ///   the stock placement parent walk recognises them as ship surfaces. The five flight
+    ///   instruments must be real children because retail mounted them into the same ship
+    ///   hierarchy, while an independent <c>"~"</c> follower accumulates the client's
+    ///   shallow-rotation threshold and visibly shakes the gauge against its pipe. Helm,
+    ///   engine, sail, wing, generator and all other physics-bearing parts remain excluded.</item>
     /// </list>
     ///
     /// TWO PREFAB-BAKED ASSUMPTIONS ARE INVISIBLE OFFLINE and only a live client settles
@@ -126,11 +129,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// in every persisted mount record. Ordinal comparison, because these are literal
         /// catalogue keys and never user text.
         /// </summary>
-        public static readonly IReadOnlyList<string> UnityChildItemTypes = new[]
+        private static readonly string[] StructuralChildItemTypes =
         {
             "barPipe",
             "barPipeBent",
         };
+
+        public static readonly IReadOnlyList<string> UnityChildItemTypes =
+            StructuralChildItemTypes.Concat(ShipInstruments.SchematicIds).ToArray();
 
         /// <summary>
         /// The 190602 hierarchy key to seed and to wake a mounted part with: this module's

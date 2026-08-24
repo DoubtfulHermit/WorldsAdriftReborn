@@ -85,3 +85,26 @@ Do not lower or bypass either threshold again without separately measuring:
 Live acceptance must confirm that the final sub-0.5 m/s coast stays continuous
 for both a helm-attached and deck-standing player, without the rejected trial's
 player/structure separation. Turning shimmer remains a separate open gate.
+
+## Instrument-only turn vibration follow-up
+
+The subsequent 4x bare-hull acceptance passed the final coast: authoritative
+speed fell monotonically from 1.92 m/s to rest, every domain frame was delivered,
+and the player saw no late snapping or stutter. During yaw, however, the five
+flight instruments visibly vibrated more than the hull and deck.
+
+That difference has a concrete topology cause. Bar pipes are real Unity children
+of the hull and therefore share its transform directly. Instruments were still
+seeded as independent `Parent(hull, "~")` followers. The shipped
+`FixedUpdateLerpLocalTransformBehaviour` accumulates shallow rotation until a
+quaternion component differs by 0.01, so a gauge and the real-child pipe under it
+advance on different visual thresholds during a turn. Retail mounted inert ship
+parts into the ship hierarchy; they were not separately simulated rigidbodies.
+
+The correction makes exactly the five `ShipInstruments.SchematicIds` real hull
+children through the existing `MountedPartHierarchy` policy. It also excludes
+them from mounted-member transform wakes, preventing `ParentUpdated` from
+unparenting and reparenting them every flight frame. Helm, sails, engines, wings,
+generators and every other physics-bearing part remain independent followers.
+The existing hull-local persisted pose is unchanged; checkout after restart
+selects the new hierarchy key without migrating world-state JSON or client code.
