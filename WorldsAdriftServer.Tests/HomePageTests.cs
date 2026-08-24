@@ -117,15 +117,15 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("linear-gradient(90deg, #744d8c", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("The remaining component drift has a measured boundary",
+            Assert.Contains("The remaining flight jitter has a proven clock cause",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("One familiar address", HomePage.Html, StringComparison.Ordinal);
         }
 
         [Fact]
-        public void CurrentFlightClaimSeparatesLive_root_fix_candidate_drain_and_open_subroot_vibration()
+        public void CurrentFlightClaimSeparates_proven_phase_lock_from_pending_visual_gate()
         {
-            Assert.Contains("data-game-status-through=\"mounted-follower-drain-candidate\"",
+            Assert.Contains("data-game-status-through=\"flight-publication-phase-lock-candidate\"",
                 HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("Engine and generator-fuel path", HomePage.Html,
@@ -134,11 +134,11 @@ namespace WorldsAdriftServer.Tests
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("mounted entity roots following the moving hull to about one millimetre",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("slept 10.52 cm behind only after the root stopped publishing",
+            Assert.Contains("sometimes contained 11, 12 or 13 fixed physics steps",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("member-drain correction is tested and awaiting its production restart",
+            Assert.Contains("publishes only on exact 12-step boundaries",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("turn-only vibration below the entity root remains open",
+            Assert.Contains("combined real-eyes turn and slowdown check remains",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.DoesNotContain("turn and low-speed acceptance passed", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
