@@ -115,10 +115,12 @@ check "$BASE/alliance-emblem/objects.json" 200 "emblem catalogue"
 
 # The root returning 200 proves routing, not that the reviewed homepage asset is
 # the one production embedded. Compare the explicit review marker as well.
-local_status="$(grep -oE 'data-game-status-through="[0-9a-f]+"' \
-  WorldsAdriftServer/Web/Assets/home-body.html | grep -oE '[0-9a-f]+' || echo '?')"
+local_status="$(sed -nE 's/.*data-game-status-through="([0-9a-f]+)".*/\1/p' \
+  WorldsAdriftServer/Web/Assets/home-body.html | head -1)"
 live_status="$(curl -sS --max-time 15 "$PUBLIC/" 2>/dev/null \
-  | grep -oE 'data-game-status-through="[0-9a-f]+"' | grep -oE '[0-9a-f]+' || echo '?')"
+  | sed -nE 's/.*data-game-status-through="([0-9a-f]+)".*/\1/p' | head -1)"
+local_status="${local_status:-?}"
+live_status="${live_status:-?}"
 if [ "$live_status" = "$local_status" ]; then
   printf '    %-22s %s\n' "homepage agrees" "$live_status"
 else
