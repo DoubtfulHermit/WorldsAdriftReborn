@@ -39,24 +39,19 @@ namespace WorldsAdriftRebornGameServer.Game
     ///   diff-suppresses unchanged frames). Consumed here; NEVER relayed
     ///   (MirrorSendPolicy.IsRelayedToOtherPlayers).</item>
     /// <item>OUT: one 1130 control point per 0.24 s (the ferry's proven cadence),
-    ///   plus the mounted parts' 190602 wakes and the hull's own 190602 timeline
-    ///   advance riding the same tick - the exact per-point shape the ferry's
-    ///   PublishWake already put in front of live clients. Idle/at-rest ships
-    ///   drop to a slow keepalive (default 5 s).</item>
+    ///   plus mounted position-follow parts' 190602 wakes in the same domain
+    ///   frame. The hull itself has only the 1130 motion authority. After the
+    ///   finite final rest repeats an unpiloted resting hull goes silent.</item>
     /// </list>
     ///
-    /// WHY THE HULL'S 190602 RIDES EVERY WAKE. Mounted parts are "~" followers:
-    /// the client samples each child's local-transform interpolator at the
-    /// PARENT hull's 190602 timestamp, and their follow-visualizer sleeps one
-    /// second after the last transform change (ShipPartMotionPolicy). So a
-    /// moving hull must (a) keep waking the children below the 1 s sleep and
-    /// (b) advance its own 190602 stamp on the SAME timeline the mount commits
-    /// used - which is why every stamp here draws from
-    /// <see cref="PartMountService.NextTimelineSample"/> rather than a counter of
-    /// its own (a lower stamp would be silently discarded and the parts would
-    /// park mid-air while the hull flies off - the ferry's own "beams flew up,
-    /// floor stayed" lesson). The built DECK panels are real Unity children and
-    /// ride the hull's transform with no wake at all.
+    /// WHY MEMBER 190602 RIDES EVERY MOVING FRAME. Mounted "~" parts use the
+    /// client's relative follower, which sleeps one second after its own last
+    /// TransformState change. Re-publishing their unchanged hull-local pose keeps
+    /// that follower evaluating the hull's live 1130 PathFollower sample. The
+    /// hull's own 190602 must not be updated during flight: doing so enables a
+    /// second absolute root transform path that races 1130. Real Unity children,
+    /// including deck panels and bar pipes, ride the hierarchy and receive no
+    /// member wake.
     /// </summary>
     internal sealed class ShipFlightService
     {
@@ -1748,8 +1743,8 @@ namespace WorldsAdriftRebornGameServer.Game
             uint packedRotation = FlightIntegrator.PackedRotation(state);
             // WorldEntity.Position is also the seed used for a same-process late
             // join/rejoin. Keeping only the JSON record current made a newly
-            // checked-out ship appear back at its build spot until a later motion
-            // keepalive happened to correct it.
+            // checked-out ship appear back at its build spot until a later live
+            // motion point happened to correct it.
             WorldsAdriftRebornGameServer.WorldEntities.Relocate(
                 hullEntityId, position, packedRotation);
 

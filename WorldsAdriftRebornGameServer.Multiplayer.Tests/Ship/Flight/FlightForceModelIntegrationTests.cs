@@ -446,7 +446,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void A_ship_under_the_force_model_still_settles_and_goes_quiet()
         {
-            // IsAtRest gates the whole rest/keepalive machine. If the force model
+            // IsAtRest gates the whole rest/silence machine. If the force model
             // leaves a residual crawl, every parked ship in the world keeps emitting
             // control points at the flying cadence forever - which is precisely the
             // congestion class the standing multiplayer-safety rule exists for.

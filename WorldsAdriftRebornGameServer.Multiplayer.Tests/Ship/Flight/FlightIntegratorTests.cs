@@ -628,7 +628,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(FlightTuning.DefaultAccelMps2, tuning.AccelMps2);
             Assert.Equal(FlightTuning.DefaultClimbRateMps, tuning.ClimbRateMps);
             Assert.Equal(FlightTuning.DefaultReverseFactor, tuning.ReverseFactor);
-            Assert.Equal(FlightTuning.DefaultRestKeepaliveSeconds, tuning.RestKeepaliveSeconds);
             Assert.Equal(FlightTuning.DefaultBankAngleDeg * Math.PI / 180.0, tuning.BankMaxRadians, 9);
             Assert.Equal(FlightTuning.DefaultPitchAngleDeg * Math.PI / 180.0, tuning.PitchMaxRadians, 9);
             Assert.Equal(FlightTuning.DefaultVelocitySmoothingSeconds, tuning.VelocitySmoothingSeconds);
@@ -651,7 +650,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 ["WAREBORN_FLIGHT_YAW_RATE"] = "45",
                 ["WAREBORN_FLIGHT_CLIMB_RATE"] = "10",
                 ["WAREBORN_FLIGHT_REVERSE_FACTOR"] = "0.5",
-                ["WAREBORN_FLIGHT_REST_KEEPALIVE"] = "10",
                 ["WAREBORN_FLIGHT_INVERT_YAW"] = "1",
                 ["WAREBORN_FLIGHT_YAW_ACCEL"] = "50",
                 ["WAREBORN_FLIGHT_BANK_ANGLE"] = "12",
@@ -672,7 +670,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(45.0 * Math.PI / 180.0, tuning.YawRateRadPerSec, 9);
             Assert.Equal(10.0, tuning.ClimbRateMps);
             Assert.Equal(0.5, tuning.ReverseFactor);
-            Assert.Equal(10.0, tuning.RestKeepaliveSeconds);
             Assert.True(tuning.InvertYaw);
             Assert.Equal(50.0 * Math.PI / 180.0, tuning.YawAccelRadPerSec2, 9);
             Assert.Equal(12.0 * Math.PI / 180.0, tuning.BankMaxRadians, 9);

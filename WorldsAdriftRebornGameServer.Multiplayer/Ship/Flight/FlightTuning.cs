@@ -38,16 +38,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>WAREBORN_FLIGHT_REVERSE_FACTOR - reverse speed as a fraction of forward.</summary>
         public const double DefaultReverseFactor = 0.4;
 
-        /// <summary>
-        /// WAREBORN_FLIGHT_REST_KEEPALIVE - seconds between at-rest control-point
-        /// repeats once a flown ship has settled. NOT zero: a client that joins
-        /// AFTER a flight seeds the hull's 1130/190602 at the SPAWN position
-        /// (WorldEntity.Position is immutable and persistence stores the spawn),
-        /// and only a live control point moves it to where the ship really is.
-        /// One reliable ~60-byte packet per interval per hull is the whole cost.
-        /// </summary>
-        public const double DefaultRestKeepaliveSeconds = 5.0;
-
         // ------------------------------------------------------------------
         // The v2 FEEL knobs. All reconstructions; the live verdict on v1 was
         // "feels like faking the flying" - constant yaw rate, instant stops,
@@ -95,8 +85,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>
         /// WAREBORN_FLIGHT_IDLE_BOB - amplitude, metres, of a slow vertical bob
         /// while a pilot is at the helm of a resting ship. DEFAULT OFF (0): it
-        /// keeps the 4 Hz point stream alive for the whole manned-idle time
-        /// (which the idle emitter otherwise drops to the keepalive), and a
+        /// keeps the 4 Hz point stream alive for the whole manned-idle time, and a
         /// moving "resting" ship is a taste call the operator should opt into.
         /// The period is fixed at <see cref="IdleBobPeriodSeconds"/>.
         /// </summary>
@@ -244,7 +233,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public double YawRateRadPerSec { get; }
         public double ClimbRateMps { get; }
         public double ReverseFactor { get; }
-        public double RestKeepaliveSeconds { get; }
         public double YawAccelRadPerSec2 { get; }
         public double BankMaxRadians { get; }
         public double PitchMaxRadians { get; }
@@ -278,7 +266,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double yawRateDegPerSec = DefaultYawRateDegPerSec,
             double climbRateMps = DefaultClimbRateMps,
             double reverseFactor = DefaultReverseFactor,
-            double restKeepaliveSeconds = DefaultRestKeepaliveSeconds,
             bool invertYaw = false,
             double yawAccelDegPerSec2 = DefaultYawAccelDegPerSec2,
             double bankAngleDeg = DefaultBankAngleDeg,
@@ -302,7 +289,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             YawRateRadPerSec = Clamp(yawRateDegPerSec, 2.0, 90.0, DefaultYawRateDegPerSec) * System.Math.PI / 180.0;
             ClimbRateMps = Clamp(climbRateMps, 0.5, 30.0, DefaultClimbRateMps);
             ReverseFactor = Clamp(reverseFactor, 0.0, 1.0, DefaultReverseFactor);
-            RestKeepaliveSeconds = Clamp(restKeepaliveSeconds, 1.0, 60.0, DefaultRestKeepaliveSeconds);
             InvertYaw = invertYaw;
             YawAccelRadPerSec2 = Clamp(yawAccelDegPerSec2, 5.0, 360.0, DefaultYawAccelDegPerSec2) * System.Math.PI / 180.0;
             // 0 legitimately DISABLES banking/pitch, so the floor is 0, not "a bit".
@@ -363,7 +349,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 Parse(getenv("WAREBORN_FLIGHT_YAW_RATE"), DefaultYawRateDegPerSec),
                 Parse(getenv("WAREBORN_FLIGHT_CLIMB_RATE"), DefaultClimbRateMps),
                 Parse(getenv("WAREBORN_FLIGHT_REVERSE_FACTOR"), DefaultReverseFactor),
-                Parse(getenv("WAREBORN_FLIGHT_REST_KEEPALIVE"), DefaultRestKeepaliveSeconds),
                 getenv("WAREBORN_FLIGHT_INVERT_YAW") == "1",
                 Parse(getenv("WAREBORN_FLIGHT_YAW_ACCEL"), DefaultYawAccelDegPerSec2),
                 Parse(getenv("WAREBORN_FLIGHT_BANK_ANGLE"), DefaultBankAngleDeg),
@@ -421,7 +406,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             + " sailBonus=" + SailBonusPerUnfurled.ToString("0.##", CultureInfo.InvariantCulture) + "/sail"
             + " bareHull=" + BareHullDriveMultiplier.ToString("0.##", CultureInfo.InvariantCulture) + "x"
             + " reverse=" + ReverseFactor.ToString("0.##", CultureInfo.InvariantCulture)
-            + " keepalive=" + RestKeepaliveSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s"
             + (InvertYaw ? " (yaw inverted)" : "")
             + (InvertPitch ? " (pitch inverted)" : "")
             + (InvertRoll ? " (roll inverted)" : "");

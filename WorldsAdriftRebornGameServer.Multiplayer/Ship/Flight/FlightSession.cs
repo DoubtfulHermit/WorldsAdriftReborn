@@ -29,18 +29,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// (integrate pilot input), cruising on the helm's latched throttle after a
     /// voluntary release, settling after an explicit stop or abandoned connection,
     /// resting repeats after an unmanned stop (belt-and-braces re-sends of the
-    /// final zero-velocity point), then a slow KEEPALIVE forever for peers that
-    /// still have the ship checked out. A manned session always keeps the normal
+    /// final zero-velocity point), then silence until a real wake edge. A manned
+    /// session always keeps the normal
     /// cadence, including at rest, so the client's playback buffer cannot halt. The
     /// server also advances the hull's registry seed as poses are persisted, so a
     /// later checkout starts at the latest authoritative pose rather than the old
-    /// build location; the keepalive then maintains the client's motion timeline.
+    /// build location.
     ///
     /// TIMESTAMPS. Each emitted point is stamped
     /// <c>max(now, lastStamp + step)</c>: monotonic by construction, never
     /// closer than the client's 0.228 s reject floor (step is 0.24 s), and
-    /// pinned to wall-clock whenever the cadence has real gaps (rest keepalives),
-    /// so the client's server-latency estimate stays sane across a pause. The
+    /// pinned to wall-clock whenever the cadence has a real gap, so the client's
+    /// server-latency estimate stays sane across a pause. The
     /// pure test asserts <see cref="ShipMotionPolicy.IsLegalSeparation"/> across
     /// every phase transition.
     ///
@@ -51,10 +51,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     public sealed class FlightSession
     {
         /// <summary>
-        /// Extra zero-velocity points after settling, before dropping to the
-        /// keepalive cadence. Same value and same reasoning as the ferry's
-        /// RestRepeats: the point that stops the ship must not be the one that
-        /// got lost.
+        /// Extra zero-velocity points after settling, before going silent. Same
+        /// value and same reasoning as the ferry's RestRepeats: the point that
+        /// stops the ship must not be the one that got lost.
         /// </summary>
         public const int RestRepeats = 4;
 
@@ -350,11 +349,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 return EmitAt(nowMs, emitStepSeconds);
             }
 
-            if (KeepaliveDue(nowMs, tuning))
-            {
-                return EmitAt(nowMs, emitStepSeconds);
-            }
-
+            // Do not send a perpetual zero-speed heartbeat. The shipped
+            // PathFollower keeps the previous sample's non-zero velocity when a
+            // new point has the same pose (PathFollower.Move's no-motion fast
+            // path updates only Timestamp). Once it has entered the halt branch,
+            // a later zero-speed heartbeat can therefore rebuild a false
+            // constant-velocity segment and spline the hull away from its parts
+            // before correcting it back. Checkout already seeds 1130 from the
+            // latest persisted pose; helm entry primes a resting follower; sail
+            // and other motion edges wake the active cadence. After the finite
+            // rest repeats, silence is both sufficient and stable.
             return FlightEmit.Nothing;
         }
 
@@ -429,11 +433,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             LastWorldBoundsTelemetry = new RetailWorldBoundsTelemetry(
                 true, distance, dvx, dvy, dvz,
                 hardClamped, invalidState, substeps);
-        }
-
-        private bool KeepaliveDue(long nowMs, FlightTuning tuning)
-        {
-            return _everEmitted && nowMs - _lastStampMs >= (long)(tuning.RestKeepaliveSeconds * 1000.0);
         }
 
         private FlightEmit EmitAt(long nowMs, double stepSeconds)

@@ -2681,7 +2681,7 @@ namespace WorldsAdriftRebornGameServer
                     replication.DeliveryAgeMs,
                     pose.X, pose.Y, pose.Z,
                     // UI `active` means live simulation, not merely resident in
-                    // the service's low-frequency resting keepalive set.
+                    // the service's resident but silent resting set.
                     liveCadenceExpected,
                     piloted,
                     liveCadenceExpected,

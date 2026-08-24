@@ -106,11 +106,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void After_rest_a_keepalive_point_still_goes_out()
+        public void After_rest_the_session_stays_silent_until_a_real_wake_edge()
         {
-            // The late-joiner correction: a client that connects after the flight
-            // seeds this hull at SPAWN, and only a live point moves it. So the
-            // session must never go permanently silent once it has flown.
+            // A late join receives a fresh 1130 seed at the latest persisted hull
+            // pose. Sending zero-speed points forever is actively harmful: retail
+            // PathFollower's no-pose-change fast path retains its preceding
+            // non-zero velocity and a later heartbeat can manufacture a false
+            // drift/correction cycle after the ship has halted.
             FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
             session.Man();
             session.SetInput(Throttle(1f));
@@ -120,12 +122,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             session.Dismount();
             Drive(session, ref now, 60); // settle + repeats + quiet
 
-            // A keepalive interval later, one more point.
-            now += (long)(Tuning.RestKeepaliveSeconds * 1000) + StepMs;
-            FlightEmit keepalive = session.Advance(now, Step, Tuning);
+            // Even well beyond the former keepalive interval, no fabricated point.
+            now += 30_000 + StepMs;
+            FlightEmit quiet = session.Advance(now, Step, Tuning);
 
-            Assert.True(keepalive.Emit, "the keepalive must emit after the configured gap");
-            Assert.True(keepalive.Spec.Arrived);
+            Assert.False(quiet.Emit);
+
+            // A real helm edge still primes the exact resting pose immediately.
+            session.Man();
+            FlightEmit prime = session.PrimePlayback(now + StepMs, Step);
+            Assert.True(prime.Emit);
+            Assert.True(prime.Spec.Arrived);
         }
 
         [Fact]
@@ -276,7 +283,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             session.Dismount();
             Collect(40);            // settle + rest + quiet
             now += 30_000;          // half a minute of silence
-            Collect(1);             // keepalive
+            Collect(1);             // remains quiet
             session.Man();          // re-man, fly again
             session.SetInput(Throttle(-1f));
             Collect(20);
