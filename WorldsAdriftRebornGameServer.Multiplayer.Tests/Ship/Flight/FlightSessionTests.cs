@@ -221,6 +221,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         public void Helm_prime_wakes_playback_without_moving_and_next_point_is_legal()
         {
             FlightSession session = new FlightSession(FlightState.AtRestAt(10, 20, 30, 0.5));
+            Assert.True(session.RequiresPlaybackPrimeOnMan);
             session.Man();
 
             FlightEmit prime = session.PrimePlayback(1_000_000, Step);
@@ -233,6 +234,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(0.5, session.State.YawRadians);
             Assert.True(ShipMotionPolicy.IsLegalSeparation(
                 prime.Spec.TimestampMs, next.Spec.TimestampMs));
+        }
+
+        [Fact]
+        public void Moving_hull_refuses_helm_prime_that_would_contradict_velocity()
+        {
+            FlightSession session = new FlightSession(FlightState.AtRestAt(10, 20, 30, 0));
+            session.Man();
+            session.SetInput(new FlightControlInput(
+                throttle: 1f, vertical: 0f, axisPitch: 0f, axisYaw: 0f, axisRoll: 0f));
+
+            FlightEmit moving = session.Advance(1_000_000, Step, Tuning);
+
+            Assert.True(moving.Emit);
+            Assert.True(session.State.GroundSpeedMps > 0);
+            Assert.False(session.RequiresPlaybackPrimeOnMan);
+
+            session.Dismount();
+            Assert.False(session.RequiresPlaybackPrimeOnMan);
         }
 
         [Fact]

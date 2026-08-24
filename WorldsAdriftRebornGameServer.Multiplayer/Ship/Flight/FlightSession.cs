@@ -155,6 +155,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public FlightControlInput Input => _input;
 
         /// <summary>
+        /// Whether taking this helm needs a one-point playback wake. A resting,
+        /// unmanned hull may have allowed the stock client PathFollower to enter
+        /// its halt branch, so an unchanged point must precede the 1109 grant.
+        /// A moving hull already publishes at the normal 240 ms cadence and must
+        /// never be primed: advancing its wire timestamp without integrating its
+        /// position contradicts its non-zero velocity by exactly v * cadence and
+        /// forces the client spline to correct backwards.
+        /// </summary>
+        public bool RequiresPlaybackPrimeOnMan => _state.IsAtRest;
+
+        /// <summary>
         /// Emits the current absolute pose without integrating. Used when a pilot
         /// takes the helm to wake a halted client PathFollower before 1109 enables
         /// input, preventing the first steering point from entering a 5 s spline.

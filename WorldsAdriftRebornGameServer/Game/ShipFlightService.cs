@@ -1111,20 +1111,25 @@ namespace WorldsAdriftRebornGameServer.Game
             _inputs[playerEntityId] = session.Input;
             _helmByHull[hullEntityId] = helmEntityId;
 
-            // Wake the hull's halted PathFollower at the unchanged authoritative
-            // pose BEFORE 1109 lets the client send steering. Otherwise a fast
-            // first input can be the wake point, and its small yaw delta takes the
-            // client's five-second slow spline-correction path.
-            FlightEmit prime = session.PrimePlayback(
-                ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
-            FixedPointPosition primePosition = FixedPointPosition.FromMetres(
-                prime.Spec.X, prime.Spec.Y, prime.Spec.Z);
-            ShipPublisher.BroadcastDomainMotion(
-                hullEntityId, primePosition, domain.Generation.Value,
-                new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
-                    ShipPublisher.BuildUpdate(prime.Spec, prime.PackedRotation)),
-                rootAuxiliary: null,
-                members: Array.Empty<ShipDomainComponentUpdate>());
+            // Wake a RESTING hull's halted PathFollower at the unchanged
+            // authoritative pose BEFORE 1109 lets the client send steering.
+            // A moving hull already has a live 240 ms stream. Priming that stream
+            // would advance the timestamp while holding position fixed despite a
+            // non-zero velocity, manufacturing a v*dt backwards discontinuity
+            // (live capture: 1.118 m/s * 0.24 s = 0.268 m) on every helm entry.
+            if (session.RequiresPlaybackPrimeOnMan)
+            {
+                FlightEmit prime = session.PrimePlayback(
+                    ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
+                FixedPointPosition primePosition = FixedPointPosition.FromMetres(
+                    prime.Spec.X, prime.Spec.Y, prime.Spec.Z);
+                ShipPublisher.BroadcastDomainMotion(
+                    hullEntityId, primePosition, domain.Generation.Value,
+                    new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
+                        ShipPublisher.BuildUpdate(prime.Spec, prime.PackedRotation)),
+                    rootAuxiliary: null,
+                    members: Array.Empty<ShipDomainComponentUpdate>());
+            }
 
             long driveTarget = DriveTargetIsHelm ? helmEntityId : hullEntityId;
             PilotState.Update update = new PilotState.Update()

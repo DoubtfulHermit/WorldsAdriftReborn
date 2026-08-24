@@ -139,6 +139,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Helm_entry_primes_only_a_resting_playback_stream()
+        {
+            string service = Source("WorldsAdriftRebornGameServer", "Game",
+                "ShipFlightService.cs");
+            int guard = service.IndexOf("if (session.RequiresPlaybackPrimeOnMan)",
+                StringComparison.Ordinal);
+            int prime = service.IndexOf("session.PrimePlayback(", guard,
+                StringComparison.Ordinal);
+            int pilotUpdate = service.IndexOf("PilotState.Update update", prime,
+                StringComparison.Ordinal);
+
+            Assert.True(guard >= 0);
+            Assert.True(prime > guard);
+            Assert.True(pilotUpdate > prime);
+            Assert.DoesNotContain("session.PrimePlayback(", service.Substring(pilotUpdate),
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void Local_pilot_carry_tracks_the_authored_helm_anchor_only_for_the_exact_drive()
         {
             string client = Source("WorldsAdriftReborn", "Patching", "Flight",
