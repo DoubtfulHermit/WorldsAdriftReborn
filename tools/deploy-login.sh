@@ -38,6 +38,9 @@ cd "$repo_root"
 
 # ---------------------------------------------------------------- patch notes
 
+echo "==> checking public homepage status"
+bash tools/public-site/check-status-freshness.sh
+
 echo "==> regenerating the patch notes from the commit log"
 bash tools/patchnotes/build-changelog.sh
 
@@ -100,6 +103,7 @@ check() {
 }
 
 check "$PUBLIC/patchnotes"          200 "/patchnotes"
+check "$PUBLIC/"                    200 "/"
 check "$PUBLIC/map"                 200 "/map"
 check "$PUBLIC/login"               200 "/login"
 check "$PUBLIC/patch/manifest.json" 200 "/patch/manifest.json"
@@ -108,6 +112,19 @@ check "$BASE/welcomeMessage"        200 "/welcomeMessage"
 # Plain http on purpose: the game client's TLS tops out at 1.0, so this is the
 # scheme it actually fetches a crest over. See EmblemOrigin.
 check "$BASE/alliance-emblem/objects.json" 200 "emblem catalogue"
+
+# The root returning 200 proves routing, not that the reviewed homepage asset is
+# the one production embedded. Compare the explicit review marker as well.
+local_status="$(grep -oE 'data-game-status-through="[0-9a-f]+"' \
+  WorldsAdriftServer/Web/Assets/home-body.html | grep -oE '[0-9a-f]+' || echo '?')"
+live_status="$(curl -sS --max-time 15 "$PUBLIC/" 2>/dev/null \
+  | grep -oE 'data-game-status-through="[0-9a-f]+"' | grep -oE '[0-9a-f]+' || echo '?')"
+if [ "$live_status" = "$local_status" ]; then
+  printf '    %-22s %s\n' "homepage agrees" "$live_status"
+else
+  printf '    %-22s live=%s repo=%s  MISMATCH\n' "homepage" "$live_status" "$local_status"
+  fail=1
+fi
 
 # The page must agree with the history it was built from.
 live_count="$(curl -sS --max-time 15 "$PUBLIC/patchnotes/source" 2>/dev/null \

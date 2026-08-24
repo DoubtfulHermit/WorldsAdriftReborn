@@ -64,7 +64,11 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.Ordinal);
             Assert.Contains("Design target, not a live claim", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("vector, collision and docking systems advance through shadow evidence",
+            Assert.Contains("Vector force/torque is a live pure-shadow observer",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("lift, collision and docking policies are compiled but default-off",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("vector force and torque are shadow-only",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("A domain is an ownership unit today—not a separate server",
                 HomePage.Html, StringComparison.Ordinal);
@@ -76,11 +80,11 @@ namespace WorldsAdriftServer.Tests
         public void RoadmapCountsAreDerivedFromTheObjectivesItShows()
         {
             string body = WebAssets.Read("home-body.html");
-            Assert.Equal(20, Occurrences(body, "data-state=\"done\""));
+            Assert.Equal(21, Occurrences(body, "data-state=\"done\""));
             Assert.Equal(5, Occurrences(body, "data-state=\"flight\""));
             Assert.Equal(2, Occurrences(body, "data-state=\"gate\""));
             Assert.Equal(5, Occurrences(body, "data-state=\"open\""));
-            Assert.Contains("These totals count the 32 objectives represented above",
+            Assert.Contains("These totals count the 33 objectives represented above",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("They are not a percentage of the whole game",
                 HomePage.Html, StringComparison.Ordinal);
@@ -113,9 +117,35 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("linear-gradient(90deg, #744d8c", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Ships now keep their place through lag and server restarts",
+            Assert.Contains("Fuelled engines fly. The hull now has one pose authority",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("One familiar address", HomePage.Html, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void CurrentFlightClaimSeparatesLivePassesFromThePendingRetest()
+        {
+            Assert.Contains("data-game-status-through=\"93ab672\"", HomePage.Html,
+                StringComparison.Ordinal);
+            Assert.Contains("Engine and generator-fuel path", HomePage.Html,
+                StringComparison.Ordinal);
+            Assert.Contains("visual spin, authoritative burn, empty cutoff and partial-fuel restart passed live checks",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("turn and low-speed settling need the final visual retest",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.DoesNotContain("5 ships", HomePage.Html, StringComparison.Ordinal);
+            Assert.DoesNotContain("3,788", HomePage.Html, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void HomeCanBeWrittenForDesktopAndMobileVisualReview()
+        {
+            string? path = Environment.GetEnvironmentVariable("WAREBORN_HOME_DUMP");
+            if (string.IsNullOrWhiteSpace(path)) return;
+
+            string? parent = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
+            File.WriteAllText(path, HomePage.Html);
         }
 
         [Fact]

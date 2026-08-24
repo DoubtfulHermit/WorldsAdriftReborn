@@ -24,6 +24,20 @@ dry=0
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+# A game release changes the public story as well as the binary. Run the same
+# two source-of-truth gates as the web deploy BEFORE touching production, then
+# publish the web server after the game succeeds. WAREBORN_SKIP_PUBLIC_SITE_SYNC
+# is an explicit emergency escape hatch; normal releases must not leave the
+# homepage or /patchnotes silently behind.
+echo "==> public release truth gates"
+bash tools/public-site/check-status-freshness.sh
+bash tools/patchnotes/build-changelog.sh
+notes="WorldsAdriftServer/Web/Assets/patch-notes.md"
+if ! git diff --quiet -- "$notes"; then
+  echo "REFUSING: $notes is stale. Commit the regenerated file before deploy." >&2
+  exit 1
+fi
+
 stage="$(mktemp -d /tmp/wareborn-game-native.XXXXXX)"
 trap 'rm -rf "$stage"' EXIT
 
@@ -60,6 +74,8 @@ fi
 printf '    players=0 world-state=%s counts=%s\n' "$state_hash" "$state_counts"
 
 if [ "$dry" = "1" ]; then
+  echo "==> validating the paired public-site release"
+  bash tools/deploy-login.sh --dry-run
   echo "==> --dry-run: stopping before backup, sync and restart"
   exit 0
 fi
@@ -107,5 +123,12 @@ ssh "$HOST" "set -e
   fi
   test \"\$(readlink -f '$LIVE/data')\" = '$DATA'
   test -f '$LIVE/libCoreSdkDll.so'"
+
+if [ "${WAREBORN_SKIP_PUBLIC_SITE_SYNC:-0}" = "1" ]; then
+  echo "==> WARNING: public-site sync explicitly skipped"
+else
+  echo "==> deploy paired homepage and patch notes"
+  bash tools/deploy-login.sh
+fi
 
 echo "==> done"
