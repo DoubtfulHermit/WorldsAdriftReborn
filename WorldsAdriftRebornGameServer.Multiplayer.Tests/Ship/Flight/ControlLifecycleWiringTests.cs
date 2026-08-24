@@ -166,27 +166,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Client_ship_followers_do_not_batch_low_speed_or_shallow_turn_motion()
-        {
-            string client = Source("WorldsAdriftReborn", "Patching", "Flight",
-                "ShipPathFollowerContinuity_Patch.cs");
-
-            Assert.Contains("[HarmonyPatch(typeof(PathFollower), \"Move\")]", client,
-                StringComparison.Ordinal);
-            Assert.Contains("body.MovePosition(position)", client, StringComparison.Ordinal);
-            Assert.Contains("body.MoveRotation(rotation)", client, StringComparison.Ordinal);
-            Assert.Contains("GetComponent<SSPDeadReckoningVisualizer>()", client,
-                StringComparison.Ordinal);
-            Assert.Contains("reader.Parent.Value.key, \"~\"", client,
-                StringComparison.Ordinal);
-            Assert.Contains("motion.PathFollower.PreviousSample.HasValue", client,
-                StringComparison.Ordinal);
-            Assert.DoesNotContain("TransformStateReader.LocalPosition =", client,
-                StringComparison.Ordinal);
-            Assert.DoesNotContain("FinishAndSend", client, StringComparison.Ordinal);
-        }
-
-        [Fact]
         public void Fixed_clock_is_opt_in_and_does_not_replace_the_024_wire_cadence()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");

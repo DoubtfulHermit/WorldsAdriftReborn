@@ -117,22 +117,26 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("linear-gradient(90deg, #744d8c", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Fuelled engines fly. Ship presentation is converging",
+            Assert.Contains("Fuelled engines fly. Final ship-relative motion remains open",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("One familiar address", HomePage.Html, StringComparison.Ordinal);
         }
 
         [Fact]
-        public void CurrentFlightClaimSeparatesLivePassesFromThePendingRetest()
+        public void CurrentFlightClaimSeparatesLivePassesFromTheWithdrawnTrial()
         {
-            Assert.Contains("data-game-status-through=\"de984f9\"", HomePage.Html,
+            Assert.Contains("data-game-status-through=\"continuity-trial-withdrawn\"", HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("Engine and generator-fuel path", HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("visual spin, authoritative burn, empty cutoff and partial-fuel restart passed live checks",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("sub-centimetre coast and mounted-turn batching have a client correction awaiting final visual acceptance",
+            Assert.Contains("the first batching-removal trial caused relative drift and was withdrawn",
                 HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("low-speed drift and turn vibration under diagnosis",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.DoesNotContain("correction ready", HomePage.Html,
+                StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("5 ships", HomePage.Html, StringComparison.Ordinal);
             Assert.DoesNotContain("3,788", HomePage.Html, StringComparison.Ordinal);
         }

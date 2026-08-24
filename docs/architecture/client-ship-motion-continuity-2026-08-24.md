@@ -30,36 +30,36 @@ entity, so shallow parent rotation accumulates and the mounted set jumps togethe
 Retail's locally simulated single-Rigidbody ship hierarchy did not rely on this
 topology for the local pilot view.
 
-## Correction
+## Rejected continuity trial
 
-`ShipPathFollowerContinuity_Patch` preserves the stock control-point spline,
-remapping, timestamps and target pose. It repeats `MovePosition` and
-`MoveRotation` with that exact finite target on each fixed update for a
-`SSPDeadReckoningVisualizer` hull, including when the stock optimization skipped
-the sub-centimetre/sub-0.1-degree step.
+Client manifest `2026.08.24-1` attempted to bypass both receive-side thresholds
+by repeating the exact hull `MovePosition`/`MoveRotation` target every fixed
+update and forcing active `"~"` followers to apply their composed target every
+fixed update. Automated tests and compilation passed, but live acceptance
+failed.
 
-`ShipRelativeRotationContinuity_Patch` bypasses the coarse relative-transform
-threshold only when all of the following are true:
+The continuous centimetre stepping disappeared. In its place, the local player
+and independently followed ship structure drifted smoothly relative to one
+another and then hard-corrected two or three times before the stationary pose.
+The server trace remained monotonic from 3.58 through 0.01 m/s with no reverse,
+authority correction, dropped control point or fixed-clock pressure. This proves
+that blindly defeating the client thresholds exposes a contact/carry and
+relative-follower disagreement; it is not a valid correction.
 
-1. the entity is explicitly hull-relative (`Parent.key == "~"`);
-2. the exact parent has an active `SSPDeadReckoningVisualizer` and PathFollower;
-3. that follower has a real rendered sample.
+The manifest was withdrawn during the same test and restored to
+`2026.08.23-5`. The client patch classes were removed from source. The Hermite
+non-reversal regression remains because it records a useful negative result.
 
-It does not rewrite local mount offsets, issue network commands, predict force,
-or change the server's authoritative state.
+## Next diagnostic boundary
 
-## Acceptance
+Do not lower or bypass either threshold again without separately measuring:
 
-One client restart is sufficient:
+1. hull Rigidbody target, rendered pose and interpolation mode;
+2. the real Unity-child deck pose and local player contact-relative pose;
+3. one `"~"` helm and one distant mounted component's composed target/rendered
+   pose; and
+4. the exact frame on which local-player correction or relative smoothing resets.
 
-1. with sails furled, throttle from rest and watch the hull through the first
-   five seconds and the final sub-0.5 m/s coast;
-2. hold a shallow left turn for ten seconds, centre it, then repeat right;
-3. watch a deck edge and at least two mounted objects at different radii;
-4. confirm the character remains at the helm and no component separates from
-   its authored mount;
-5. dismount at rest and confirm stationary parts remain stationary.
-
-Pass requires no centimetre batching near rest and no relative mounted-part
-shimmer during either shallow turn. Ordinary spline motion, server telemetry,
-fuel and final rest must remain unchanged.
+The safe production behavior remains the pre-trial client plus the already
+accepted single authoritative hull stream. Remaining low-speed and turning
+artifacts stay open.
