@@ -43,9 +43,11 @@ namespace WorldsAdriftRebornGameServer.Game
         /// which is its native proof that those entities materialized.
         /// </summary>
         internal RestoreCheckoutStatus RequestRestoreDestination(ENetPeerHandle peer,
-            FixedPointPosition destination, out long hullEntityId)
+            FixedPointPosition destination, out long hullEntityId,
+            out FixedPointPosition safeLanding)
         {
             hullEntityId = 0;
+            safeLanding = destination;
             double nearestSquared = double.PositiveInfinity;
             foreach (ShipDomain domain in _domains.All)
             {
@@ -78,6 +80,9 @@ namespace WorldsAdriftRebornGameServer.Game
             }
             if (hullEntityId == 0) return RestoreCheckoutStatus.Unknown;
 
+            if (TrySafeLanding(hullEntityId, destination, out FixedPointPosition chosen))
+                safeLanding = chosen;
+
             PeerState state = StateFor(peer);
             state.ForcedRestoreCenter = destination;
             state.ForcedRestoreHull = hullEntityId;
@@ -92,6 +97,38 @@ namespace WorldsAdriftRebornGameServer.Game
                 restoreDecks, state.MaterializedEntities)
                     ? RestoreCheckoutStatus.Ready
                     : RestoreCheckoutStatus.Waiting;
+        }
+
+        private static bool TrySafeLanding(long hullEntityId, FixedPointPosition requestedWorld,
+            out FixedPointPosition safeWorld)
+        {
+            safeWorld = requestedWorld;
+            (FixedPointPosition hullPosition, uint hullRotation) =
+                ShipInteractionEligibility.HullWorldPose(hullEntityId);
+            double yaw = ShipyardDockingPolicy.YawFromPacked(hullRotation);
+            double dx = requestedWorld.MetresX - hullPosition.MetresX;
+            double dy = requestedWorld.MetresY - hullPosition.MetresY;
+            double dz = requestedWorld.MetresZ - hullPosition.MetresZ;
+            double sin = Math.Sin(yaw);
+            double cos = Math.Cos(yaw);
+            FixedPointPosition requestedLocal = FixedPointPosition.FromMetres(
+                dx * cos - dz * sin, dy, dx * sin + dz * cos);
+
+            List<FixedPointPosition> decks = BuiltShips.DecksForHull(hullEntityId)
+                .Select(BuiltShips.LocalOffsetForDeck)
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .ToList();
+            List<FixedPointPosition> obstacles = MountedParts.OnHull(hullEntityId)
+                .Select(x => x.Value.LocalOffset)
+                .ToList();
+            if (!ShipRestoreLandingPolicy.TryChooseLocal(
+                    requestedLocal, decks, obstacles, out FixedPointPosition landingLocal))
+                return false;
+
+            safeWorld = ShipSalvagePolicy.DropPose(hullPosition, hullRotation, landingLocal,
+                Multiplayer.Placement.Quaternion32Packing.Identity).Position;
+            return true;
         }
 
         internal void NoteComponentInterest(ENetPeerHandle peer, long entityId)

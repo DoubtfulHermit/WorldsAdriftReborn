@@ -383,17 +383,24 @@ namespace WorldsAdriftRebornGameServer.Game
                 {
                     bool shipExpired = _terrainWaitClock.Elapsed >= pending.Deadline;
                     long resolvedHull = 0;
+                    FixedPointPosition refreshedLanding = pending.Destination.Position;
                     ShipDomainInterestService.RestoreCheckoutStatus shipStatus = peer == null
                         ? ShipDomainInterestService.RestoreCheckoutStatus.Unknown
                         : WorldsAdriftRebornGameServer.ShipInterest.RequestRestoreDestination(
-                            peer, pending.Destination.Position, out resolvedHull);
+                            peer, pending.Destination.Position, out resolvedHull,
+                            out refreshedLanding);
                     bool sameHull = peer != null
                         && shipStatus != ShipDomainInterestService.RestoreCheckoutStatus.Unknown
                         && resolvedHull == pending.RequiredShipHullId;
                     if (sameHull && shipStatus == ShipDomainInterestService.RestoreCheckoutStatus.Ready)
                     {
                         _pendingTerrain.Remove(entityId);
-                        bool sent = Send(pending.PeerId, entityId, pending.Destination, pending.Reason);
+                        TeleportDestination safeDestination = new TeleportDestination(
+                            pending.Destination.Name, refreshedLanding,
+                            pending.Destination.LandsOnLoadedGround,
+                            pending.Destination.Description,
+                            pending.Destination.RequiredWorldEntityKey);
+                        bool sent = Send(pending.PeerId, entityId, safeDestination, pending.Reason);
                         if (sent)
                             _shipRestoreByEntity[entityId] = (pending.PeerId,
                                 pending.RequiredShipHullId);
@@ -630,7 +637,16 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 ShipDomainInterestService.RestoreCheckoutStatus shipStatus =
                     WorldsAdriftRebornGameServer.ShipInterest.RequestRestoreDestination(
-                        peer, stored!.Value, out long restoreHull);
+                        peer, stored!.Value, out long restoreHull,
+                        out FixedPointPosition safeLanding);
+                if (shipStatus != ShipDomainInterestService.RestoreCheckoutStatus.Unknown
+                    && safeLanding != stored.Value)
+                {
+                    Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
+                        + " exact logout point " + stored.Value
+                        + " is crowded; selected clear deck landing " + safeLanding
+                        + " on ship " + restoreHull + ".");
+                }
                 if (shipStatus == ShipDomainInterestService.RestoreCheckoutStatus.Unknown)
                 {
                     if (location.Kind == IslandLocationKind.OpenSky)
@@ -643,6 +659,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
                 else if (shipStatus == ShipDomainInterestService.RestoreCheckoutStatus.Ready)
                 {
+                    home = new TeleportDestination(home.Name, safeLanding,
+                        home.LandsOnLoadedGround, home.Description, home.RequiredWorldEntityKey);
                     bool sent = Send(peerId.Value, entityId, home, LogoutRestoreReason);
                     if (sent)
                         _shipRestoreByEntity[entityId] = (peerId.Value, restoreHull);
@@ -653,6 +671,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
                 else
                 {
+                    home = new TeleportDestination(home.Name, safeLanding,
+                        home.LandsOnLoadedGround, home.Description, home.RequiredWorldEntityKey);
                     _pendingTerrain[entityId] = new PendingTerrainTeleport
                     {
                         PeerId = peerId.Value,
