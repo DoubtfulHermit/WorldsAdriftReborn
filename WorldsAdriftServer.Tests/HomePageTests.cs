@@ -125,7 +125,7 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void CurrentFlightClaimSeparatesLivePassesFromThePendingAcceptance()
         {
-            Assert.Contains("data-game-status-through=\"moving-helm-prime-fix-pending-acceptance\"",
+            Assert.Contains("data-game-status-through=\"safe-deck-restore-and-moving-helm-pending-acceptance\"",
                 HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("Engine and generator-fuel path", HomePage.Html,
@@ -134,7 +134,9 @@ namespace WorldsAdriftServer.Tests
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("entering the helm while already moving manufactured a 240 ms position rewind",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("awaiting its final live turn-and-settle check",
+            Assert.Contains("both server corrections are built and awaiting one combined live check",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("relocates crowded logout coordinates to deterministic clear deck panels",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("low-speed drift and turn vibration under diagnosis",
                 HomePage.Html, StringComparison.Ordinal);
