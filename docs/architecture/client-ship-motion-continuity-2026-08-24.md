@@ -50,6 +50,28 @@ The manifest was withdrawn during the same test and restored to
 `2026.08.23-5`. The client patch classes were removed from source. The Hermite
 non-reversal regression remains because it records a useful negative result.
 
+## State-coherent low-speed correction
+
+The rejected trial repeated only `MovePosition` and `MoveRotation` after the
+stock method returned through its no-motion optimization. It therefore left the
+PathFollower's `PreviousSample` position/velocity and the Rigidbody velocity on
+the older sample. The recovered local-player ground path reads those exact
+values when deciding how a character standing on the ship should move. The
+trial made the rendered hull continuous while leaving its contact/carry state
+stale, which explains the observed smooth separation and later correction.
+
+`ShipPathFollowerStateCoherence_Patch` does not implement a second movement
+path. While a finite authoritative ship sample still has non-zero velocity or a
+real rotation delta, it refreshes the PathFollower's own one-second
+`_disableRigidbodyUpdatesTimer`. The original `PathFollower.Move` then performs
+its normal complete branch in the original order: pose, rotation, velocity and
+`PreviousSample`. The timer is allowed to expire after the final stationary
+sample. Server drag, force, wire cadence and spline data are unchanged.
+
+This is deliberately hull-only. The separate mounted-part rotation threshold
+is not bypassed again until the hull/player correction has passed live
+acceptance.
+
 ## Next diagnostic boundary
 
 Do not lower or bypass either threshold again without separately measuring:
@@ -60,6 +82,6 @@ Do not lower or bypass either threshold again without separately measuring:
    pose; and
 4. the exact frame on which local-player correction or relative smoothing resets.
 
-The safe production behavior remains the pre-trial client plus the already
-accepted single authoritative hull stream. Remaining low-speed and turning
-artifacts stay open.
+Live acceptance must confirm that the final sub-0.5 m/s coast stays continuous
+for both a helm-attached and deck-standing player, without the rejected trial's
+player/structure separation. Turning shimmer remains a separate open gate.

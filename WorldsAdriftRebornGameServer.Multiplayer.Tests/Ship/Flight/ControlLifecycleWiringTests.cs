@@ -210,6 +210,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Moving_ship_samples_keep_the_stock_pathfollower_state_update_coherent()
+        {
+            string client = Source("WorldsAdriftReborn", "Patching", "Flight",
+                "ShipPathFollowerStateCoherence_Patch.cs");
+
+            Assert.Contains("[HarmonyPatch(typeof(PathFollower), \"Move\")]", client,
+                StringComparison.Ordinal);
+            Assert.Contains("_disableRigidbodyUpdatesTimer", client, StringComparison.Ordinal);
+            Assert.Contains("MotionTimerField.SetValue(__instance, RetailMotionTailSeconds)", client,
+                StringComparison.Ordinal);
+            Assert.Contains("controlPoint.Velocity.X * controlPoint.Velocity.X", client,
+                StringComparison.Ordinal);
+            Assert.Contains("Quaternion.Angle(body.rotation, rendered.Rotation)", client,
+                StringComparison.Ordinal);
+            Assert.Contains("GetComponent<SSPDeadReckoningVisualizer>()", client,
+                StringComparison.Ordinal);
+            Assert.Contains("GetComponent<ShipVisualizer>()", client,
+                StringComparison.Ordinal);
+
+            // The rejected trial repeated only the pose calls after stock Move had
+            // already retained stale PreviousSample/velocity. This correction must
+            // instead keep the original complete branch awake.
+            Assert.DoesNotContain("body.MovePosition", client, StringComparison.Ordinal);
+            Assert.DoesNotContain("body.MoveRotation", client, StringComparison.Ordinal);
+            Assert.DoesNotContain("PreviousSample =", client, StringComparison.Ordinal);
+            Assert.DoesNotContain("LocalPlayer", client, StringComparison.Ordinal);
+            Assert.DoesNotContain("FinishAndSend", client, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void Fixed_clock_is_opt_in_and_phase_locks_the_024_wire_cadence()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
