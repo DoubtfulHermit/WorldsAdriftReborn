@@ -38,7 +38,7 @@
     </div>
   </section>
 
-  <section class="mission-strip" aria-label="Live production summary" data-game-status-through="continuity-trial-withdrawn">
+  <section class="mission-strip" aria-label="Live production summary" data-game-status-through="moving-helm-prime-fix-pending-acceptance">
     <div><span>Runtime</span><b>1 local process</b><small>local:primary</small></div>
     <div><span>Island rollout</span><b>47 Tier-1 domains</b><small>254-island catalogue remains staged</small></div>
     <div><span>Ship flight</span><b>Scalar authority live</b><small>vector force and torque are shadow-only</small></div>
@@ -51,7 +51,7 @@
       <div class="milestone-copy">
         <div class="badge badge-flight"><i></i> Live passes · client artifact open</div>
         <h2 id="latest-title">Fuelled engines fly. Final ship-relative motion remains open.</h2>
-        <p>Engine animation, generator fuel burn, empty-fuel cutoff, partial-fuel restart and the repaired deck presentation have passed live checks. The single hull-pose correction removed forward component lag. The <code>2026.08.24-1</code> continuity trial removed rapid batching but caused smooth relative drift followed by hard corrections, so it failed acceptance and was withdrawn.</p>
+        <p>Engine animation, generator fuel burn, empty-fuel cutoff, partial-fuel restart and the repaired deck presentation have passed live checks. A passive control-point trace then proved that entering the helm while already moving manufactured a 240 ms position rewind; the server correction is built and awaiting its final live turn-and-settle check.</p>
         <a class="text-link" href="/patchnotes">See the technical build notes <span aria-hidden="true">→</span></a>
       </div>
       <dl class="milestone-readout">
@@ -125,7 +125,7 @@
             <li data-state="done"><i></i><span><b>Residual drag and sail calibration</b> — recovered settling behavior and measured sail balance are deployed.</span></li>
             <li data-state="done"><i></i><span><b>Fixed clock and snapshots</b> — Pack C restart and stall foundations passed their live run.</span></li>
             <li data-state="done"><i></i><span><b>Engine and generator-fuel path</b> — visual spin, authoritative burn, empty cutoff and partial-fuel restart passed live checks.</span></li>
-            <li data-state="flight"><i></i><span><b>Continuous ship presentation</b> — the duplicate hull stream and forward component lag are gone; the first batching-removal trial caused relative drift and was withdrawn. Low-speed settling and mounted-turn vibration remain open.</span></li>
+            <li data-state="flight"><i></i><span><b>Continuous ship presentation</b> — duplicate hull authority and forward component lag are gone. The moving-helm playback rewind is corrected in the current server candidate; turn and low-speed acceptance remains open until the live trace confirms it.</span></li>
             <li data-state="flight"><i></i><span><b>Vector force/torque observer</b> — pure-shadow comparisons are live and have no authority over motion.</span></li>
             <li data-state="gate"><i></i><span><b>Authority exit gate</b> — vector motion, lift/gravity, collision response, docking and damaging walls remain default-off work.</span></li>
           </ul>
@@ -192,7 +192,7 @@
         <div><dt>In flight</dt><dd>5</dd></div>
         <div><dt>Queued / gates</dt><dd>7</dd></div>
       </dl>
-      <p>These totals count the 33 objectives represented above. They are not a percentage of the whole game. Gameplay and client status were reviewed through the withdrawn <code>2026.08.24-1</code> continuity trial on 24 August 2026.</p>
+      <p>These totals count the 33 objectives represented above. They are not a percentage of the whole game. Gameplay and client status were reviewed through the moving-helm rewind diagnosis and server correction candidate on 24 August 2026.</p>
     </aside>
   </section>
 

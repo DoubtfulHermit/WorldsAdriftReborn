@@ -123,19 +123,22 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void CurrentFlightClaimSeparatesLivePassesFromTheWithdrawnTrial()
+        public void CurrentFlightClaimSeparatesLivePassesFromThePendingAcceptance()
         {
-            Assert.Contains("data-game-status-through=\"continuity-trial-withdrawn\"", HomePage.Html,
+            Assert.Contains("data-game-status-through=\"moving-helm-prime-fix-pending-acceptance\"",
+                HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("Engine and generator-fuel path", HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("visual spin, authoritative burn, empty cutoff and partial-fuel restart passed live checks",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("the first batching-removal trial caused relative drift and was withdrawn",
+            Assert.Contains("entering the helm while already moving manufactured a 240 ms position rewind",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("awaiting its final live turn-and-settle check",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("low-speed drift and turn vibration under diagnosis",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.DoesNotContain("correction ready", HomePage.Html,
+            Assert.DoesNotContain("turn and low-speed acceptance passed", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("5 ships", HomePage.Html, StringComparison.Ordinal);
             Assert.DoesNotContain("3,788", HomePage.Html, StringComparison.Ordinal);
