@@ -26,6 +26,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Rest_drain_covers_the_client_root_tail_and_one_final_follower_wake()
+        {
+            // Decompiled client defaults: the root may continue extrapolating for
+            // 5 s, spend 1 s halting, and a mounted follower remains awake for 1 s
+            // after its final 190602. The member-only drain spans that full window.
+            Assert.Equal(7.0, ShipPartMotionPolicy.RestFollowerDrainSeconds);
+            Assert.True(ShipPartMotionPolicy.RestFollowerDrainSeconds
+                >= 5.0 + 1.0 + 1.0);
+        }
+
+        [Theory]
+        [InlineData(true, false, 7.0, true)]
+        [InlineData(true, false, 0.0, true)]
+        [InlineData(false, false, 7.0, false)]
+        [InlineData(true, true, 7.0, false)]
+        [InlineData(true, false, -0.001, false)]
+        [InlineData(true, false, double.NaN, false)]
+        [InlineData(true, false, double.PositiveInfinity, false)]
+        public void Rest_drain_is_bounded_to_unmanned_settled_hulls(
+            bool atRest, bool manned, double remainingSeconds, bool expected)
+        {
+            Assert.Equal(expected, ShipPartMotionPolicy.ShouldDrainRestingFollowers(
+                atRest, manned, remainingSeconds));
+        }
+
+        [Fact]
         public void The_wake_carries_the_transform_state_component_id()
         {
             // 190602 - the same component the seed places the part with; a value

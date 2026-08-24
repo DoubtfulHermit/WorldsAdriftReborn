@@ -132,11 +132,21 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly Dictionary<long, FlightControlInput> _lastEchoed = new Dictionary<long, FlightControlInput>();
 
         /// <summary>
-        /// When each resting hull's mounted parts were last woken. Moving domains
-        /// publish every member with every root point; throttling those frames made
-        /// sails and helms visibly remain behind and then snap onto the hull.
+        /// When each hull's mounted parts were last woken. Moving domains publish
+        /// every member with every root point; after the final root point this also
+        /// throttles the bounded member-only drain.
         /// </summary>
         private readonly Dictionary<long, TimeSpan> _lastWakeAt = new Dictionary<long, TimeSpan>();
+
+        /// <summary>
+        /// Mounted "~" followers need a bounded wake drain after the final hull
+        /// 1130. The client root may still be finishing its own extrapolation/halt
+        /// while a part follower otherwise sleeps after one second and freezes a
+        /// few centimetres behind. These deadlines publish 190602 to MEMBERS ONLY;
+        /// they never revive the root PathFollower.
+        /// </summary>
+        private readonly Dictionary<long, TimeSpan> _memberWakeTailUntil =
+            new Dictionary<long, TimeSpan>();
 
         private static readonly TimeSpan PoseSaveInterval = TimeSpan.FromSeconds(2);
         private readonly Dictionary<long, TimeSpan> _nextPoseSaveAt = new Dictionary<long, TimeSpan>();
@@ -146,7 +156,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly HashSet<long> _boundsQuarantinedHulls = new HashSet<long>();
 
         /// <summary>
-        /// Resting member heartbeat. A moving domain does not use this throttle:
+        /// Mounted-member wake interval. A moving domain does not use this throttle:
         /// live acceptance on 2026-08-22 disproved the assumption that an awake
         /// "~" follower adds smoothness for free between root points. Mounted
         /// components visibly lagged one root frame and snapped on the next wake.
@@ -854,6 +864,7 @@ namespace WorldsAdriftRebornGameServer.Game
             _helmByHull.Remove(hullEntityId);
             _lastEchoed.Remove(hullEntityId);
             _lastWakeAt.Remove(hullEntityId);
+            _memberWakeTailUntil.Remove(hullEntityId);
             _nextPoseSaveAt.Remove(hullEntityId);
             _departingYardByHull.Remove(hullEntityId);
             _boundsInterveningHulls.Remove(hullEntityId);
@@ -965,7 +976,17 @@ namespace WorldsAdriftRebornGameServer.Game
                 PersistPoseWhenDue(hullEntityId, domain);
                 if (!emit.Emit)
                 {
+                    PublishRestingMemberTailIfDue(hullEntityId, session);
                     continue;
+                }
+
+                if (session.State.IsAtRest && !session.IsManned)
+                {
+                    ArmRestingMemberTail(hullEntityId);
+                }
+                else
+                {
+                    _memberWakeTailUntil.Remove(hullEntityId);
                 }
 
                 _pendingLatencyByHull.TryGetValue(hullEntityId, out FlightLatencyTrace? latencyTrace);
@@ -989,7 +1010,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 // must publish in the SAME frame. The former every-other-point
                 // throttle was visible in live acceptance as sails/helm remaining
                 // behind, then snapping forward on their next 190602 wake. Only a
-                // fully resting domain uses the cheaper heartbeat.
+                // fully resting domain uses only the bounded member drain below.
                 bool wakeDue = !session.State.IsAtRest
                     || !_lastWakeAt.TryGetValue(hullEntityId, out TimeSpan lastWake)
                     || _clock.Elapsed - lastWake >= WakeInterval;
@@ -1293,8 +1314,8 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
-        /// The mounted-member wakes sent on every moving root point and the resting
-        /// heartbeat (<see cref="WakeInterval"/>). Active flight deliberately builds
+        /// The mounted-member wakes sent on every moving root point and during the
+        /// bounded member-only rest drain (<see cref="WakeInterval"/>). Active flight deliberately builds
         /// no hull TransformState update: its hull pose has one authority, the 1130
         /// PathFollower stream. Each mounted "~" part receives a 190602 wake carrying
         /// its UNCHANGED hull-local offset/rotation. Real Unity
@@ -1305,8 +1326,14 @@ namespace WorldsAdriftRebornGameServer.Game
         /// plus a rigidbody destroy/re-add, the exact trap ShipPartMotionService
         /// documents for the static deck.
         /// </summary>
-        private IReadOnlyList<ShipDomainComponentUpdate> BuildMountedPartWakes(
-            long hullEntityId)
+        private IReadOnlyList<ShipDomainComponentUpdate> BuildMountedPartWakes(long hullEntityId) =>
+            BuildMountedPartUpdates(hullEntityId, includeEngineState: true);
+
+        private IReadOnlyList<ShipDomainComponentUpdate> BuildMountedPartTransformWakes(long hullEntityId) =>
+            BuildMountedPartUpdates(hullEntityId, includeEngineState: false);
+
+        private IReadOnlyList<ShipDomainComponentUpdate> BuildMountedPartUpdates(
+            long hullEntityId, bool includeEngineState)
         {
             long sample = PartMountService.NextTimelineSample();
             float stamp = ShipPartMotionPolicy.StampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
@@ -1317,7 +1344,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 string partKind =
                     Multiplayer.Ship.ShipPartKinds.Classify(
                         mount.ItemType, mount.PrefabName, mount.AttachmentType);
-                if (partKind == Multiplayer.Ship.ShipPartKinds.Engine)
+                if (includeEngineState && partKind == Multiplayer.Ship.ShipPartKinds.Engine)
                 {
                     // The same coherent domain frame that moves the hull also tells
                     // every mounted engine what the authoritative lever is doing.
@@ -1353,6 +1380,58 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             return members;
+        }
+
+        private void ArmRestingMemberTail(long hullEntityId)
+        {
+            bool newlyArmed = !_memberWakeTailUntil.ContainsKey(hullEntityId);
+            _memberWakeTailUntil[hullEntityId] = _clock.Elapsed
+                + TimeSpan.FromSeconds(ShipPartMotionPolicy.RestFollowerDrainSeconds);
+            if (newlyArmed)
+            {
+                Console.WriteLine("[flight-members] hull " + hullEntityId
+                    + " armed a bounded "
+                    + ShipPartMotionPolicy.RestFollowerDrainSeconds.ToString("0.0",
+                        System.Globalization.CultureInfo.InvariantCulture)
+                    + " s member-only rest drain.");
+            }
+        }
+
+        private void PublishRestingMemberTailIfDue(long hullEntityId, FlightSession session)
+        {
+            if (!_memberWakeTailUntil.TryGetValue(hullEntityId, out TimeSpan until))
+            {
+                return;
+            }
+
+            double remainingSeconds = (until - _clock.Elapsed).TotalSeconds;
+            if (!ShipPartMotionPolicy.ShouldDrainRestingFollowers(
+                    session.State.IsAtRest, session.IsManned, remainingSeconds))
+            {
+                _memberWakeTailUntil.Remove(hullEntityId);
+                if (remainingSeconds < 0.0)
+                {
+                    Console.WriteLine("[flight-members] hull " + hullEntityId
+                        + " completed its member-only rest drain; root remained silent.");
+                }
+                return;
+            }
+
+            if (_lastWakeAt.TryGetValue(hullEntityId, out TimeSpan lastWake)
+                && _clock.Elapsed - lastWake < WakeInterval)
+            {
+                return;
+            }
+
+            _lastWakeAt[hullEntityId] = _clock.Elapsed;
+            FixedPointPosition hullPosition = FixedPointPosition.FromMetres(
+                session.State.X, session.State.Y, session.State.Z);
+            foreach (ShipDomainComponentUpdate member in BuildMountedPartTransformWakes(hullEntityId))
+            {
+                ShipPublisher.BroadcastMotion(
+                    member.EntityId, hullEntityId, hullPosition,
+                    member.ComponentId, member.Update);
+            }
         }
 
         /// <summary>

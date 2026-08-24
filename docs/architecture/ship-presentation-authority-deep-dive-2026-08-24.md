@@ -50,22 +50,10 @@ position, which flight persistence updates every two seconds. Taking a resting
 helm explicitly primes playback, and a sail/propulsion edge reactivates the
 normal cadence.
 
-## Mounted-member boundary still under measurement
+## Render-phase mounted-member result
 
-During active flight the server sends about 15–19 mounted-member `190602`
-updates with each root point. The hull's root `190602` is correctly absent, so
-there is no longer a second absolute hull authority. A `"~"` member is composed
-each fixed update from its unchanged hull-local pose and the hull
-`PathFollower.PreviousSample`.
-
-The remaining live question is whether the visible component separation is:
-
-- one fixed-frame ordering difference between the hull Rigidbody and relative
-  followers;
-- a member TransformState update/smoothing reset; or
-- a specific part Rigidbody/prefab behavior rather than the shared hierarchy.
-
-A second temporary passive probe compares, for every nearby `"~"` follower:
+During the combined forward/left/right/settle run, a second temporary passive
+probe compared every nearby `"~"` follower at render phase:
 
 - rendered part pose versus the current hull PathFollower sample;
 - rendered part pose versus the rendered hull transform;
@@ -73,17 +61,46 @@ A second temporary passive probe compares, for every nearby `"~"` follower:
 - part/root timestamps, update count and sleeping state; and
 - Rigidbody existence, kinematic state and velocity.
 
-It changes no pose, input, component or packet. One client restart and one
-forward/turn/settle run will identify which owner the components actually
-follow before any mounted-part correction is attempted.
+It changed no pose, input, component or packet. After checkout/teleport outliers
+were excluded, active-flight render alignment was conclusive:
+
+- p95 member-to-rendered-root error was 0 m;
+- p99 was at most 0.0008 m;
+- ordinary maximum was about 0.0012 m;
+- root and member Rigidbody interpolation were both `None`; and
+- both Rigidbody-to-Transform gaps were 0 m.
+
+Therefore active motion is not two server/client authorities fighting over the
+mounted entity roots. They follow the rendered hull to about one millimetre.
+Any remaining turn-only visual vibration must now be isolated below the entity
+root (part animation, camera or internal prefab), rather than patched by moving
+the whole part or changing the authoritative hull stream.
+
+## Proven mounted-follower sleep tail
+
+After the last finite root points, sail `3676` diverged gradually from 0.0008 m
+to 0.1052 m and remained there. The root-to-PathFollower sample error stayed
+zero, Rigidbody gaps stayed zero, and an actual Unity-child core stayed at zero.
+This isolates a different lifecycle defect: the sail's own
+`FixedUpdateLerpLocalTransformBehaviour` sleeps one second after its last
+`190602`, while the root PathFollower can still spend its decompiled-default
+five-second extrapolation and one-second halt window reaching the final pose.
+
+The correction adds a bounded **member-only** drain. After the final root point,
+only non-Unity-child mounted followers receive unchanged hull-local `190602`
+updates for seven seconds (5 s extrapolation + 1 s halt + 1 s final follower
+wake). No root `1130` and no engine-state update is emitted by this path. Moving,
+manning, expiry and hull retirement all clear the deadline. Seven seconds is an
+explicit WAReborn guard derived from decompiled client defaults; the release's
+exact serialized ShipConfig remains lost.
 
 ## Verification so far
 
-- focused `FlightSession`/`FlightTuning` tests: 25/25;
-- full multiplayer suite after removing the resting heartbeat: 4,882/4,882;
+- focused rest-drain policy/wiring tests: 31/31;
+- full multiplayer suite with the member drain: 4,891/4,891;
 - Release game-server build: zero errors;
 - temporary client authority probe build: zero errors.
 
-The resting-heartbeat correction is evidence-backed. The active mounted-part
-fix remains deliberately uncommitted until the second live probe answers the
-ownership/order question.
+The resting-root correction and mounted-follower drain are evidence-backed and
+separate: the root stays silent while only its members finish following it. The
+final live render-phase acceptance is the remaining gate.

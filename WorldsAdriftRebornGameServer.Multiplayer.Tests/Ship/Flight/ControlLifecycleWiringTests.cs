@@ -139,6 +139,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Rest_drain_wakes_only_members_and_never_revives_the_root()
+        {
+            string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFlightService.cs");
+
+            Assert.Contains("PublishRestingMemberTailIfDue(hullEntityId, session)", service,
+                StringComparison.Ordinal);
+            Assert.Contains("BuildMountedPartTransformWakes(hullEntityId)", service,
+                StringComparison.Ordinal);
+            Assert.Contains("ShipPublisher.BroadcastMotion(", service,
+                StringComparison.Ordinal);
+            Assert.Contains("completed its member-only rest drain; root remained silent", service,
+                StringComparison.Ordinal);
+            Assert.Contains("_memberWakeTailUntil.Remove(hullEntityId)", service,
+                StringComparison.Ordinal);
+
+            string tail = service.Substring(service.IndexOf(
+                "private void PublishRestingMemberTailIfDue", StringComparison.Ordinal));
+            tail = tail.Substring(0, tail.IndexOf("\n        private ",
+                "private void PublishRestingMemberTailIfDue".Length, StringComparison.Ordinal));
+            Assert.DoesNotContain("BroadcastDomainMotion", tail, StringComparison.Ordinal);
+            Assert.DoesNotContain("BuildUpdate(emit.Spec", tail, StringComparison.Ordinal);
+            Assert.DoesNotContain("ShipEngineStateWire", tail, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void Helm_entry_primes_only_a_resting_playback_stream()
         {
             string service = Source("WorldsAdriftRebornGameServer", "Game",

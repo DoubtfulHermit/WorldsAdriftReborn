@@ -45,6 +45,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const double HeartbeatIntervalSeconds = 0.5;
 
         /// <summary>
+        /// A bounded MEMBER-ONLY drain after the final hull control point. The
+        /// decompiled client defaults allow its root PathFollower to continue
+        /// extrapolating for 5 s and then halt for 1 s, while a mounted
+        /// FixedUpdateLerpLocalTransformBehaviour sleeps 1 s after its own last
+        /// 190602 update. Keeping only mounted followers awake across that 7 s
+        /// window lets them finish against the root's final rendered pose.
+        ///
+        /// This is a WAReborn guard derived from the decompiled defaults, not a
+        /// claim that the lost serialized ShipConfig used those exact values.
+        /// It must never be used to publish another hull 1130 point: a late root
+        /// heartbeat revives stale PathFollower velocity and caused the measured
+        /// multi-metre drift/snap regression.
+        /// </summary>
+        public const double RestFollowerDrainSeconds = 7.0;
+
+        public static bool ShouldDrainRestingFollowers(
+            bool hullAtRest, bool isManned, double remainingSeconds)
+        {
+            return hullAtRest
+                && !isManned
+                && double.IsFinite(remainingSeconds)
+                && remainingSeconds >= 0.0;
+        }
+
+        /// <summary>
         /// The timeline origin, i.e. the stamp the first wake carries. Mirrors
         /// <see cref="RelayTimestampPolicy.SeedTimestampSeconds"/>: a small positive
         /// epoch (2x the client's 0.1 s interpolation delay) rather than 0, so the
