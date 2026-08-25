@@ -959,6 +959,10 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Forgets every session-side trace of a hull after authoritative salvage.</summary>
         internal void RetireHull(long hullEntityId)
         {
+            // Read before the domain is removed below: the docking retirement
+            // stamps its transactional unlink with the hull's REAL generation
+            // (0 when no domain ever existed - the driver then stamps invalid).
+            long authorityGeneration = _domains.ByHull(hullEntityId)?.Generation.Value ?? 0;
             PilotSeats.Seat? seat = _seats.PilotOf(hullEntityId);
             if (seat.HasValue)
             {
@@ -988,7 +992,7 @@ namespace WorldsAdriftRebornGameServer.Game
             _vectorShadowComparison.Remove(hullEntityId);
             _hullHalfExtents.Remove(hullEntityId);
             ShipMassSnapshots.Retire(hullEntityId);
-            _dockingDriver.Retire(hullEntityId);
+            _dockingDriver.Retire(hullEntityId, authorityGeneration);
             ShipPublisher.RetireDomain(hullEntityId);
         }
 
@@ -2356,7 +2360,14 @@ namespace WorldsAdriftRebornGameServer.Game
                 PilotSeats.Seat? pilot = _seats.PilotOf(hullEntityId);
                 if (pilot.HasValue)
                     _inputs[pilot.Value.PlayerEntityId] = FlightControlInput.Neutral;
-                PersistPoseNow(hullEntityId, session.State);
+                // The transaction already made this commit's pose durable in its
+                // one atomic document write; only the in-memory late-join seed
+                // follows here. A PersistPoseNow would be a SECOND world-state
+                // Save for the same commit.
+                WorldsAdriftRebornGameServer.WorldEntities.Relocate(hullEntityId,
+                    FixedPointPosition.FromMetres(
+                        session.State.X, session.State.Y, session.State.Z),
+                    FlightIntegrator.PackedRotation(session.State));
             }
         }
 
@@ -2389,6 +2400,15 @@ namespace WorldsAdriftRebornGameServer.Game
                 observation?.Terrain.EvaluationComplete ?? false,
                 phase.HasValue ? phase.Value.ToString() : "unmanaged");
         }
+
+        /// <summary>
+        /// The committed docking truth for a runtime-managed hull, or null for any
+        /// hull the transactional runtime does not manage. The 1114 checkout serve
+        /// path answers from this so a late joiner - or a peer that missed a live
+        /// push - converges on the runtime's truth instead of the legacy ledger.
+        /// </summary>
+        internal Multiplayer.Ship.DockingComponentProjection? DockingProjectionFor(
+            long hullEntityId) => _dockingDriver.ProjectionFor(hullEntityId);
 
         private void CompleteDepartureIfOutside(long hullEntityId, FlightState state)
         {
