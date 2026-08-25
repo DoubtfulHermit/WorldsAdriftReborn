@@ -85,7 +85,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 new CollisionRuntimeOptions
                 {
                     ObserveEnabled = true,
-                    ResponseEnabled = FlightRuntimeFlags.CollisionResponseEnabled
+                    ResponseEnabled = ShipFlightService.RuntimeFlags.CollisionResponseEnabled
                 });
             _lastObservation[hullEntityId] = observation;
 
@@ -264,7 +264,7 @@ namespace WorldsAdriftRebornGameServer.Game
             if (_runtimes.TryGetValue(hullEntityId, out DockingRuntime? existing))
                 return existing;
             var runtime = new DockingRuntime(hullEntityId, _claims, _transaction,
-                new DockingRuntimeOptions { Enabled = FlightRuntimeFlags.DockingTxnEnabled },
+                new DockingRuntimeOptions { Enabled = ShipFlightService.RuntimeFlags.DockingTxnEnabled },
                 Tuning);
             _runtimes[hullEntityId] = runtime;
             return runtime;

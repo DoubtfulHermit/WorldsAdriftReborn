@@ -146,10 +146,89 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Collision_and_docking_gates_default_off_with_no_warnings()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.False(flags.CollisionObserveEnabled);
+            Assert.False(flags.CollisionResponseEnabled);
+            Assert.False(flags.DockingTxnEnabled);
+            Assert.Empty(flags.StartupWarnings);
+        }
+
+        [Fact]
+        public void Collision_observe_requires_the_fixed_step()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: false, forceModelEnabled: true,
+                collisionObserveRaw: "1");
+
+            Assert.False(flags.CollisionObserveEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("WAREBORN_FLIGHT_FIXED_STEP", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Collision_response_requires_observe()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: true,
+                collisionResponseRaw: "1");
+
+            Assert.False(flags.CollisionResponseEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("WAREBORN_FLIGHT_COLLISION_OBSERVE", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Docking_txn_requires_observe()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: true,
+                dockingTxnRaw: "1");
+
+            Assert.False(flags.DockingTxnEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("WAREBORN_FLIGHT_COLLISION_OBSERVE", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Response_and_txn_never_half_enable_when_observe_loses_its_prerequisite()
+        {
+            // TXN => OBSERVE => FIXED_STEP: dropping the root prerequisite turns
+            // the whole dependent chain off, one warning per requested gate.
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: false, forceModelEnabled: true,
+                collisionObserveRaw: "1", collisionResponseRaw: "1", dockingTxnRaw: "1");
+
+            Assert.False(flags.CollisionObserveEnabled);
+            Assert.False(flags.CollisionResponseEnabled);
+            Assert.False(flags.DockingTxnEnabled);
+            Assert.Equal(3, flags.StartupWarnings.Count);
+        }
+
+        [Fact]
+        public void Full_chain_enables_with_the_fixed_step_present()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: false,
+                collisionObserveRaw: "1", collisionResponseRaw: "1", dockingTxnRaw: "1");
+
+            Assert.True(flags.CollisionObserveEnabled);
+            Assert.True(flags.CollisionResponseEnabled);
+            Assert.True(flags.DockingTxnEnabled);
+            Assert.Empty(flags.StartupWarnings);
+        }
+
+        [Fact]
         public void Disabled_instance_promotes_nothing()
         {
             Assert.False(FlightRuntimeFlags.Disabled.VectorAuthorityEnabled);
             Assert.False(FlightRuntimeFlags.Disabled.LiftRuntimeEnabled);
+            Assert.False(FlightRuntimeFlags.Disabled.CollisionObserveEnabled);
+            Assert.False(FlightRuntimeFlags.Disabled.CollisionResponseEnabled);
+            Assert.False(FlightRuntimeFlags.Disabled.DockingTxnEnabled);
             Assert.False(FlightRuntimeFlags.Disabled.IsPromoted(0));
             Assert.Empty(FlightRuntimeFlags.Disabled.StartupWarnings.ToList());
         }

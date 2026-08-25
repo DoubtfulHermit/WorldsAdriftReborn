@@ -24,6 +24,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// <item><c>WAREBORN_FLIGHT_LIFT_RUNTIME</c> - the authentic
     ///   lift/gravity/overload runtime; requires the vector master (lift acts in
     ///   the vector authority path only, and only on promoted hulls).</item>
+    /// <item><c>WAREBORN_FLIGHT_COLLISION_OBSERVE</c> - the in-tick collision
+    ///   shadow; requires <c>WAREBORN_FLIGHT_FIXED_STEP=1</c> (there is no
+    ///   honest stamp without the fixed clock).</item>
+    /// <item><c>WAREBORN_FLIGHT_COLLISION_RESPONSE</c> - velocity-only collision
+    ///   response; requires observe.</item>
+    /// <item><c>WAREBORN_FLIGHT_DOCKING_TXN</c> - transactional authentic
+    ///   docking; suppresses the legacy capture writers for runtime-managed
+    ///   hulls; requires observe (clearance evidence).</item>
     /// </list>
     ///
     /// A dependent flag whose prerequisite is OFF stays OFF and contributes one
@@ -49,20 +57,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         private static readonly IReadOnlySet<int> NoHulls = new HashSet<int>();
 
         private FlightRuntimeFlags(bool vectorAuthorityEnabled, bool liftRuntimeEnabled,
-            IReadOnlySet<int> promotedHullPersistentIndices, IReadOnlyList<string> startupWarnings)
+            IReadOnlySet<int> promotedHullPersistentIndices, IReadOnlyList<string> startupWarnings,
+            bool collisionObserveEnabled, bool collisionResponseEnabled, bool dockingTxnEnabled)
         {
             VectorAuthorityEnabled = vectorAuthorityEnabled;
             LiftRuntimeEnabled = liftRuntimeEnabled;
             PromotedHullPersistentIndices = promotedHullPersistentIndices;
             StartupWarnings = startupWarnings;
+            CollisionObserveEnabled = collisionObserveEnabled;
+            CollisionResponseEnabled = collisionResponseEnabled;
+            DockingTxnEnabled = dockingTxnEnabled;
         }
 
         /// <summary>Everything off - the shipped default and the OFF-path proof anchor.</summary>
         public static FlightRuntimeFlags Disabled { get; } =
-            new FlightRuntimeFlags(false, false, NoHulls, Array.Empty<string>());
+            new FlightRuntimeFlags(false, false, NoHulls, Array.Empty<string>(),
+                collisionObserveEnabled: false, collisionResponseEnabled: false,
+                dockingTxnEnabled: false);
 
         public bool VectorAuthorityEnabled { get; }
         public bool LiftRuntimeEnabled { get; }
+
+        /// <summary>The Steps 4-5 in-tick collision shadow gate.</summary>
+        public bool CollisionObserveEnabled { get; }
+
+        /// <summary>Velocity-only collision response; never on without observe.</summary>
+        public bool CollisionResponseEnabled { get; }
+
+        /// <summary>Transactional docking; never on without observe (clearance evidence).</summary>
+        public bool DockingTxnEnabled { get; }
 
         /// <summary>Persistent indices (never runtime entity ids) of promoted hulls.</summary>
         public IReadOnlySet<int> PromotedHullPersistentIndices { get; }
@@ -83,7 +106,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             LiftRuntimeEnabled && IsPromoted(persistentIndex);
 
         public static FlightRuntimeFlags Parse(string? vectorAuthorityRaw, string? vectorHullsRaw,
-            string? liftRuntimeRaw, bool fixedStepEnabled, bool forceModelEnabled)
+            string? liftRuntimeRaw, bool fixedStepEnabled, bool forceModelEnabled,
+            string? collisionObserveRaw = null, string? collisionResponseRaw = null,
+            string? dockingTxnRaw = null)
         {
             var warnings = new List<string>();
             bool masterRequested = vectorAuthorityRaw == "1";
@@ -136,11 +161,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     + "(with its own prerequisites); lift runtime stays OFF.");
             }
 
-            if (!master && !lift && promoted.Count == 0 && warnings.Count == 0)
+            bool observeRequested = collisionObserveRaw == "1";
+            bool responseRequested = collisionResponseRaw == "1";
+            bool dockingRequested = dockingTxnRaw == "1";
+
+            bool observe = observeRequested && fixedStepEnabled;
+            if (observeRequested && !observe)
+            {
+                warnings.Add("WAREBORN_FLIGHT_COLLISION_OBSERVE=1 requires "
+                    + "WAREBORN_FLIGHT_FIXED_STEP=1; collision observation stays OFF.");
+            }
+
+            bool response = responseRequested && observe;
+            if (responseRequested && !response)
+            {
+                warnings.Add("WAREBORN_FLIGHT_COLLISION_RESPONSE=1 requires "
+                    + "WAREBORN_FLIGHT_COLLISION_OBSERVE=1 (with the fixed step); "
+                    + "collision response stays OFF.");
+            }
+
+            bool dockingTxn = dockingRequested && observe;
+            if (dockingRequested && !dockingTxn)
+            {
+                warnings.Add("WAREBORN_FLIGHT_DOCKING_TXN=1 requires "
+                    + "WAREBORN_FLIGHT_COLLISION_OBSERVE=1 (with the fixed step); "
+                    + "transactional docking stays OFF.");
+            }
+
+            if (!master && !lift && !observe && !response && !dockingTxn
+                && promoted.Count == 0 && warnings.Count == 0)
             {
                 return Disabled;
             }
-            return new FlightRuntimeFlags(master, lift, promoted, warnings);
+            return new FlightRuntimeFlags(master, lift, promoted, warnings,
+                observe, response, dockingTxn);
         }
     }
 }

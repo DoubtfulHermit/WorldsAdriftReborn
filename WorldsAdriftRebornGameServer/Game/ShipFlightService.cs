@@ -67,10 +67,11 @@ namespace WorldsAdriftRebornGameServer.Game
             Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FIXED_STEP") == "1";
 
         /// <summary>
-        /// The vector-authority / lift-runtime gates, parsed and dependency-checked
-        /// in ONE tested place (<see cref="FlightRuntimeFlags.Parse"/>). All three
-        /// default OFF; a dependent flag with its prerequisite off stays off and
-        /// logs one startup warning from the constructor.
+        /// The vector-authority / lift-runtime / collision / docking gates, parsed
+        /// and dependency-checked in ONE tested place
+        /// (<see cref="FlightRuntimeFlags.Parse"/>). All six default OFF; a
+        /// dependent flag with its prerequisite off stays off and logs one
+        /// startup warning from the constructor.
         /// NOTE: ForceModelEnabled is declared further down this file; C# runs
         /// static field initialisers in declaration order, so this one reads the
         /// environment directly for the prerequisite instead of the field.
@@ -89,7 +90,10 @@ namespace WorldsAdriftRebornGameServer.Game
             Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_VECTOR_HULLS"),
             Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_LIFT_RUNTIME"),
             fixedStepEnabled: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FIXED_STEP") == "1",
-            forceModelEnabled: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FORCES") == "1");
+            forceModelEnabled: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FORCES") == "1",
+            collisionObserveRaw: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_COLLISION_OBSERVE"),
+            collisionResponseRaw: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_COLLISION_RESPONSE"),
+            dockingTxnRaw: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_DOCKING_TXN"));
 
         /// <summary>
         /// The one gravity value the lift runtime integrates under, provenance
@@ -284,6 +288,13 @@ namespace WorldsAdriftRebornGameServer.Game
                     + Gravity.YMetresPerSecondSquared.ToString("0.##",
                         System.Globalization.CultureInfo.InvariantCulture)
                     + " m/s2, " + Gravity.Provenance + ").");
+                Console.WriteLine("[info] in-tick collision observation is "
+                    + (RuntimeFlags.CollisionObserveEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_COLLISION_OBSERVE), response "
+                    + (RuntimeFlags.CollisionResponseEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_COLLISION_RESPONSE), transactional docking "
+                    + (RuntimeFlags.DockingTxnEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_DOCKING_TXN).");
                 if (RuntimeFlags.VectorAuthorityEnabled && _worldBounds.Enabled)
                 {
                     Console.WriteLine("[warning] flight: WORLD BOUNDS are not yet applied to "
@@ -886,7 +897,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 // restores at the dock pose and seeds fresh instead.
                 _pendingVectorRestore[hullEntityId] = durable.Vector;
             }
-            if (FlightRuntimeFlags.DockingTxnEnabled && dockingSnapshot != null
+            if (RuntimeFlags.DockingTxnEnabled && dockingSnapshot != null
                 && dockedYardEntityId > 0)
             {
                 // Stable persisted yard/hull keys resolve to THIS boot's fresh
@@ -1796,7 +1807,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             CollisionShadowResult collision;
             string collisionSource;
-            if (FlightRuntimeFlags.CollisionObserveEnabled
+            if (RuntimeFlags.CollisionObserveEnabled
                 && _dockingDriver.ObservationFor(hullEntityId) is HullCollisionObservation inTick)
             {
                 // Rule: the admin path publishes the last COMMITTED stamped
@@ -2346,7 +2357,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         private void RunDockingScan(long hullEntityId, ShipDomain domain, FlightSession session)
         {
-            if (!FlightRuntimeFlags.DockingTxnEnabled)
+            if (!RuntimeFlags.DockingTxnEnabled)
             {
                 TryCaptureAtEmptyShipyard(hullEntityId, session);
                 return;
@@ -2378,7 +2389,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private void ObserveCollisionAfterSlice(long hullEntityId, ShipDomain domain,
             FlightSession session, FixedFlightPublicationSlice slice, int unfurledSails)
         {
-            if (!FlightRuntimeFlags.CollisionObserveEnabled || slice.Steps <= 0) return;
+            if (!RuntimeFlags.CollisionObserveEnabled || slice.Steps <= 0) return;
             ShipPropulsion? ship = PropulsionFor(hullEntityId, unfurledSails);
             _dockingDriver.ObserveAfterSlice(hullEntityId, domain, session.State,
                 slice.FirstStep + slice.Steps - 1,
@@ -2390,9 +2401,9 @@ namespace WorldsAdriftRebornGameServer.Game
             HullCollisionObservation? observation = _dockingDriver.ObservationFor(hullEntityId);
             Multiplayer.Ship.DockingPhase? phase = _dockingDriver.PhaseFor(hullEntityId);
             return new Multiplayer.FlightCollisionDockingStat(
-                FlightRuntimeFlags.CollisionObserveEnabled,
-                FlightRuntimeFlags.CollisionResponseEnabled,
-                FlightRuntimeFlags.DockingTxnEnabled,
+                RuntimeFlags.CollisionObserveEnabled,
+                RuntimeFlags.CollisionResponseEnabled,
+                RuntimeFlags.DockingTxnEnabled,
                 observation?.Stamp.FixedStep ?? -1,
                 observation?.Stamp.AuthorityGeneration ?? 0,
                 observation.HasValue ? observation.Value.Result.Disposition.ToString() : "none",
