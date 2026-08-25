@@ -608,7 +608,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // stays consistent with what the client sees. A live 1205 update
                         // is also pushed at spawn/undock (BuiltShipSpawner / the undock
                         // trigger) for clients already holding the shipyard in interest.
-                        long dockedShipId = Crafting.BuiltShips.DockedShipFor(entityId);
+                        //
+                        // This field IS the bubble: ShipyardVisualizer drives the
+                        // influence dome from OnDockedShipChanged, and the yard counts
+                        // as active only while Shipyard.DockedShip != null. A yard under
+                        // the transactional docking runtime therefore answers with the
+                        // runtime's COMMITTED truth - the same truth its 1205 push
+                        // publishes - so a late joiner sees the dome exactly when the
+                        // players already there do. Null (hence the legacy ledger, and a
+                        // byte-identical serve) for every unmanaged yard, which is every
+                        // yard with the docking gate off.
+                        long dockedShipId =
+                            WorldsAdriftRebornGameServer.Flight.RuntimeDockedShipAt(entityId)
+                            ?? Crafting.BuiltShips.DockedShipFor(entityId);
 
                         obj = new ShipyardState.Data(
                             shipyardSeed.Active,

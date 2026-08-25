@@ -20,6 +20,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         bool Docked,
         long YardDockedHullEntityId)
     {
+        /// <summary>
+        /// Whether this projection raises the shipyard's bubble. RECOVERED
+        /// (docs/research/findings-shipyard-dome.md): the client's
+        /// <c>ShipyardVisualizer</c> drives the influence dome from component 1205
+        /// <c>ShipyardState.DockedShipId</c> via <c>OnDockedShipChanged</c>, and a
+        /// yard counts as active only while <c>Shipyard.DockedShip != null</c>. So
+        /// a non-zero <see cref="YardDockedHullEntityId"/> IS the bubble.
+        /// </summary>
+        public bool BubbleRaised => YardDockedHullEntityId != 0;
+
+        /// <summary>
+        /// The bubble is up from the moment the hull snaps into the dock pose until
+        /// the link is released, and NOT during the approach. An approaching hull is
+        /// merely holding a server-side reservation (1114 keeps the yard id with
+        /// <c>ApproachingDock</c> set, which is exactly what that flag is for);
+        /// publishing 1205 there would raise the dome around a ship that is still
+        /// flying in. A departing hull keeps it up, because the player must see the
+        /// dome they are flying out of until they are clear of it.
+        /// </summary>
+        public static bool RaisesBubble(DockingPhase phase) =>
+            phase == DockingPhase.Captured || phase == DockingPhase.Docked
+            || phase == DockingPhase.Departing;
+
         public static DockingComponentProjection From(AuthenticDockingLifecycle lifecycle)
         {
             bool linked = lifecycle.Phase != DockingPhase.Undocked;
@@ -29,7 +52,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 lifecycle.Phase == DockingPhase.Approaching,
                 lifecycle.Phase == DockingPhase.Captured
                     || lifecycle.Phase == DockingPhase.Docked,
-                linked ? lifecycle.HullEntityId : 0);
+                RaisesBubble(lifecycle.Phase) ? lifecycle.HullEntityId : 0);
         }
     }
 

@@ -35,7 +35,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         YardOccupied,
         HullAlreadyLinked,
         StaleClaim,
-        InvalidSnapshot
+        InvalidSnapshot,
+        /// <summary>
+        /// Inside the influence sphere but UNDER the yard's own plane, so not
+        /// "above the shipyard". Appended so every value above keeps its number.
+        /// </summary>
+        BelowShipyard
     }
 
     /// <summary>Engine-free authoritative pose, in metres and radians.</summary>
@@ -114,26 +119,65 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
     /// <summary>
     /// Injectable policy values. Impact radius 35 m and interpolation rate 5/s are
-    /// recovered client defaults. The other values are conservative Wareborn tuning
+    /// RECOVERED client defaults. The other values are conservative WAReborn tuning
     /// because retail's server/serialized values did not survive.
+    ///
+    /// The former <c>CaptureRadiusMetres</c> (9 m) and <c>ReleaseRadiusMetres</c>
+    /// (18 m) are gone from this path on purpose: both were WAReborn tuning
+    /// standing in for a docking envelope, and the recovered bubble - the influence
+    /// dome of <see cref="ApproachRadiusMetres"/> - is the envelope the PLAYER can
+    /// actually see. Capture and departure clearance are now decided against that
+    /// one visible volume (<see cref="ShipyardBubble"/>) so the server's rule and
+    /// the client's dome are the same boundary. The legacy radius-snap path keeps
+    /// its own 9 m/18 m constants in <see cref="ShipyardDockingPolicy"/>.
     /// </summary>
     public sealed class DockingTuning
     {
-        public double ApproachRadiusMetres { get; init; } = 35.0; // recovered Shipyard.ImpactRadius default
-        public double CaptureRadiusMetres { get; init; } = 9.0; // existing Wareborn tuning
-        public double ReleaseRadiusMetres { get; init; } = 18.0; // existing Wareborn tuning
-        public double MaximumCaptureSpeedMetresPerSecond { get; init; } = 2.0; // Wareborn tuning
-        public double MaximumCaptureAngularSpeedRadiansPerSecond { get; init; } = 0.25; // Wareborn tuning
-        public double DockInterpolationRatePerSecond { get; init; } = 5.0; // recovered client code
-        public double PositionSnapToleranceMetres { get; init; } = 0.02; // Wareborn tuning
-        public double YawSnapToleranceRadians { get; init; } = 0.002; // Wareborn tuning
+        /// <summary>RECOVERED: <c>Shipyard.ImpactRadius</c> default, 35 m.</summary>
+        public double ApproachRadiusMetres { get; init; } = 35.0;
 
-        public bool IsValid => Positive(ApproachRadiusMetres) && Positive(CaptureRadiusMetres)
-            && ReleaseRadiusMetres > CaptureRadiusMetres
+        /// <summary>
+        /// WAREBORN TUNING: where "above the shipyard" starts, measured from the
+        /// yard's own registered Y. Zero puts the dome floor on the yard's
+        /// registration plane, which is where the recovered dock geometry says the
+        /// yard sits: a ship built here materialises
+        /// <c>BuiltShipPlacement.HoverHeightMetres</c> (3.4 m hull body + 2.6 m
+        /// clearance = 6.0 m) directly ABOVE that plane, so anything at or above it
+        /// is genuinely over the yard, and the convergence has only ever to settle a
+        /// hull DOWN onto the dock pose. Raise this if a live dome shows the visible
+        /// hemisphere starting higher.
+        /// </summary>
+        public double DomeFloorOffsetMetres { get; init; } = 0.0;
+
+        /// <summary>
+        /// WAREBORN TUNING: the departure hysteresis band outside the bubble. Entry
+        /// tests at exactly <see cref="ApproachRadiusMetres"/>; the link is only cut
+        /// past radius + this margin, so a hull hovering on the visible edge cannot
+        /// flap between docked and undocked. 2 m is ~6% of the 35 m radius and four
+        /// times the 0.48 m a hull covers in one 0.24 s docking scan at the 2 m/s
+        /// capture-negotiation ceiling, so one scan can never straddle the band.
+        /// </summary>
+        public double BubbleExitMarginMetres { get; init; } = 2.0;
+
+        public double MaximumCaptureSpeedMetresPerSecond { get; init; } = 2.0; // WAReborn tuning
+        public double MaximumCaptureAngularSpeedRadiansPerSecond { get; init; } = 0.25; // WAReborn tuning
+        public double DockInterpolationRatePerSecond { get; init; } = 5.0; // RECOVERED client code
+        public double PositionSnapToleranceMetres { get; init; } = 0.02; // WAReborn tuning
+        public double YawSnapToleranceRadians { get; init; } = 0.002; // WAReborn tuning
+
+        public bool IsValid => Positive(ApproachRadiusMetres)
+            && double.IsFinite(DomeFloorOffsetMetres)
+            && double.IsFinite(BubbleExitMarginMetres) && BubbleExitMarginMetres >= 0.0
             && Positive(MaximumCaptureSpeedMetresPerSecond)
             && Positive(MaximumCaptureAngularSpeedRadiansPerSecond)
             && Positive(DockInterpolationRatePerSecond)
             && Positive(PositionSnapToleranceMetres) && Positive(YawSnapToleranceRadians);
+
+        /// <summary>The bubble of one shipyard at its registered world position.</summary>
+        public ShipyardBubble BubbleAt(ShadowVector3 yardPosition) =>
+            new ShipyardBubble(yardPosition, ApproachRadiusMetres,
+                DomeFloorOffsetMetres, BubbleExitMarginMetres);
+
         private static bool Positive(double value) => value > 0 && !double.IsInfinity(value);
     }
 
@@ -143,7 +187,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             string hullStableKey, string yardStableKey,
             string? hullOwner, string? yardOwner, bool crewAuthorized, bool yardAbandoned,
             bool yardExists, bool propulsionNeutral, CollisionClearanceRecord collisionClearance,
-            DockingPose hullPose, DockingPose targetPose, DockingMotion motion)
+            DockingPose hullPose, DockingPose targetPose, DockingMotion motion,
+            ShipyardBubble bubble, bool helmManned = false)
         {
             HullEntityId = hullEntityId; YardEntityId = yardEntityId;
             HullStableKey = hullStableKey; YardStableKey = yardStableKey;
@@ -151,7 +196,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             CrewAuthorized = crewAuthorized; YardAbandoned = yardAbandoned;
             YardExists = yardExists; PropulsionNeutral = propulsionNeutral;
             CollisionClearance = collisionClearance; HullPose = hullPose; TargetPose = targetPose;
-            Motion = motion;
+            Motion = motion; Bubble = bubble; HelmManned = helmManned;
         }
 
         public long HullEntityId { get; }
@@ -168,20 +213,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public DockingPose HullPose { get; }
         public DockingPose TargetPose { get; }
         public DockingMotion Motion { get; }
+
+        /// <summary>The yard's influence dome - the bubble the player sees.</summary>
+        public ShipyardBubble Bubble { get; }
+
+        /// <summary>Whether a pilot currently holds this hull's helm.</summary>
+        public bool HelmManned { get; }
     }
 
     public readonly struct DockingFrame
     {
         public DockingFrame(double deltaSeconds, bool yardExists, bool permissionValid,
             DockingPropulsion propulsion,
-            CollisionClearanceRecord collisionClearance, bool outsideReleaseEnvelope, DockingPose observedPose,
-            DockingMotion observedMotion)
+            CollisionClearanceRecord collisionClearance, ShipyardBubble bubble,
+            DockingPose observedPose, DockingMotion observedMotion,
+            bool helmManned = false, double hullClearanceRadiusMetres = 0.0)
         {
             DeltaSeconds = deltaSeconds; YardExists = yardExists;
             PermissionValid = permissionValid;
             Propulsion = propulsion; CollisionClearance = collisionClearance;
-            OutsideReleaseEnvelope = outsideReleaseEnvelope;
+            Bubble = bubble;
             ObservedPose = observedPose; ObservedMotion = observedMotion;
+            HelmManned = helmManned;
+            HullClearanceRadiusMetres = hullClearanceRadiusMetres;
         }
 
         public double DeltaSeconds { get; }
@@ -190,9 +244,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public DockingPropulsion Propulsion { get; }
         public bool PropulsionNeutral => Propulsion == DockingPropulsion.None;
         public CollisionClearanceRecord CollisionClearance { get; }
-        public bool OutsideReleaseEnvelope { get; }
+
+        /// <summary>The yard's influence dome - the bubble the player sees.</summary>
+        public ShipyardBubble Bubble { get; }
+
+        /// <summary>
+        /// Whether a pilot currently holds the helm. Docking capture is a HELM
+        /// RELEASE event, never mere proximity, and manning a docked ship is not a
+        /// departure - only propulsion is.
+        /// </summary>
+        public bool HelmManned { get; }
+
+        /// <summary>
+        /// The hull's own yaw-invariant bounding radius, so "fully outside the
+        /// bubble" means the hull's near edge is outside, not just its centre.
+        /// Zero when the hull's geometry is unknown.
+        /// </summary>
+        public double HullClearanceRadiusMetres { get; }
+
         public DockingPose ObservedPose { get; }
         public DockingMotion ObservedMotion { get; }
+
+        /// <summary>
+        /// Departure-completion evidence: the hull is FULLY outside the bubble,
+        /// past the hysteresis margin. Derived from the one visible volume rather
+        /// than passed in, so no caller can hand the lifecycle a different answer
+        /// than the geometry gives.
+        /// </summary>
+        public bool OutsideReleaseEnvelope =>
+            Bubble.HasFullyCleared(ObservedPose.Position, HullClearanceRadiusMetres);
     }
 
     public readonly struct DockingStepResult
@@ -222,8 +302,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
     /// <summary>
     /// Pure, engine-free docking aggregate. It owns no client state and emits no
-    /// components; later integration adapts these transitions to 1114/1205 and the
-    /// collision service after Tracks 2 and 5 land.
+    /// components; <see cref="DockingComponentProjection"/> turns its phase into the
+    /// 1114/1205 truth the transaction publishes.
+    ///
+    /// The player-visible contract it implements:
+    /// <list type="number">
+    /// <item>a ship inside the bubble and above the yard whose pilot LEAVES THE HELM
+    /// snaps into the dock pose, and the bubble comes up;</item>
+    /// <item>taking the helm back leaves it docked - manning is not departure;</item>
+    /// <item>only propulsion starts a departure, and the link (with it the bubble)
+    /// drops only once the hull is FULLY outside the bubble.</item>
+    /// </list>
     /// </summary>
     public sealed class AuthenticDockingLifecycle
     {
@@ -317,10 +406,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             {
                 Pose = frame.ObservedPose;
                 Motion = frame.ObservedMotion;
+                // A reservation is not a lease: a hull that leaves the bubble
+                // entirely while approaching gives the yard back to everyone else.
+                if (frame.OutsideReleaseEnvelope)
+                    return Release(claims, DockingRejectReason.OutsideApproachRadius);
                 if (!ClearanceMatches(frame.CollisionClearance))
                     return Result(false, false, DockingRejectReason.CollisionBlocked);
                 LastCollisionClearanceStep = frame.CollisionClearance.FixedStep;
-                if (Pose.DistanceTo(TargetPose) <= _tuning.CaptureRadiusMetres
+                // CAPTURE IS A HELM-RELEASE EVENT. A ship the player is still flying
+                // stays Approaching however close it parks; the snap happens when
+                // they leave the wheel with the ship inside the bubble and above the
+                // yard, which is when the bubble comes up. An unmanned hull that
+                // drifts or is restored into the dome captures for the same reason:
+                // nobody is at its helm.
+                if (!frame.HelmManned
+                    && frame.Bubble.ContainsDock(Pose.Position)
                     && Motion.LinearSpeed <= _tuning.MaximumCaptureSpeedMetresPerSecond
                     && Math.Abs(Motion.AngularSpeedRadiansPerSecond)
                         <= _tuning.MaximumCaptureAngularSpeedRadiansPerSecond)
@@ -348,9 +448,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         }
 
         /// <summary>
-        /// Either sail or engine command begins departure. The occupancy reservation
-        /// deliberately remains until the collision service confirms the release
-        /// envelope is clear, preventing capture/undock churn.
+        /// Either sail or engine command begins departure - taking the helm back
+        /// does NOT. The occupancy reservation deliberately remains until the hull
+        /// is FULLY outside the bubble (past the hysteresis margin), so the link
+        /// drops exactly when the player sees the dome fall behind them and a hull
+        /// hovering on the edge cannot churn.
         /// </summary>
         public bool TryBeginDeparture(DockingPropulsion propulsion)
         {
@@ -421,8 +523,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 return DockingRejectReason.CollisionBlocked;
             if (!request.HullPose.IsFinite || !request.TargetPose.IsFinite || !request.Motion.IsFinite)
                 return DockingRejectReason.InvalidSnapshot;
-            if (request.HullPose.DistanceTo(request.TargetPose) > _tuning.ApproachRadiusMetres)
+            if (!request.Bubble.IsValid) return DockingRejectReason.InvalidSnapshot;
+            // The bubble is the approach volume: the recovered 35 m influence sphere
+            // about the YARD (Shipyard.IsWithinRange), and only its upper half - a
+            // hull passing beneath an island-mounted yard is not approaching it.
+            if (!request.Bubble.IsWithinRange(request.HullPose.Position))
                 return DockingRejectReason.OutsideApproachRadius;
+            if (!request.Bubble.IsAboveYard(request.HullPose.Position))
+                return DockingRejectReason.BelowShipyard;
             if (request.Motion.LinearSpeed > _tuning.MaximumCaptureSpeedMetresPerSecond
                 || Math.Abs(request.Motion.AngularSpeedRadiansPerSecond)
                     > _tuning.MaximumCaptureAngularSpeedRadiansPerSecond)

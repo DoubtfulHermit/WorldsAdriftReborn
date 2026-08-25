@@ -2550,6 +2550,18 @@ namespace WorldsAdriftRebornGameServer.Game
         internal Multiplayer.Ship.DockingComponentProjection? DockingProjectionFor(
             long hullEntityId) => _dockingDriver.ProjectionFor(hullEntityId);
 
+        /// <summary>
+        /// The yard side of the same committed truth: which hull (if any) the
+        /// transactional runtime has docked at this shipyard, for the 1205
+        /// ShipyardState checkout. That component's DockedShipId is what raises the
+        /// client's influence dome - the bubble - so a late joiner (or a peer whose
+        /// live push was lost) must read it from the runtime, not the legacy ledger
+        /// the transaction deliberately stops writing. Null for every yard the
+        /// runtime does not manage, which is every yard with the docking gate off.
+        /// </summary>
+        internal long? RuntimeDockedShipAt(long yardEntityId) =>
+            _dockingDriver.RuntimeDockedShipFor(yardEntityId);
+
         private void CompleteDepartureIfOutside(long hullEntityId, FlightState state)
         {
             // A runtime-managed hull departs through the stamped transactional

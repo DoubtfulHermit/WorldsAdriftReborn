@@ -146,8 +146,7 @@ namespace WorldsAdriftRebornGameServer.Game
             bool permissionValid = yardExists && DockingPermissionPolicy.MayApproach(
                 hullOwner, yardOwner, crewAuthorized: false,
                 yardAbandoned: string.IsNullOrEmpty(yardOwner));
-            bool outside = observedPose.DistanceTo(runtime.Lifecycle.TargetPose)
-                > Tuning.ReleaseRadiusMetres;
+            ShipyardBubble bubble = BubbleFor(yardEntityId);
 
             // Steady docked state: nothing to decide, so nothing NEW is committed
             // or persisted (event-on-change, like the rest of the publisher);
@@ -165,8 +164,10 @@ namespace WorldsAdriftRebornGameServer.Game
 
             var frame = new DockingFrame(ShipMotionPolicy.SendIntervalSeconds, yardExists,
                 permissionValid, propulsion,
-                observation.ClearanceFor(runtime.Lifecycle.YardStableKey), outside,
-                observedPose, observedMotion);
+                observation.ClearanceFor(runtime.Lifecycle.YardStableKey),
+                bubble, observedPose, observedMotion,
+                helmManned: session.IsManned,
+                hullClearanceRadiusMetres: HullClearanceRadiusFor(hullEntityId));
             DockingRuntimeResult result = runtime.Step(frame,
                 new StampedCollisionClearance(frame.CollisionClearance, observation.Stamp));
             if (result.FreezeVelocity)
@@ -224,17 +225,26 @@ namespace WorldsAdriftRebornGameServer.Game
             DockingPropulsion propulsion, FlightSession session)
         {
             string hullOwner = Crafting.BuiltShips.OwnerFor(hullEntityId);
-            foreach (long yardEntityId in Placement.PlacedShipyards.EntityIds.OrderBy(id => id))
+            // NEAREST yard first (id breaks ties, so the choice stays deterministic):
+            // domes can overlap, and the yard whose bubble the hull is deepest inside
+            // is the one the player means.
+            foreach (long yardEntityId in Placement.PlacedShipyards.EntityIds
+                         .OrderBy(id => BubbleFor(id).DistanceFromYard(observedPose.Position))
+                         .ThenBy(id => id))
             {
                 FixedPointPosition yardPosition = WorldsAdriftRebornGameServer.WorldEntities
                     .TransformSeedFor(yardEntityId);
+                ShipyardBubble bubble = BubbleFor(yardEntityId);
+                // Inside the bubble AND above the yard: the dome, not a sphere that
+                // also reaches under an island-mounted shipyard.
+                if (!bubble.ContainsDock(observedPose.Position)) continue;
+
                 FixedPointPosition target = Multiplayer.Ship.ShipyardDockingPolicy
                     .DockPose(yardPosition);
                 double targetYaw = Multiplayer.Ship.ShipyardDockingPolicy.YawFromPacked(
                     WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(yardEntityId));
                 var targetPose = new DockingPose(target.MetresX, target.MetresY,
                     target.MetresZ, targetYaw);
-                if (observedPose.DistanceTo(targetPose) > Tuning.ApproachRadiusMetres) continue;
 
                 string? yardOwner = Placement.PlacedShipyards
                     .SeedFor(yardEntityId).OwnerCharacterUid;
@@ -245,7 +255,8 @@ namespace WorldsAdriftRebornGameServer.Game
                     yardExists: true,
                     propulsionNeutral: propulsion == DockingPropulsion.None,
                     observation.ClearanceFor(YardKey(yardPosition)),
-                    observedPose, targetPose, observedMotion);
+                    observedPose, targetPose, observedMotion, bubble,
+                    helmManned: session.IsManned);
                 DockingRuntimeResult result = runtime.TryBeginApproach(request,
                     new StampedCollisionClearance(request.CollisionClearance,
                         observation.Stamp));
@@ -257,6 +268,54 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
                 // One decision per scan: the next stamped observation retries.
                 return result;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// One shipyard's influence dome, from the yard's own registered transform.
+        /// Every radius/floor/margin value comes from the shared
+        /// <see cref="DockingTuning"/>, so the approach gate, the capture volume, the
+        /// departure boundary and the reviewed dock volume are one geometry.
+        /// </summary>
+        private static ShipyardBubble BubbleFor(long yardEntityId)
+        {
+            FixedPointPosition yardPosition = WorldsAdriftRebornGameServer.WorldEntities
+                .TransformSeedFor(yardEntityId);
+            return Tuning.BubbleAt(new ShadowVector3(yardPosition.MetresX,
+                yardPosition.MetresY, yardPosition.MetresZ));
+        }
+
+        /// <summary>
+        /// The hull's yaw-invariant bounding radius, so "fully outside the bubble"
+        /// is measured from the hull's near edge. Zero when the geometry is unknown -
+        /// which is also a hull that never gets an observation, so it never reaches
+        /// a docking decision anyway.
+        /// </summary>
+        private double HullClearanceRadiusFor(long hullEntityId)
+        {
+            ShadowVector3? half = HalfExtentsFor(hullEntityId);
+            return half.HasValue
+                ? HullCollisionObserver.RotationExpandedHalfExtents(half.Value).Magnitude
+                : 0.0;
+        }
+
+        /// <summary>
+        /// The yard-side 1205 truth for a shipyard the transactional runtime manages:
+        /// the hull whose bubble is currently raised there, or 0 when a managed yard
+        /// has no docked ship. Null when NO runtime manages this yard, which is
+        /// always the case with the docking gate off - the 1205 checkout serve then
+        /// falls back to the legacy ledger byte-identically.
+        /// </summary>
+        internal long? RuntimeDockedShipFor(long yardEntityId)
+        {
+            if (yardEntityId <= 0) return null;
+            foreach (DockingRuntime runtime in _runtimes.Values)
+            {
+                AuthenticDockingLifecycle lifecycle = runtime.Lifecycle;
+                if (lifecycle.Phase == DockingPhase.Undocked
+                    || lifecycle.YardEntityId != yardEntityId) continue;
+                return DockingComponentProjection.From(lifecycle).YardDockedHullEntityId;
             }
             return null;
         }

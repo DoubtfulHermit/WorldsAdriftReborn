@@ -102,8 +102,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.True(lifecycle.TryBeginApproach(new DockingApproachRequest(
                 99001, 88001, "ship:stable", "yard:stable", "owner", "owner",
                 false, false, true, true, clearance,
-                new DockingPose(0, 0, 0, 0), new DockingPose(0, 0, 0, 0), default),
-                new ShipDockRegistry(), out _));
+                new DockingPose(0, 0, 0, 0), new DockingPose(0, 0, 0, 0), default,
+                OriginBubble), new ShipDockRegistry(), out _));
 
             string json = JsonSerializer.Serialize(lifecycle.CaptureSnapshot());
             Assert.Contains("ship:stable", json, StringComparison.Ordinal);
@@ -166,8 +166,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             return lifecycle.TryBeginApproach(new DockingApproachRequest(
                 200, 100, "ship:stable", "yard:stable", "owner", "owner", false,
                 false, true, true, clearance, new DockingPose(0, 0, 0, 0),
-                new DockingPose(0, 0, 0, 0), default), new ShipDockRegistry(), out _);
+                new DockingPose(0, 0, 0, 0), default, OriginBubble),
+                new ShipDockRegistry(), out _);
         }
+
+        /// <summary>A yard at the world origin, so a hull at (0,0,0) sits in its dome.</summary>
+        private static readonly ShipyardBubble OriginBubble =
+            new DockingTuning().BubbleAt(ShadowVector3.Zero);
 
         private static ShadowMotionState Motion() => new(ShadowVector3.Zero,
             ShadowVector3.Zero, new ShadowVector3(1, 1, 1));

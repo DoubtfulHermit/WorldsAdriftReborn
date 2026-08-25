@@ -12,6 +12,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
     {
         private static readonly DockingPose Target = new(100, 20, -50, 0.5);
 
+        /// <summary>The yard, one hover height below its dock pose.</summary>
+        private static readonly ShadowVector3 Yard = new(100,
+            20 - BuiltShipPlacement.HoverHeightMetres, -50);
+
+        private static readonly DockingTuning Tuning = new();
+        private static readonly ShipyardBubble Bubble = Tuning.BubbleAt(Yard);
+
+        /// <summary>Beyond the bubble AND its exit margin.</summary>
+        private static readonly DockingPose FarOutsideBubble = new(145, 20, -50, 0);
+
         [Fact]
         public void Runtime_is_default_off_and_does_not_claim_or_publish()
         {
@@ -41,7 +51,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal((int)DockingPhase.Approaching, commit.Snapshot.Phase);
             Assert.True(commit.Components.ApproachingDock);
             Assert.False(commit.Components.Docked);
-            Assert.Equal(200, commit.Components.YardDockedHullEntityId);
+            // The hull-side 1114 link exists (that is what ApproachingDock is for),
+            // but the yard-side 1205 DockedShipId - the BUBBLE - stays down while
+            // the ship is still flying in.
+            Assert.Equal(100, commit.Components.YardEntityId);
+            Assert.Equal(0, commit.Components.YardDockedHullEntityId);
+            Assert.False(commit.Components.BubbleRaised);
             Assert.False(commit.FreezeVelocity);
         }
 
@@ -191,7 +206,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             var freshClaims = new ShipDockRegistry();
             var port = new RecordingPort();
             var restored = new DockingRuntime(900, freshClaims, port,
-                new DockingRuntimeOptions { Enabled = true });
+                new DockingRuntimeOptions { Enabled = true }, Tuning);
             Assert.True(restored.TryRestore(restoredRecord.DockingSnapshot!, 700,
                 new FlightAuthorityStamp(50, 10)));
             Assert.Equal(900, freshClaims.DockedShipFor(700));
@@ -206,14 +221,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             var occupied = new ShipDockRegistry();
             occupied.TryClaim(700, 901);
             var conflict = new DockingRuntime(900, occupied, new RecordingPort(),
-                new DockingRuntimeOptions { Enabled = true });
+                new DockingRuntimeOptions { Enabled = true }, Tuning);
             Assert.False(conflict.TryRestore(snapshot, 700, new FlightAuthorityStamp(1, 1)));
             Assert.Equal(901, occupied.DockedShipFor(700));
 
             var claims = new ShipDockRegistry();
             var failed = new DockingRuntime(900, claims,
                 new RecordingPort { PersistSucceeds = false },
-                new DockingRuntimeOptions { Enabled = true });
+                new DockingRuntimeOptions { Enabled = true }, Tuning);
             Assert.False(failed.TryRestore(snapshot, 700, new FlightAuthorityStamp(1, 1)));
             Assert.False(claims.IsShipyardOccupied(700));
         }
@@ -226,7 +241,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             var secondPort = new RecordingPort();
             var first = Enabled(claims, firstPort);
             var second = new DockingRuntime(300, claims, secondPort,
-                new DockingRuntimeOptions { Enabled = true });
+                new DockingRuntimeOptions { Enabled = true }, Tuning);
 
             Assert.Equal(DockingRuntimeDisposition.Committed,
                 first.TryBeginApproach(Request(1), Clear(1)).Disposition);
@@ -295,7 +310,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
             DockingRuntimeResult result = runtime.Step(new DockingFrame(0.02,
                 yardExists: false, permissionValid: true, DockingPropulsion.None,
-                Clear(3).Clearance, false, Target, DockingMotion.Frozen), Clear(3));
+                Clear(3).Clearance, Bubble, Target, DockingMotion.Frozen), Clear(3));
 
             Assert.Equal(DockingRejectReason.YardUnavailable, result.RejectReason);
             Assert.True(result.LinkReleased);
@@ -314,7 +329,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
             DockingRuntimeResult result = runtime.Step(new DockingFrame(0.02,
                 yardExists: true, permissionValid: false, DockingPropulsion.None,
-                Clear(3).Clearance, false, Target, DockingMotion.Frozen), Clear(3));
+                Clear(3).Clearance, Bubble, Target, DockingMotion.Frozen), Clear(3));
 
             Assert.Equal(DockingRejectReason.Unauthorized, result.RejectReason);
             Assert.True(result.LinkReleased);
@@ -334,7 +349,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             DockingRuntimeResult refused = runtime.TryBeginApproach(new DockingApproachRequest(
                 200, 100, "ship:stable", "yard:stable", "owner", "owner", false, false,
                 true, true, blocked.Clearance, new DockingPose(104, 20, -50, 0), Target,
-                new DockingMotion(0, 0, 0, 0)), blocked);
+                new DockingMotion(0, 0, 0, 0), Bubble), blocked);
             Assert.Equal(DockingRejectReason.CollisionBlocked, refused.RejectReason);
             Assert.False(claims.IsShipyardOccupied(100));
 
@@ -421,32 +436,157 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal(ShipDockClaimResult.Claimed, claims.TryClaim(700, 900));
             var runtime = new DockingRuntime(900, claims,
                 new RecordingPort { PersistSucceeds = false },
-                new DockingRuntimeOptions { Enabled = true });
+                new DockingRuntimeOptions { Enabled = true }, Tuning);
 
             Assert.False(runtime.TryRestore(snapshot, 700, new FlightAuthorityStamp(1, 1)));
             Assert.Equal(900, claims.DockedShipFor(700));
         }
 
+        /// <summary>
+        /// THE BUBBLE, phase by phase. Component 1205 ShipyardState.DockedShipId is
+        /// what raises the client's influence dome (RECOVERED - ShipyardVisualizer
+        /// .OnDockedShipChanged, and a yard is "active" only while
+        /// Shipyard.DockedShip != null), so the projection at each transition IS the
+        /// player-visible bubble: down while flying in, up the instant the ship
+        /// snaps, still up all the way out, down when the link is cut.
+        /// </summary>
+        [Fact]
+        public void The_bubble_rises_at_the_snap_and_drops_at_the_unlink()
+        {
+            var claims = new ShipDockRegistry();
+            var port = new RecordingPort();
+            var runtime = Enabled(claims, port);
+
+            // APPROACH: hull-side link exists, bubble down.
+            runtime.TryBeginApproach(Request(1, Target), Clear(1));
+            Assert.Equal(DockingPhase.Approaching, runtime.Lifecycle.Phase);
+            Assert.False(port.Commits[^1].Components.BubbleRaised);
+
+            // SNAP: the capture commit raises it, naming this hull.
+            DockingRuntimeResult capture = runtime.Step(Frame(2, Target), Clear(2));
+            Assert.Equal(DockingPhase.Captured, capture.Phase);
+            Assert.True(capture.FreezeVelocity);
+            Assert.True(port.Commits[^1].Components.BubbleRaised);
+            Assert.Equal(200, port.Commits[^1].Components.YardDockedHullEntityId);
+
+            long step = 3;
+            for (; runtime.Lifecycle.Phase != DockingPhase.Docked; step++)
+                runtime.Step(Frame(step, runtime.Lifecycle.Pose), Clear(step));
+            Assert.True(port.Commits[^1].Components.BubbleRaised);
+
+            // DEPARTING: still up - the player must see the dome they are leaving.
+            DockingRuntimeResult leaving = runtime.Step(
+                Frame(step, Target, DockingPropulsion.Sail), Clear(step));
+            Assert.Equal(DockingPhase.Departing, leaving.Phase);
+            Assert.False(port.Commits[^1].Components.Docked);
+            Assert.True(port.Commits[^1].Components.BubbleRaised);
+
+            // FULLY OUT: link cut, bubble down.
+            step++;
+            DockingRuntimeResult cleared = runtime.Step(
+                Frame(step, Target, DockingPropulsion.Sail, outside: true), Clear(step));
+            Assert.True(cleared.LinkReleased);
+            Assert.False(port.Commits[^1].Components.BubbleRaised);
+            Assert.Equal(0, port.Commits[^1].Components.YardEntityId);
+        }
+
+        /// <summary>
+        /// Manning a docked ship is not a state change at all: it decides nothing,
+        /// commits nothing new, and leaves the bubble exactly where it was.
+        /// </summary>
+        [Fact]
+        public void Remanning_a_docked_ship_changes_neither_the_dock_nor_the_bubble()
+        {
+            var claims = new ShipDockRegistry();
+            var port = new RecordingPort();
+            var runtime = Enabled(claims, port);
+            runtime.TryBeginApproach(Request(1, Target), Clear(1));
+            long step = 2;
+            for (; runtime.Lifecycle.Phase != DockingPhase.Docked; step++)
+                runtime.Step(Frame(step, runtime.Lifecycle.Pose), Clear(step));
+            DockingPose docked = runtime.Lifecycle.Pose;
+
+            for (int i = 0; i < 10; i++, step++)
+            {
+                DockingRuntimeResult manned = runtime.Step(
+                    Frame(step, docked, helmManned: true), Clear(step));
+                Assert.Equal(DockingRuntimeDisposition.Committed, manned.Disposition);
+                Assert.Equal(DockingPhase.Docked, manned.Phase);
+                Assert.False(manned.LinkReleased);
+                Assert.True(port.Commits[^1].Components.BubbleRaised);
+                Assert.Equal(docked, runtime.Lifecycle.Pose);
+            }
+            Assert.Equal(200, claims.DockedShipFor(100));
+        }
+
+        /// <summary>
+        /// The whole player-described loop through the transactional runtime: fly in
+        /// manned (approach only), leave the helm (snap + bubble), get back on
+        /// (nothing happens), then power out and cross the bubble boundary (unlink).
+        /// </summary>
+        [Fact]
+        public void The_full_bubble_loop_commits_one_transition_per_stamped_scan()
+        {
+            var claims = new ShipDockRegistry();
+            var port = new RecordingPort();
+            var runtime = Enabled(claims, port);
+            var parked = new DockingPose(115, 20, -50, 0);
+
+            Assert.Equal(DockingRuntimeDisposition.Committed,
+                runtime.TryBeginApproach(RequestForHull(200, 1, parked, helmManned: true),
+                    Clear(1)).Disposition);
+            Assert.Equal(DockingPhase.Approaching,
+                runtime.Step(Frame(2, parked, helmManned: true), Clear(2)).Phase);
+            Assert.False(port.Commits[^1].Components.BubbleRaised);
+
+            Assert.Equal(DockingPhase.Captured,
+                runtime.Step(Frame(3, parked), Clear(3)).Phase);
+            Assert.True(port.Commits[^1].Components.BubbleRaised);
+
+            long step = 4;
+            for (; runtime.Lifecycle.Phase != DockingPhase.Docked; step++)
+                runtime.Step(Frame(step, runtime.Lifecycle.Pose), Clear(step));
+            Assert.Equal(Target, runtime.Lifecycle.Pose);
+
+            Assert.Equal(DockingPhase.Docked,
+                runtime.Step(Frame(step++, Target, helmManned: true), Clear(step - 1)).Phase);
+            Assert.Equal(DockingPhase.Departing, runtime.Step(
+                Frame(step++, Target, DockingPropulsion.Engine, helmManned: true),
+                Clear(step - 1)).Phase);
+            Assert.Equal(200, claims.DockedShipFor(100));
+            Assert.Equal(DockingPhase.Undocked, runtime.Step(
+                Frame(step, Target, DockingPropulsion.Engine, outside: true,
+                    helmManned: true), Clear(step)).Phase);
+            Assert.False(claims.IsShipyardOccupied(100));
+            Assert.False(port.Commits[^1].Components.BubbleRaised);
+        }
+
         private static DockingRuntime Enabled(ShipDockRegistry claims, RecordingPort port) =>
-            new(200, claims, port, new DockingRuntimeOptions { Enabled = true });
+            new(200, claims, port, new DockingRuntimeOptions { Enabled = true }, Tuning);
 
         private static DockingApproachRequest Request(long step,
             DockingPose? pose = null) => RequestForHull(200, step, pose);
 
         private static DockingApproachRequest RequestForHull(long hullEntityId, long step,
-            DockingPose? pose = null) => new(hullEntityId, 100, "ship:stable", "yard:stable",
+            DockingPose? pose = null, bool helmManned = false) =>
+            new(hullEntityId, 100, "ship:stable", "yard:stable",
                 "owner", "owner", false, false, true, true,
                 Clear(step).Clearance, pose ?? new DockingPose(104, 20, -50, 0),
-                Target, new DockingMotion(0, 0, 0, 0));
+                Target, new DockingMotion(0, 0, 0, 0), Bubble, helmManned);
 
         private static StampedCollisionClearance Clear(long step, long generation = 9) =>
             new(new CollisionClearanceRecord("ship:stable", "yard:stable", step, 0, true),
                 new FlightAuthorityStamp(step, generation));
 
+        /// <summary>
+        /// <paramref name="outside"/> substitutes a pose genuinely beyond the bubble:
+        /// departure clearance is derived from the geometry, never asserted by flag.
+        /// </summary>
         private static DockingFrame Frame(long step, DockingPose pose,
-            DockingPropulsion propulsion = DockingPropulsion.None, bool outside = false) =>
-            new(0.02, true, true, propulsion, Clear(step).Clearance, outside,
-                pose, DockingMotion.Frozen);
+            DockingPropulsion propulsion = DockingPropulsion.None, bool outside = false,
+            bool helmManned = false) =>
+            new(0.02, true, true, propulsion, Clear(step).Clearance, Bubble,
+                outside ? FarOutsideBubble : pose, DockingMotion.Frozen, helmManned);
 
         private static DockingSnapshotV1 CapturedSnapshot()
         {

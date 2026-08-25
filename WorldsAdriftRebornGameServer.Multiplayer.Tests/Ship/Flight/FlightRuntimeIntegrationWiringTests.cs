@@ -149,5 +149,56 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Contains(service, "if (_dockingDriver.Manages(hullEntityId)) return;",
                 "the legacy departure writer must not race a runtime-managed hull.");
         }
+
+        /// <summary>
+        /// The bubble contract's three inputs only exist in the pure lifecycle if
+        /// the glue actually gathers them: the live helm state, the yard's own
+        /// geometry, and the hull's extent. A driver that stopped passing any of
+        /// them would silently restore proximity docking with every pure test
+        /// still green.
+        /// </summary>
+        [Fact]
+        public void The_docking_scan_feeds_the_lifecycle_the_helm_state_and_the_yards_bubble()
+        {
+            string driver = DockingDriver();
+            Contains(driver, "helmManned: session.IsManned",
+                "capture is a HELM RELEASE event: the lifecycle can only refuse to "
+                + "snap a ship somebody is flying if the driver tells it who is at "
+                + "the wheel.");
+            Contains(driver, "private static ShipyardBubble BubbleFor(long yardEntityId)",
+                "the approach gate, the capture volume, the departure boundary and "
+                + "the reviewed dock volume must all come from ONE bubble built from "
+                + "the yard's own transform.");
+            Contains(driver, "if (!bubble.ContainsDock(observedPose.Position)) continue;",
+                "the yard scan must test the DOME (inside the bubble and above the "
+                + "yard), not a bare sphere that also reaches under an island.");
+            Contains(driver, "hullClearanceRadiusMetres: HullClearanceRadiusFor(hullEntityId)",
+                "\"fully outside the bubble\" counts the hull's own extent, so the "
+                + "departure frame must carry it.");
+        }
+
+        /// <summary>
+        /// 1205 DockedShipId IS the bubble (RECOVERED - ShipyardVisualizer drives
+        /// the influence dome from OnDockedShipChanged). The transaction stops
+        /// writing the legacy dock ledger, so a checkout that still read the ledger
+        /// would leave every late joiner with no dome around a docked ship.
+        /// </summary>
+        [Fact]
+        public void The_yard_checkout_serves_the_runtimes_committed_bubble_truth()
+        {
+            string serializer = Source("WorldsAdriftRebornGameServer", "Game",
+                "Components", "ComponentsSerializer.cs");
+            Contains(serializer,
+                "WorldsAdriftRebornGameServer.Flight.RuntimeDockedShipAt(entityId)",
+                "the 1205 ShipyardState checkout must answer from the transactional "
+                + "runtime for a managed yard.");
+            Contains(serializer, "?? Crafting.BuiltShips.DockedShipFor(entityId)",
+                "and fall back to the legacy ledger for every unmanaged yard, so the "
+                + "docking-gate-off serve stays byte-identical.");
+            Contains(DockingDriver(), "internal long? RuntimeDockedShipFor(long yardEntityId)",
+                "null means 'this yard is not under the runtime' - the only honest "
+                + "way for the serve to know when to fall back.");
+        }
+
     }
 }

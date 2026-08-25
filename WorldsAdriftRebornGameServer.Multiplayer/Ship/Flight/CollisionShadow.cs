@@ -134,7 +134,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             return new CollisionClearanceRecord(subjectStableKey,
                 expectedTargetStableKey, fixedStep, blockers, complete);
         }
-
         private static bool Touches(CollisionShadowContact contact, string stableKey) =>
             string.Equals(contact.FirstId, stableKey, StringComparison.Ordinal)
             || string.Equals(contact.SecondId, stableKey, StringComparison.Ordinal);

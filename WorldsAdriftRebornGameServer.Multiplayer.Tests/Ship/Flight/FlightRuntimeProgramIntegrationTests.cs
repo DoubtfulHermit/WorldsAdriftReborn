@@ -21,6 +21,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         private static readonly DockingTuning Docking = new DockingTuning();
         private static readonly DockingPose Target = new(0, 100, 0, 0);
 
+        /// <summary>The yard, one hover height below the dock pose above it.</summary>
+        private static readonly ShadowVector3 Yard =
+            new(0, 100 - BuiltShipPlacement.HoverHeightMetres, 0);
+        private static readonly ShipyardBubble Bubble = Docking.BubbleAt(Yard);
+
+        /// <summary>Beyond the bubble AND its exit margin.</summary>
+        private static readonly DockingPose FarOutsideBubble = new(0, 100, -60, 0);
+
         private static ShadowMassProperties Mass() => new ShadowMassProperties(
             1000.0, ShadowVector3.Zero, new ShadowVector3(1e5, 1e5, 1e5), true);
 
@@ -84,17 +92,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 new DockingRuntimeOptions { Enabled = true }, Docking);
             DockingPose observed = PoseOf(runtime.State);
             DockingMotion motion = MotionOf(runtime.State);
-            Assert.True(observed.DistanceTo(Target) <= Docking.CaptureRadiusMetres);
+            Assert.True(Bubble.ContainsDock(observed.Position));
             Assert.True(motion.LinearSpeed <= Docking.MaximumCaptureSpeedMetresPerSecond);
             DockingRuntimeResult approach = docking.TryBeginApproach(
                 new DockingApproachRequest(HullEntityId, YardEntityId, HullKey, YardKey,
                     "owner", "owner", false, false, true, true,
-                    Clear(26).Clearance, observed, Target, motion),
+                    Clear(26).Clearance, observed, Target, motion, Bubble),
                 Clear(26));
             Assert.Equal(DockingRuntimeDisposition.Committed, approach.Disposition);
             DockingRuntimeResult captured = docking.Step(
                 new DockingFrame(FixedFlightClock.StepSeconds, true, true,
-                    DockingPropulsion.None, Clear(27).Clearance, false, observed, motion),
+                    DockingPropulsion.None, Clear(27).Clearance, Bubble, observed, motion),
                 Clear(27));
             Assert.Equal(DockingRuntimeDisposition.Committed, captured.Disposition);
             Assert.Equal(DockingPhase.Captured, docking.Lifecycle.Phase);
@@ -118,7 +126,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             // A steady docked frame from the held pose stays committed/frozen.
             DockingRuntimeResult steady = docking.Step(
                 new DockingFrame(FixedFlightClock.StepSeconds, true, true,
-                    DockingPropulsion.None, Clear(28).Clearance, false, held,
+                    DockingPropulsion.None, Clear(28).Clearance, Bubble, held,
                     MotionOf(runtime.State)),
                 Clear(28));
             Assert.Equal(DockingRuntimeDisposition.Committed, steady.Disposition);
@@ -135,7 +143,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 "the rest snap pinned a hull whose departure propulsion is live");
             DockingRuntimeResult departing = docking.Step(
                 new DockingFrame(FixedFlightClock.StepSeconds, true, true,
-                    DockingPropulsion.Engine, Clear(29).Clearance, false,
+                    DockingPropulsion.Engine, Clear(29).Clearance, Bubble,
                     PoseOf(runtime.State), MotionOf(runtime.State)),
                 Clear(29));
             Assert.Equal(DockingPhase.Departing, docking.Lifecycle.Phase);
@@ -143,8 +151,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(HullEntityId, claims.DockedShipFor(YardEntityId));
             DockingRuntimeResult released = docking.Step(
                 new DockingFrame(FixedFlightClock.StepSeconds, true, true,
-                    DockingPropulsion.Engine, Clear(30).Clearance, true,
-                    PoseOf(runtime.State), MotionOf(runtime.State)),
+                    DockingPropulsion.Engine, Clear(30).Clearance, Bubble,
+                    FarOutsideBubble, MotionOf(runtime.State)),
                 Clear(30));
             Assert.True(released.LinkReleased);
             Assert.Equal(DockingPhase.Undocked, docking.Lifecycle.Phase);
@@ -195,7 +203,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 new DockingApproachRequest(HullEntityId, YardEntityId, HullKey, YardKey,
                     "owner", "owner", false, false, true, true,
                     clearance, observedPose, Target,
-                    new DockingMotion(pose.VxMps, pose.VyMps, pose.VzMps, 0)),
+                    new DockingMotion(pose.VxMps, pose.VyMps, pose.VzMps, 0), Bubble),
                 new StampedCollisionClearance(clearance, observation.Stamp));
             Assert.Equal(DockingRuntimeDisposition.Committed, approach.Disposition);
             DockingRuntimeCommit commit = Assert.Single(port.Commits);
@@ -204,7 +212,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             // A replay of the SAME step - even the minter's own stamp - is stale.
             DockingRuntimeResult replay = docking.Step(
                 new DockingFrame(FixedFlightClock.StepSeconds, true, true,
-                    DockingPropulsion.None, clearance, false, observedPose,
+                    DockingPropulsion.None, clearance, Bubble, observedPose,
                     DockingMotion.Frozen),
                 new StampedCollisionClearance(clearance, observation.Stamp));
             Assert.Equal(DockingRuntimeDisposition.RejectedStampMismatch,
