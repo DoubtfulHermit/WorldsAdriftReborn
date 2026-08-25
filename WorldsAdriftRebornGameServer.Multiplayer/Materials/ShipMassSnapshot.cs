@@ -35,12 +35,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
     /// persisted as identity; <see cref="StablePartKey"/> is the itemType/prefab
     /// derived identity that survives a restart, and is what the snapshot
     /// fingerprint is computed over.
+    ///
+    /// <see cref="MaterialEvidence"/> and <see cref="PrefabEvidence"/> carry the
+    /// TWO raw identity fields the mount record had - itemType-derived and
+    /// prefab-derived - SEPARATELY, because the shared core/upgrade identity
+    /// predicates (<c>ProductionHullLiftAudit.IsCoreIdentity</c> and friends)
+    /// take both and match either. Collapsing them into the single
+    /// <see cref="StablePartKey"/> made a core whose itemType is not core-like
+    /// but whose prefab is (a legacy record) count in the production audit yet
+    /// lift ZERO in the live plan - plan and audit must consult identical
+    /// evidence.
     /// </summary>
     public readonly record struct MountedPartMassEntry(
         long EntityId,
         string StablePartKey,
         string PartKind,
         string MaterialEvidence,
+        string PrefabEvidence,
         double MassKg,
         MassProvenance Provenance);
 

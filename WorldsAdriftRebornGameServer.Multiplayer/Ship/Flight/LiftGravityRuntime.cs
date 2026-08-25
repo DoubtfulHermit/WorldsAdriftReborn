@@ -102,13 +102,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             int upgrades = 0;
             for (int i = 0; i < snapshot.MountedParts.Count; i++)
             {
+                // The SAME two evidence fields the production audit consults -
+                // itemType-derived and prefab-derived, separately. Feeding the
+                // collapsed StablePartKey into both parameters made a core with
+                // a non-core itemType but a core prefab count in the audit yet
+                // lift zero here.
                 MountedPartMassEntry entry = snapshot.MountedParts[i];
-                if (ProductionHullLiftAudit.IsCoreIdentity(entry.StablePartKey, entry.StablePartKey))
+                if (ProductionHullLiftAudit.IsCoreIdentity(
+                    entry.MaterialEvidence, entry.PrefabEvidence))
                 {
                     cores++;
                 }
                 else if (ProductionHullLiftAudit.IsRecoveredMinimumUpgradeIdentity(
-                    entry.StablePartKey, entry.StablePartKey))
+                    entry.MaterialEvidence, entry.PrefabEvidence))
                 {
                     upgrades++;
                 }

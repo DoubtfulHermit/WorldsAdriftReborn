@@ -142,6 +142,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void A_core_identified_only_by_prefab_lifts_in_the_plan_exactly_as_it_audits()
+        {
+            // A legacy mount record whose itemType is not core-like but whose
+            // prefab IS CoreMain: the production audit counts it as a core
+            // (IsCoreIdentity matches either field), so the live plan must lift
+            // on it too - plan and audit consult identical evidence, never the
+            // collapsed stable key fed into both parameters.
+            Assert.True(ProductionHullLiftAudit.IsCoreIdentity("legacyPartRecord", "CoreMain"));
+            var parts = new List<ShipMassPartInput>
+            {
+                new ShipMassPartInput(100, "legacyPartRecord", "CoreMain", "deck", 0, 0, 0),
+            };
+            ShipMassSnapshot snapshot = ShipMassEvaluator.Build(new ShipMassInput(3639, null,
+                planDecoded: false, cellCount: 0, deckCount: 0,
+                hullHalfExtentXMetres: 2.0, hullHalfExtentYMetres: 1.5,
+                hullHalfExtentZMetres: 6.0, hullMassOverrideRaw: null, parts),
+                previous: null);
+
+            LiftCapacityPlan plan = LiftGravityRuntime.PlanFor(snapshot, Gravity,
+                liftRuntimeEnabledForHull: true, existedBeforeLiftActivation: true);
+
+            Assert.Equal(1, plan.CoreCount);
+            Assert.Equal(ProductionHullLiftAudit.RecoveredBaseCoreLiftKg,
+                plan.AuthenticCapacityKg);
+            Assert.True(plan.EffectiveCapacityKg > 0.0,
+                "the prefab-identified core audits as a core but lifted zero in the plan");
+        }
+
+        [Fact]
         public void Core_loss_grounds_the_hull_even_under_the_grandfather_policy()
         {
             LiftCapacityPlan plan = LiftGravityRuntime.PlanFor(

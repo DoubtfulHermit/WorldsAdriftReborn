@@ -195,8 +195,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
                     StableKeyOf(part.ItemType, part.PrefabName),
                     kind,
                     // The mount ledger records no crafted material or quality, so
-                    // the evidence is the item type identity alone.
+                    // the evidence is the raw identity pair: item type and prefab,
+                    // kept SEPARATE so identity predicates (core/upgrade) consult
+                    // the same two fields the production audit does.
                     part.ItemType ?? string.Empty,
+                    part.PrefabName ?? string.Empty,
                     verdict.MassKg,
                     verdict.Provenance);
                 totalMounted += verdict.MassKg;
@@ -273,7 +276,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
         /// re-mints ids in persisted last-mount order, so id order is session
         /// state too, and a byte-identical ship must not fingerprint differently
         /// after a reboot. Sorting the canonical strings themselves (ordinal)
-        /// orders by (StablePartKey, MaterialEvidence, MassKg, Provenance).
+        /// orders by (StablePartKey, MaterialEvidence, PrefabEvidence, MassKg,
+        /// Provenance).
         /// </summary>
         private static string FingerprintOf(double hullMassKg, MassProvenance hullProvenance,
             IReadOnlyList<MountedPartMassEntry> entries)
@@ -284,6 +288,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
                 MountedPartMassEntry entry = entries[i];
                 parts[i] = "part:" + entry.StablePartKey
                     + ':' + entry.MaterialEvidence
+                    // Prefab evidence participates: core/upgrade identity reads
+                    // it, so a prefab change is a capacity-relevant change.
+                    + ':' + entry.PrefabEvidence
                     + ':' + entry.MassKg.ToString("R", CultureInfo.InvariantCulture)
                     + ':' + (int)entry.Provenance;
             }
