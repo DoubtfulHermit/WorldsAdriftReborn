@@ -80,11 +80,11 @@ namespace WorldsAdriftServer.Tests
         public void RoadmapCountsAreDerivedFromTheObjectivesItShows()
         {
             string body = WebAssets.Read("home-body.html");
-            Assert.Equal(21, Occurrences(body, "data-state=\"done\""));
+            Assert.Equal(22, Occurrences(body, "data-state=\"done\""));
             Assert.Equal(5, Occurrences(body, "data-state=\"flight\""));
             Assert.Equal(2, Occurrences(body, "data-state=\"gate\""));
             Assert.Equal(5, Occurrences(body, "data-state=\"open\""));
-            Assert.Contains("These totals count the 33 objectives represented above",
+            Assert.Contains("These totals count the 34 objectives represented above",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("They are not a percentage of the whole game",
                 HomePage.Html, StringComparison.Ordinal);
@@ -117,7 +117,7 @@ namespace WorldsAdriftServer.Tests
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("linear-gradient(90deg, #744d8c", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("The final slowdown batching is isolated to client playback",
+            Assert.Contains("Ships now weigh what their parts weigh, and turn shimmer has a named cause",
                 HomePage.Html, StringComparison.Ordinal);
             Assert.Contains("One familiar address", HomePage.Html, StringComparison.Ordinal);
         }
@@ -125,23 +125,25 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void CurrentFlightClaimSeparates_proven_phase_lock_from_client_candidate()
         {
-            Assert.Contains("data-game-status-through=\"671c800\"",
+            Assert.Contains("data-game-status-through=\"2bfb806\"",
                 HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("Engine and generator-fuel path", HomePage.Html,
                 StringComparison.Ordinal);
             Assert.Contains("visual spin, authoritative burn, empty cutoff and partial-fuel restart passed live checks",
                 HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("mounted entity roots remain aligned to the hull to about one millimetre",
-                HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("remaining snap begins below roughly 0.5 m/s",
-                HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("publishes only on exact 12-step boundaries",
-                HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("state-coherent client correction is built and entering one focused real-eyes test",
-                HomePage.Html, StringComparison.Ordinal);
-            Assert.Contains("turn shimmer remains open", HomePage.Html,
+            // Proven work states its measurement; the client correction stays a
+            // candidate until a real-eyes test says otherwise.
+            Assert.Contains("mounted roots hold to about 1 mm", HomePage.Html,
                 StringComparison.Ordinal);
+            Assert.Contains("phase-locked at exactly 12 physics steps per 240 ms point",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("a control point carries no angular velocity",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("client attitude spline supplies one and is in real-eyes acceptance",
+                HomePage.Html, StringComparison.Ordinal);
+            Assert.Contains("visual gates remain explicitly open until they pass a real-eyes test",
+                HomePage.Html, StringComparison.Ordinal);
             Assert.DoesNotContain("turn and low-speed acceptance passed", HomePage.Html,
                 StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("5 ships", HomePage.Html, StringComparison.Ordinal);
