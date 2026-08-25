@@ -2366,6 +2366,12 @@ namespace WorldsAdriftRebornGameServer.Game
                 _dockingDriver.Scan(hullEntityId, domain, session);
             if (result.HasValue && result.Value.FreezeVelocity)
             {
+                // The transactional freeze reset the session pose OUTSIDE the
+                // vector runtime (session.DockAt inside the driver) - exactly
+                // like legacy DockAt and EmergencyStop, the vector runtime must
+                // re-seed from the session state on its next slice instead of
+                // flying on from a pre-freeze pose.
+                _vectorReseedRequested.Add(hullEntityId);
                 // Mirror the legacy capture's pilot handling: a frozen hull's held
                 // stick must not keep pushing the dead session input.
                 PilotSeats.Seat? pilot = _seats.PilotOf(hullEntityId);
