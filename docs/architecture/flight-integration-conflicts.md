@@ -134,6 +134,17 @@ the call *text* exists; a semantics-preserving sabotage (e.g. `false && ...` aro
 line) is beyond a source scan — the brief's sanctioned alternative for logic that matters is
 moving it into Multiplayer, which is where every actual decision already lives.
 
+## Defect found by the combined OFF-path check
+
+`BuiltShipRecord.DockingSnapshot` landed from the collision/docking branch WITHOUT
+`JsonIgnore(WhenWritingNull)` (the vector extension had it), and `AtomicJsonFile` does not
+omit nulls globally — so a world state written with every gate off would have gained
+`"DockingSnapshot": null` on every built ship, a production-path byte diff against main.
+Fixed (`419d2ad`) and pinned by
+`A_gates_off_built_ship_record_serializes_with_neither_extension`, which serializes a
+gates-off record and asserts NEITHER nullable extension property appears (verified to fail
+without the attribute).
+
 ## Defense-in-depth note
 
 Truncated-terrain honesty is enforced at three independent layers
