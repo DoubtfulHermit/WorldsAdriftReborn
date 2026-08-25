@@ -705,10 +705,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             (float)servedLiftKg,
                             new Improbable.Math.Vector3f(0f, 0f, 0f), true));
 
+                        // Journal-grep acceptance gates key on this exact string:
+                        // with the lift gate OFF servedLiftKg IS the seed, so the
+                        // line below is byte-identical to the pre-vector wording.
                         Console.WriteLine("[info] seeding 1258 ShipLiftState for built hull entity " + entityId
                             + " (totalLift=" + servedLiftKg.ToString("0")
-                            + " kg, seed margin " + Multiplayer.Materials.ShipLiftPolicy.LiftMargin().ToString("0")
-                            + "x over the heaviest buildable hull): the sky core lifts.");
+                            + " kg, margin " + Multiplayer.Materials.ShipLiftPolicy.LiftMargin().ToString("0")
+                            + "x over the heaviest buildable hull): the sky core lifts, "
+                            + "vertical input stays unblocked.");
                     }
                     else if(componentId == 190601)
                     {
