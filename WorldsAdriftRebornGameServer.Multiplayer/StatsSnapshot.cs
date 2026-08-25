@@ -410,6 +410,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public ShipWorldBoundsStat WorldBounds { get; }
         public FixedFlightClockStat FixedClock { get; }
 
+        /// <summary>The vector-authority / lift-runtime gates and last committed evidence.</summary>
+        public VectorAuthorityStat VectorAuthority { get; }
+
         /// <summary>
         /// The character uid this hull belongs to, or "" when the owner is not
         /// known to this boot. The operator surface answers "the ship this player
@@ -436,7 +439,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             double vxMps = 0, double vyMps = 0, double vzMps = 0,
             ShipHullStat hull = default, ShipFlightStat flight = default,
             ShipWorldBoundsStat worldBounds = default,
-            FixedFlightClockStat fixedClock = default)
+            FixedFlightClockStat fixedClock = default,
+            VectorAuthorityStat vectorAuthority = default)
         {
             YawRadians = yawRadians;
             YawRateRadPerSec = yawRateRadPerSec;
@@ -447,6 +451,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Flight = flight;
             WorldBounds = worldBounds;
             FixedClock = fixedClock;
+            VectorAuthority = vectorAuthority;
             DomainId = domainId ?? string.Empty;
             HullEntityId = hullEntityId;
             AuthorityGeneration = authorityGeneration;
@@ -494,6 +499,89 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public long DroppedSteps { get; }
         public long PressureEvents { get; }
         public double RemainderSeconds { get; }
+    }
+
+    /// <summary>
+    /// One publication slice's scalar-vs-vector divergence, measured by
+    /// re-anchoring the vector shadow on the pre-slice scalar state and stepping
+    /// both over the SAME accepted steps. Published from the last committed
+    /// sample; the admin surface never re-evaluates.
+    /// </summary>
+    public readonly struct VectorShadowComparison
+    {
+        public VectorShadowComparison(long fixedStep, long authorityGeneration,
+            double positionDeltaMetres, double velocityDeltaMps, double yawDeltaRadians)
+        {
+            Present = true;
+            FixedStep = fixedStep;
+            AuthorityGeneration = authorityGeneration;
+            PositionDeltaMetres = positionDeltaMetres;
+            VelocityDeltaMps = velocityDeltaMps;
+            YawDeltaRadians = yawDeltaRadians;
+        }
+        public bool Present { get; }
+        public long FixedStep { get; }
+        public long AuthorityGeneration { get; }
+        public double PositionDeltaMetres { get; }
+        public double VelocityDeltaMps { get; }
+        public double YawDeltaRadians { get; }
+    }
+
+    /// <summary>
+    /// The vector-authority and lift-runtime evidence for one hull: the live
+    /// flag values (handover rule: every gate's value is visible here), the
+    /// last committed stamp, the observer-phase divergence sample, and the last
+    /// committed lift-capacity plan - effective and authentic side by side so a
+    /// divergence between them is always operator-visible data.
+    /// </summary>
+    public readonly struct VectorAuthorityStat
+    {
+        public VectorAuthorityStat(bool masterEnabled, bool liftRuntimeEnabled,
+            bool promoted, string mode, long lastFixedStep, long lastAuthorityGeneration,
+            VectorShadowComparison comparison, bool liftPlanPresent,
+            double authenticCapacityKg, double effectiveCapacityKg,
+            bool capacityDiverges, string migrationDisposition, string capacityProvenance,
+            int massRevision, string massFingerprint, string lastStepDisposition,
+            bool overloaded)
+        {
+            Present = true;
+            MasterEnabled = masterEnabled;
+            LiftRuntimeEnabled = liftRuntimeEnabled;
+            Promoted = promoted;
+            Mode = mode ?? string.Empty;
+            LastFixedStep = lastFixedStep;
+            LastAuthorityGeneration = lastAuthorityGeneration;
+            Comparison = comparison;
+            LiftPlanPresent = liftPlanPresent;
+            AuthenticCapacityKg = authenticCapacityKg;
+            EffectiveCapacityKg = effectiveCapacityKg;
+            CapacityDiverges = capacityDiverges;
+            MigrationDisposition = migrationDisposition ?? string.Empty;
+            CapacityProvenance = capacityProvenance ?? string.Empty;
+            MassRevision = massRevision;
+            MassFingerprint = massFingerprint ?? string.Empty;
+            LastStepDisposition = lastStepDisposition ?? string.Empty;
+            Overloaded = overloaded;
+        }
+
+        public bool Present { get; }
+        public bool MasterEnabled { get; }
+        public bool LiftRuntimeEnabled { get; }
+        public bool Promoted { get; }
+        public string Mode { get; }
+        public long LastFixedStep { get; }
+        public long LastAuthorityGeneration { get; }
+        public VectorShadowComparison Comparison { get; }
+        public bool LiftPlanPresent { get; }
+        public double AuthenticCapacityKg { get; }
+        public double EffectiveCapacityKg { get; }
+        public bool CapacityDiverges { get; }
+        public string MigrationDisposition { get; }
+        public string CapacityProvenance { get; }
+        public int MassRevision { get; }
+        public string MassFingerprint { get; }
+        public string LastStepDisposition { get; }
+        public bool Overloaded { get; }
     }
 
     /// <summary>

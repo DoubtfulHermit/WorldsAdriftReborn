@@ -2700,7 +2700,8 @@ namespace WorldsAdriftRebornGameServer
                     hullStat,
                     Flight.FlightStatFor(domain.HullEntityId, hullStat),
                     Flight.WorldBoundsStatFor(domain.HullEntityId),
-                    Flight.FixedClockStatFor(domain.HullEntityId)));
+                    Flight.FixedClockStatFor(domain.HullEntityId),
+                    Flight.VectorAuthorityStatFor(domain.HullEntityId)));
             }
 
             // Operator topology: the ownership-only host is the source of truth for
