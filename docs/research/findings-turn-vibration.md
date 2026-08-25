@@ -496,6 +496,175 @@ re-validating against the rejected `2026.08.24-1` continuity trial, which proved
 that defeating client smoothing blindly exposes a contact/carry disagreement
 (`docs/architecture/client-ship-motion-continuity-2026-08-24.md:35-47`).
 
+## The client correction (option 2, implemented)
+
+Added 2026-08-25 on `fix/client-rotation-interpolation`, after the live
+measurement came back **2,406,852 completed fixed steps, 5 dropped steps, 1
+pressure event**. That kills candidates 3 and 5 as the live driver and leaves
+candidates 1 and 2, which are client-side. Option 2 is implemented; option 3 is
+designed but deliberately not shipped (see below).
+
+### What it does
+
+`SplineInterpolator.Interpolate` is postfixed so that ATTITUDE is squad
+(spherical-quadrangle) interpolated instead of bare-slerped, using the
+neighbouring buffered control points as implicit tangents:
+
+```
+s_i   = q_i * exp( -( a * log(q_i^-1 q_i+1) + b * log(q_i^-1 q_i-1) ) / 2 )
+squad = slerp( slerp(q_i, q_i+1, t), slerp(s_i, s_i+1, t), 2t(1-t) )
+```
+
+with the Kim/Kim/Shin non-uniform weights `a = h_prev/(h_prev+h_next)` and
+`b = h_next/(h_prev+h_next)`, where `h_prev` and `h_next` are the intervals
+either side of the point whose inner control quaternion is being built. No
+schema change, no server change, no extra bandwidth: the missing derivative is
+derived from points the client already buffers.
+
+- Pure policy: `Multiplayer/Ship/Flight/ShipRotationSplinePolicy.cs`, source-linked
+  into the net35 mod exactly like `HelmYawResponsePolicy`, so the unit tests run
+  the same code the client does.
+- Harmony glue: `WorldsAdriftReborn/Patching/Flight/ShipRotationSpline_Patch.cs`.
+- Toggle: `[Flight] Flight_SmoothShipRotation` in `WorldsAdriftReborn.cfg`,
+  **default true**, re-read live (`WAConfig_Patch` reloads that file every 5 s),
+  so it can be flipped mid-flight and A/B'd against the exact symptom without a
+  relaunch.
+
+### Three properties that make it safe, each pinned by a test
+
+1. **It is the identity on a steady turn.** Under a constant angular rate the two
+   weighted tangent logs cancel exactly - for uneven stamps as well as even ones -
+   so `s_i = q_i` and squad degenerates to the slerp retail already draws. It acts
+   only where the turn RATE changes, which is exactly where the C0 kink is.
+2. **It never moves an authoritative pose.** At `t=0` and `t=1` the result is
+   `q_i` and `q_i+1` bit-for-bit. It chooses a smoother route BETWEEN two
+   attitudes the server really sent; it cannot walk the client off the server.
+3. **`s_i` depends only on the point and its two neighbours**, never on which
+   segment is being drawn - which is what makes the join C1: the segment arriving
+   at `q_i+1` and the segment leaving it compute the same `s_i+1` and therefore
+   agree on the angular rate there.
+
+### Why `Interpolate` and not `CubicHermiteInterpolation`
+
+Two reasons, both load-bearing. `Interpolate` is the only overload handed the
+whole control-point LIST, which is where the neighbour attitudes live. And
+`CubicHermiteInterpolation` is also the engine of
+`PathFollower.ApplySplineCorrection` (`PathFollower.cs:205`), which drives it
+with rotation DELTAS from identity rather than world attitudes - smoothing there
+would silently reshape the post-underrun recovery ramp. Patching `Interpolate`
+leaves that path untouched by construction.
+
+### Where the tangents come from, and what happens at a buffer edge
+
+- **Forward neighbour** `q_i+2`: read straight out of the buffer at
+  `fromIndex + 2`. The client plays back `ExtrapolationTime = 0.75 s` behind the
+  newest stamp, i.e. about three 240 ms points of lead, so it is normally there.
+- **Backward neighbour** `q_i-1`: **not** normally in the buffer, because
+  `PathFollower.FixedUpdate:306-309` trims with `RemoveRange(0, fromIndex)` after
+  every successful interpolation, leaving the current from-point at index 0 for
+  the rest of its life. It *is* present on the single frame the segment advances
+  (at `fromIndex - 1`, immediately before the trim), and that is when the patch
+  captures it, into a weak per-buffer memory keyed on the `List<ControlPoint>`
+  instance. Nothing is invented: this only remembers a point the client really
+  received.
+- **A missing neighbour contributes a zero tangent** (`s = q`, the textbook
+  clamped end condition), never a guessed rotation. With BOTH missing the formula
+  would collapse to plain slerp anyway, so that case short-circuits to "do not
+  touch retail's value" rather than recomputing the same answer in double
+  precision and handing back a rounding delta.
+- Neighbours are additionally rejected if they are not `Received`, are not
+  strictly earlier/later, sit more than `4 x` the current segment away (a clear,
+  re-seed or halt happened across the gap), or imply an attitude step over
+  90 degrees (a correction or teleport, not a turn).
+- Segments shorter than half a `SendInterval` are skipped entirely. That is what
+  keeps the patch off `DeadReckoningSender`, which drives the same static method
+  over its own 50 ms pre-smoothed buffer on the SEND path.
+
+### Why this is not the rejected `2026.08.24-1` trial
+
+That trial bypassed the two receive-side apply thresholds by REPEATING the hull
+`MovePosition`/`MoveRotation` target every fixed update and forcing every `"~"`
+follower to re-apply its composed target. It compiled and tested green, and it
+failed live acceptance: repeating the pose left `PathFollower.PreviousSample` and
+the Rigidbody velocity on an older sample, and the local player's contact/carry
+path reads exactly those - so player and ship drifted smoothly apart and then
+hard-corrected two or three times before rest
+(`docs/architecture/client-ship-motion-continuity-2026-08-24.md:33-61`).
+
+This change does none of that. It alters ONE FIELD of the ONE sample retail was
+already about to use, before retail uses it. The sample count, the schedule,
+`PathFollower.Move`, both apply thresholds, `PreviousSample`, the Rigidbody
+velocity and the spline-correction machinery are all the stock code paths, and
+the value handed to them is still a real attitude on the arc between two server
+poses. Nothing downstream can observe a state it would not otherwise have seen -
+which is the specific failure the trial produced.
+
+### Option 3 (extrapolate rotation): designed, NOT shipped
+
+`ControlPoint.ExtrapolateWithConstantVelocity` copies `previous.Rotation`
+unchanged (`ControlPoint.cs:71-76`), so a buffer underrun freezes the yaw and the
+next real point unwinds it over a 5 s spline correction. Carrying an angular
+delta there is the direct fix for candidate 1, and it is deliberately deferred:
+
+- The method is `static` and takes only a `ControlPoint` struct, so it has no
+  identity to hang a per-ship angular rate on. `FsimIdHash` is the server's
+  worker-id hash - identical for every ship - so it cannot key one. The only
+  available arming signal is call ORDER inside `PathFollower.FixedUpdate`, and
+  that same method is also called from `AddControlPoint`'s halt-recovery branch
+  and from the spline-correction setup at `PathFollower.cs:315`, where changing
+  the extrapolated target changes the correction quaternion itself.
+- More importantly, it would inject invented rotation with no server backing into
+  the halt ladder, which feeds `PreviousSample` - the exact contact/carry state
+  the rejected trial desynchronised. A deck-standing player would be rotated by a
+  guess and then hard-corrected when the real point landed: the trial's failure
+  signature, reached by a different route.
+- The live measurement says underruns are rare on production anyway (5 dropped
+  steps in 2.4 M).
+
+If option 2 lands and a residual freeze/unwind is still visible during a lag
+spike, revisit this with its own flag and its own live acceptance - not before.
+
+### Verification
+
+- `ShipRotationSplinePolicyTests`: 20 tests. They pin the DEFECT (retail's slerp
+  stepping the attitude rate by 25 deg/s across a join where the turn rate
+  changes), the CORRECTION on the same data, the steady-turn identity on both
+  even and uneven stamps, endpoint preservation, bounded deviation, unit-norm
+  output, hemisphere-flip robustness, off-yaw axes, and every fail-safe path
+  (both neighbours absent, a stale neighbour, a non-advancing segment, a
+  teleport-sized step, NaN/Inf, a zero quaternion).
+- Multiplayer suite: 5,185 passed / 0 failed (5,165 baseline + 20 new).
+- Server suite: unchanged - this change is client-side.
+- `dotnet build WorldsAdriftReborn -c Release` against the real game assemblies:
+  clean, and the shipped DLL still references `mscorlib 2.0.0.0` (CLR 2.0), which
+  `build-manifest.sh` refuses to publish without.
+
+### In-game A/B
+
+Both halves of the A/B are on ONE client - the hull's pose is server-replicated
+even for the pilot, so a single player can see the difference without a second
+peer. Edit `BepInEx/config/WorldsAdriftReborn.cfg` while flying; the value is
+re-read within 5 s and takes effect on the next control-point segment.
+
+1. Board the equipped ship, take the helm, bring it to a **low, steady speed**
+   (one engine at part throttle, or sails only). Low speed keeps the ship in
+   frame and stops forward motion masking the rotation.
+2. `Flight_SmoothShipRotation = false`. Hold `A` into a hard sustained turn, then
+   release - the bar must hold its angle and the ship must keep turning. Watch a
+   **far mounted part** (outboard engine, wing, sail) for a full ten seconds: the
+   long lever arm is where the rate kink is loudest. Then the helm's own steering
+   bar, then the five flight instruments on their bar pipes.
+3. Set it to `true` and repeat the same turn without relaunching. Log line
+   `[WAR][flight] ship attitude spline smoothing is ON` confirms the flip landed.
+4. Pass = the arc becomes a smooth sweep instead of advance-and-catch, with the
+   steering latch from step 2 intact and no new separation between the player and
+   the deck at any point.
+
+A residual *uniform, very fine* shimmer at high turn rates is candidate 4, the
+`Quaternion32` endpoint quantisation (+/-0.079 degrees, ~5.5 mm at a 4 m lever
+arm), which is a wire-type limit and is not fixable at all. Report that as
+"smooth but grainy" rather than "vibrating", so the two stay separable.
+
 ## The correction
 
 Server-side, pure logic in the Multiplayer assembly plus one line of glue.
