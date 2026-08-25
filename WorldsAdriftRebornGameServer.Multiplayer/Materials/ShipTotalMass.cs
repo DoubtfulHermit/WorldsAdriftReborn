@@ -3,15 +3,15 @@ using System;
 namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
 {
     /// <summary>
-    /// One mass policy shared by the 1257 seed, force flight and telemetry.
-    /// Retail sums the hull's ParentingMassAdderState with every mounted part's
-    /// OriginalMassState. We serve 50 kg per part, so force flight must include
-    /// the same amount rather than accelerating a bare hull while the client
-    /// displays a rigged ship's larger mass.
+    /// The WAREBORN_SHIP_MASS hull-mass override semantics, shared by everything
+    /// that touches hull mass. The flat 50 kg per-part formula that used to live
+    /// beside it is retired: per-part mass is now typed and provenance-labelled
+    /// in <see cref="ShipMassEvaluator"/>, and the one flight total is
+    /// <see cref="ShipMassSnapshot.TotalFlightMassKg"/> - never a count times a
+    /// constant.
     /// </summary>
     public static class ShipTotalMass
     {
-        public const double MountedPartMassKg = 50.0;
         public const double MaxOverrideKg = 1_000_000.0;
 
         /// <summary>
@@ -34,14 +34,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
                 return parsed;
             }
             return derived;
-        }
-
-        public static double TotalFlightMassKg(
-            double derivedHullMassKg, int mountedPartCount, string? overrideRaw = null)
-        {
-            int parts = mountedPartCount < 0 ? 0 : mountedPartCount;
-            return HullMassWithOverride(derivedHullMassKg, overrideRaw)
-                + (parts * MountedPartMassKg);
         }
     }
 }

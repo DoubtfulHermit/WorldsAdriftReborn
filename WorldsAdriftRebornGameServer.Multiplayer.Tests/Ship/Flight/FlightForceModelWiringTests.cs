@@ -75,15 +75,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         public void MassIsDerivedFromTheHullRatherThanAssumed()
         {
             string service = FlightService();
-            Contains(service, "HullMassCalculator.HullMassKg",
-                "ship mass must come from the hull's real materials and geometry - it is the "
-                + "whole reason a tungsten barge should fly differently from a cedar skiff.");
-            Contains(service, "ShipHullMetrics.Measure",
-                "cell and deck counts must come from the decoded plan, so a six-cell ship is "
-                + "heavier than a one-cell one in the same timber.");
-            Contains(service, "ShipTotalMass.TotalFlightMassKg",
-                "flight mass must add every mounted part through the same policy that "
-                + "serves 1257/1121; otherwise mounting and salvage only change the UI mass.");
+            Contains(service, "ShipMassSnapshots.For(hullEntityId).TotalFlightMassKg",
+                "flight mass must come off the ONE cached ShipMassSnapshot - the same typed "
+                + "per-part policy that serves 1257/1121; otherwise mounting and salvage "
+                + "only change the UI mass. The snapshot's evaluator is where "
+                + "HullMassCalculator and the material geometry live, unit-tested.");
+            Assert.False(service.Contains("ShipTotalMass.TotalFlightMassKg", StringComparison.Ordinal),
+                "The retired flat hull+N*50 formula must not creep back beside the snapshot.");
         }
 
         [Fact]

@@ -306,8 +306,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     continue;
                 }
                 ShipHullMetrics metrics = ShipHullMetrics.Measure(plan!);
-                double mass = ShipTotalMass.TotalFlightMassKg(
-                    HullMassCalculator.HullMassKg(ship.Materials(), metrics), parts.Count);
+                // The same typed per-part table the live snapshot uses - never a
+                // parallel count-times-constant formula.
+                double mass = HullMassCalculator.HullMassKg(ship.Materials(), metrics);
+                foreach (MountedPartRecord part in parts)
+                {
+                    mass += ShipMassEvaluator.PartMass(
+                        part.ItemType, part.PrefabName, attachmentType: null).MassKg;
+                }
                 int cores = parts.Count(IsCore);
                 int recoveredMinimumUpgrades = parts.Count(IsRecoveredMinimumUpgrade);
                 // Retail restricted a ship to one core. Never multiply capacity from

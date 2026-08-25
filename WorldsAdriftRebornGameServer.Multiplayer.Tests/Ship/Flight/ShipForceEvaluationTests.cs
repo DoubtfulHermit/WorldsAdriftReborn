@@ -75,10 +75,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void Mount_and_detach_change_total_mass_without_breaking_hull_override()
         {
-            double mounted = ShipTotalMass.TotalFlightMassKg(800, 2);
-            double detached = ShipTotalMass.TotalFlightMassKg(800, 1);
-            double overriddenMounted = ShipTotalMass.TotalFlightMassKg(800, 2, "1000");
-            double overriddenDetached = ShipTotalMass.TotalFlightMassKg(800, 1, "1000");
+            ShipMassSnapshot Total(int parts, string? overrideRaw)
+            {
+                var inputs = new List<ShipMassPartInput>();
+                for (int i = 0; i < parts; i++)
+                {
+                    inputs.Add(new ShipMassPartInput(100 + i, "trunk", "Trunk01", "deck", 0, 0, 0));
+                }
+                return ShipMassEvaluator.Build(new ShipMassInput(
+                    7, null, planDecoded: false, 0, 0, 0, 0, 0, overrideRaw, inputs), previous: null);
+            }
+
+            double mounted = Total(2, null).TotalFlightMassKg;
+            double detached = Total(1, null).TotalFlightMassKg;
+            double overriddenMounted = Total(2, "1000").TotalFlightMassKg;
+            double overriddenDetached = Total(1, "1000").TotalFlightMassKg;
 
             Assert.Equal(900.0, mounted);
             Assert.Equal(850.0, detached);

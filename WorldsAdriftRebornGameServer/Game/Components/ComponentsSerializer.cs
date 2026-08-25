@@ -91,33 +91,6 @@ namespace WorldsAdriftRebornGameServer.Game.Components
         }
 
         /// <summary>
-        /// A built hull's mass in kilograms, from its recorded materials and its
-        /// actual geometry. The hull blob is decoded to count cells and decks, so a
-        /// six-cell ship is heavier than a one-cell one in the same timber. A hull
-        /// whose blob will not decode falls back to the calculator's minimum rather
-        /// than reporting a weightless ship - the client writes this number straight
-        /// into Rigidbody.mass and divides by it.
-        /// </summary>
-        private static double ShipMassKgFor(long entityId)
-        {
-            Multiplayer.Materials.HullMaterials materials = Crafting.BuiltShips.MaterialsFor(entityId);
-
-            int cells = 1;
-            int decks = 1;
-            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(entityId);
-            if (hullBytes != null
-                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
-                && plan != null)
-            {
-                Multiplayer.Ship.ShipHullMetrics metrics = Multiplayer.Ship.ShipHullMetrics.Measure(plan);
-                cells = metrics.CellCount;
-                decks = metrics.DeckCount;
-            }
-
-            return Multiplayer.Materials.HullMassCalculator.HullMassKg(materials, cells, decks);
-        }
-
-        /// <summary>
         /// Whether an entity is the REQUESTING peer's OWN player avatar - the only
         /// thing the loading barrier ever holds. The barrier seeds (190000 Requested,
         /// 190002 IsActive=false) must land on the joining peer's own player and
@@ -700,8 +673,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // "no server mass model exists (1257 is known-absent)". That is
                         // STALE and was misleading in a load-bearing way. We DO serve
                         // 1257 ParentingMassAdderState, fully per-material, ~2600 lines
-                        // below at the `componentId == 1257` branch, via ShipMassKgFor ->
-                        // HullMassCalculator.HullMassKg. Nor is AtlasMultiplier zero on
+                        // below at the `componentId == 1257` branch, off the one cached
+                        // ShipMassSnapshot. Nor is AtlasMultiplier zero on
                         // our client: EndOfTheWorld_Patch.cs pins it to 1f (a44aebb).
                         // So climb works because TotalLift really is 1e6 against hull
                         // masses of 500-1700 kg - not because either side is absent.
@@ -3449,19 +3422,20 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // whisker of the 800 f this always served - so existing ships
                         // do not change, while a cedar skiff is genuinely light and a
                         // gold barge genuinely is not. WAREBORN_SHIP_MASS still wins
-                        // when set, as a live override.
-                        float shipMass = (float)Multiplayer.Materials.ShipTotalMass.HullMassWithOverride(
-                            ShipMassKgFor(entityId),
-                            Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS"));
+                        // when set, as a live override. All of it comes off the ONE
+                        // cached ShipMassSnapshot flight also flies with, so this
+                        // number can never drift from the mass the server steers.
+                        float shipMass = (float)ShipMassSnapshots.For(entityId).HullStructuralMassKg;
                         obj = new Bossa.Travellers.Ship.ParentingMassAdderState.Data(shipMass, false);
                     }
                     else if (componentId == 1121)
                     {
                         // 1121 OriginalMassState - {float mass} (VERIFIED ctor gencode
                         // Bossa.Travellers.Ship/OriginalMassState.cs:309). A part's own
-                        // authored mass; served modest so parented parts add sane weight.
+                        // authored mass, typed and provenance-labelled by the mass
+                        // snapshot/evaluator - a wing is no longer as heavy as an engine.
                         obj = new Bossa.Travellers.Ship.OriginalMassState.Data(
-                            (float)Multiplayer.Materials.ShipTotalMass.MountedPartMassKg);
+                            (float)ShipMassSnapshots.PartMassKgFor(entityId));
                     }
                     else if (componentId == 1294)
                     {

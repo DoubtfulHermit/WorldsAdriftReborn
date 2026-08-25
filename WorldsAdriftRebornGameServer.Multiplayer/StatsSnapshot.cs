@@ -223,7 +223,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             double wallIntensity, double windAngleDegrees,
             double sailForceNewtons, double engineForceNewtons,
             double propulsionAccelerationMps2, double windAlongHeadingMps,
-            double predictedTerminalSpeedMps, ShipFlightShadowStat shadow = default)
+            double predictedTerminalSpeedMps, ShipFlightShadowStat shadow = default,
+            int massRevision = 0, string? massFingerprint = null,
+            double legacyFlatMassKg = 0.0)
         {
             Present = true;
             MassKg = massKg;
@@ -240,10 +242,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             WindAlongHeadingMps = windAlongHeadingMps;
             PredictedTerminalSpeedMps = predictedTerminalSpeedMps;
             Shadow = shadow;
+            MassRevision = massRevision;
+            MassFingerprint = massFingerprint ?? string.Empty;
+            LegacyFlatMassKg = legacyFlatMassKg;
         }
 
         public bool Present { get; }
         public double MassKg { get; }
+
+        /// <summary>Identity of the ShipMassSnapshot the mass came from.</summary>
+        public int MassRevision { get; }
+        public string MassFingerprint { get; }
+
+        /// <summary>What the retired flat hull+N*50 model would have said - the visible delta.</summary>
+        public double LegacyFlatMassKg { get; }
         public int MountedSails { get; }
         public int UnfurledSails { get; }
         public double SampledAtSeconds { get; }
@@ -1631,6 +1643,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Key(b, "flight"); b.Append('{');
             Bool(b, "present", f.Present); b.Append(',');
             Num(b, "massKg", Trim(f.MassKg)); b.Append(',');
+            Num(b, "massRevision", f.MassRevision); b.Append(',');
+            Str(b, "massFingerprint", f.MassFingerprint); b.Append(',');
+            Num(b, "legacyFlatMassKg", Trim(f.LegacyFlatMassKg)); b.Append(',');
             Num(b, "mountedSails", f.MountedSails); b.Append(',');
             Num(b, "unfurledSails", f.UnfurledSails); b.Append(',');
             Num(b, "sampledAtSeconds", Trim(f.SampledAtSeconds)); b.Append(',');

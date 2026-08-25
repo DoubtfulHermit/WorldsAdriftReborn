@@ -842,6 +842,9 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Refreshes host ownership after a mount or detach outside the flight tick.</summary>
         internal void RefreshDomainOwnership(long hullEntityId)
         {
+            // A mount/detach/salvage changed what the ship carries: the ONE mass
+            // snapshot must rebuild, whether or not a flight domain exists yet.
+            ShipMassSnapshots.Invalidate(hullEntityId);
             if (_domains.ByHull(hullEntityId) is ShipDomain domain)
                 RefreshDomainMembership(domain);
         }
@@ -872,6 +875,7 @@ namespace WorldsAdriftRebornGameServer.Game
             _boundsQuarantinedHulls.Remove(hullEntityId);
             _fixedClocks.Remove(hullEntityId);
             _fixedClockTelemetry.Remove(hullEntityId);
+            ShipMassSnapshots.Retire(hullEntityId);
             ShipPublisher.RetireDomain(hullEntityId);
         }
 
@@ -1458,47 +1462,15 @@ namespace WorldsAdriftRebornGameServer.Game
 
         /// <summary>
         /// The flight agility multiplier for one hull, from what it is made of and how
-        /// big it is: heavier ships accelerate, turn and climb more lazily.
-        ///
-        /// Cached per hull for the life of the ship. A hull's materials and geometry
-        /// are immutable once built, so recomputing them - which means decoding the
-        /// hull blob - on every 0.24 s tick for every flying ship would be pure waste.
-        ///
-        /// Falls back to 1.0 (today's exact behaviour) for anything that is not a
-        /// recognised built hull, so the static demo ship and the acceptance fixture
-        /// fly unchanged.
+        /// big it is: heavier ships accelerate, turn and climb more lazily. Thin glue
+        /// over the ONE cached mass snapshot - a hull that is not a decodable built
+        /// ship carries the 800 kg reference mass there, and AgilityScale(800) is
+        /// exactly 1.0, so the static demo ship and the acceptance fixture fly
+        /// unchanged.
         /// </summary>
-        private double AgilityScaleFor(long hullEntityId)
-        {
-            if (_agilityByHull.TryGetValue(hullEntityId, out double cached))
-            {
-                return cached;
-            }
-
-            double agility = 1.0;
-            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
-            if (hullBytes != null
-                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
-                && plan != null)
-            {
-                Multiplayer.Ship.ShipHullMetrics metrics = Multiplayer.Ship.ShipHullMetrics.Measure(plan);
-                double massKg = Multiplayer.Materials.HullMassCalculator.HullMassKg(
-                    Crafting.BuiltShips.MaterialsFor(hullEntityId), metrics.CellCount, metrics.DeckCount);
-                agility = Multiplayer.Materials.HullMassCalculator.AgilityScale(massKg);
-
-                Console.WriteLine("[flight] hull " + hullEntityId + " mass "
-                    + massKg.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
-                    + " kg (" + Crafting.BuiltShips.MaterialsFor(hullEntityId)
-                    + ", " + metrics.CellCount + " cell(s), " + metrics.DeckCount + " deck(s)) -> agility x"
-                    + agility.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
-            }
-
-            _agilityByHull[hullEntityId] = agility;
-            return agility;
-        }
-
-        /// <summary>Per-hull agility cache; see <see cref="AgilityScaleFor"/>.</summary>
-        private readonly Dictionary<long, double> _agilityByHull = new Dictionary<long, double>();
+        private double AgilityScaleFor(long hullEntityId) =>
+            Multiplayer.Materials.HullMassCalculator.AgilityScale(
+                ShipMassSnapshots.For(hullEntityId).HullStructuralMassKg);
 
         /// <summary>
         /// WAREBORN_FLIGHT_FORCES=1 replaces the kinematic speed-command model
@@ -1541,9 +1513,10 @@ namespace WorldsAdriftRebornGameServer.Game
         /// Engines are counted LIVE rather than cached, because unlike hull
         /// materials they are not immutable: a player can mount or salvage an
         /// engine mid-flight and should feel the difference on the next control
-        /// point. <c>MountedParts.OnHull</c> is a yielding scan over a per-ship
-        /// handful of parts and is already called twice per flight tick for
-        /// replication bookkeeping, so this adds no new traversal class.
+        /// point. Mass comes from the ONE snapshot (typed per-part masses, hull
+        /// override applied) whose cache the same mount/detach/salvage hooks
+        /// invalidate - so the wall attenuation downstream of ship.MassKg reads
+        /// the identical truth the 1121/1257 writers serve.
         /// </summary>
         private ShipPropulsion? PropulsionFor(long hullEntityId, int unfurledSails)
         {
@@ -1553,18 +1526,9 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             int engines = CountEngines(hullEntityId);
-            int mountedParts = 0;
-            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry
-                in Crafting.MountedParts.OnHull(hullEntityId))
-            {
-                mountedParts++;
-            }
-
             bool enginesPowered = WorldsAdriftRebornGameServer.ShipFuel.EnginesPowered(hullEntityId);
             return new ShipPropulsion(
-                Multiplayer.Materials.ShipTotalMass.TotalFlightMassKg(
-                    DerivedHullMassKgFor(hullEntityId), mountedParts,
-                    Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS")),
+                ShipMassSnapshots.For(hullEntityId).TotalFlightMassKg,
                 enginesPowered ? engines * _tuning.EngineThrustNewtons : 0.0,
                 unfurledSails);
         }
@@ -1633,6 +1597,10 @@ namespace WorldsAdriftRebornGameServer.Game
 
             Multiplayer.ShipFlightShadowStat shadow = ShadowStatFor(
                 hullEntityId, domain, hull, evaluation, ship);
+            // The identity of the snapshot the mass came from, so the inspector
+            // can prove every consumer read the same (Revision, Fingerprint,
+            // TotalFlightMassKg) - and see the retired flat model's number beside it.
+            Multiplayer.Materials.ShipMassSnapshot massSnapshot = ShipMassSnapshots.For(hullEntityId);
             return new Multiplayer.ShipFlightStat(
                 evaluation.MassKg, mountedSails, evaluation.UnfurledSails,
                 evaluation.SampledAtSeconds,
@@ -1641,7 +1609,9 @@ namespace WorldsAdriftRebornGameServer.Game
                 evaluation.SailForceNewtons, evaluation.EngineForceNewtons,
                 evaluation.PropulsionAccelerationMps2,
                 evaluation.WindAlongHeadingMps,
-                evaluation.PredictedSettledSpeedMps, shadow);
+                evaluation.PredictedSettledSpeedMps, shadow,
+                massSnapshot.Revision, massSnapshot.Fingerprint,
+                massSnapshot.LegacyFlatTotalMassKg);
         }
 
         private Multiplayer.ShipFlightShadowStat ShadowStatFor(long hullEntityId,
@@ -1660,8 +1630,12 @@ namespace WorldsAdriftRebornGameServer.Game
                     ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
                     0, 0, false, default, false);
 
+            // The ONE mass snapshot: each propulsor carries its own typed mass and
+            // the hull term is the snapshot total minus exactly those propulsors,
+            // so vector shadow, scalar flight and the 1121/1257 writers agree.
+            Multiplayer.Materials.ShipMassSnapshot massSnapshot = ShipMassSnapshots.For(hullEntityId);
             var parts = new List<ShadowPropulsor>();
-            int propulsorCount = 0;
+            double propulsorMassKg = 0.0;
             foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry in
                 Crafting.MountedParts.OnHull(hullEntityId).OrderBy(x => x.Key))
             {
@@ -1682,18 +1656,23 @@ namespace WorldsAdriftRebornGameServer.Game
                         ? _tuning.EngineThrustNewtons : 0.0)
                     : (sailUnfurled
                         ? _tuning.SailPowerNewtons : 0.0);
+                if (!massSnapshot.TryPartMassKg(entry.Key, out double partMassKg))
+                {
+                    partMassKg = Multiplayer.Materials.ShipMassEvaluator.PartMass(
+                        mount.ItemType, mount.PrefabName, mount.AttachmentType).MassKg;
+                }
                 parts.Add(new ShadowPropulsor(isEngine ? ShadowPartKind.Engine : ShadowPartKind.Sail,
                     new ShadowVector3(mount.LocalOffset.MetresX, mount.LocalOffset.MetresY,
-                        mount.LocalOffset.MetresZ), rotation, power, 50.0,
+                        mount.LocalOffset.MetresZ), rotation, power, partMassKg,
                     torqueless: false));
-                propulsorCount++;
+                propulsorMassKg += partMassKg;
             }
 
             Multiplayer.Ship.ShipHullMetrics metrics = hull.Silhouette.Metrics;
             ShadowVector3 half = new(Math.Max(0.25, metrics.BeamMetres * 0.5),
                 Math.Max(0.25, metrics.DeckPlaneMetres * 0.5),
                 Math.Max(0.25, metrics.KeelMetres * 0.5));
-            double hullAndNonPropulsorMass = Math.Max(1.0, ship.MassKg - propulsorCount * 50.0);
+            double hullAndNonPropulsorMass = Math.Max(1.0, ship.MassKg - propulsorMassKg);
             double yaw = domain.Flight.State.YawRadians;
             double sin = Math.Sin(yaw), cos = Math.Cos(yaw);
             ShadowVector3 localWind = new(
@@ -1798,38 +1777,6 @@ namespace WorldsAdriftRebornGameServer.Game
                     System.Globalization.CultureInfo.InvariantCulture) + "]"
                 + " substeps=" + telemetry.ReferenceSubsteps + ".");
         }
-
-        /// <summary>
-        /// This hull's mass in kilograms, from its real materials and real cell and
-        /// deck counts. Cached on the same reasoning as the agility cache: a built
-        /// hull's materials and geometry never change. A hull whose plan will not
-        /// decode falls back to the reference mass rather than to zero, because the
-        /// force model divides by this.
-        /// </summary>
-        private double DerivedHullMassKgFor(long hullEntityId)
-        {
-            if (_hullMassByHull.TryGetValue(hullEntityId, out double cached))
-            {
-                return cached;
-            }
-
-            double massKg = Multiplayer.Materials.HullMassCalculator.ReferenceHullMassKg;
-            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
-            if (hullBytes != null
-                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
-                && plan != null)
-            {
-                Multiplayer.Ship.ShipHullMetrics metrics = Multiplayer.Ship.ShipHullMetrics.Measure(plan);
-                massKg = Multiplayer.Materials.HullMassCalculator.HullMassKg(
-                    Crafting.BuiltShips.MaterialsFor(hullEntityId), metrics.CellCount, metrics.DeckCount);
-            }
-
-            _hullMassByHull[hullEntityId] = massKg;
-            return massKg;
-        }
-
-        /// <summary>Per-hull mass cache; see <see cref="HullMassKgFor"/>.</summary>
-        private readonly Dictionary<long, double> _hullMassByHull = new Dictionary<long, double>();
 
         private void PersistPoseWhenDue(long hullEntityId, ShipDomain domain)
         {
