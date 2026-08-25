@@ -80,6 +80,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
         }
 
         [Fact]
+        public void A_snapshot_written_with_every_gate_off_carries_no_vector_property_at_all()
+        {
+            // Byte-identical OFF path: the persistence serializer (System.Text.Json,
+            // AtomicJsonFile) must omit the null extension entirely, so a world
+            // state written with the gates off matches one written before the
+            // field existed.
+            DurableShipFlightSnapshot snapshot = DurableShipFlightSnapshot.Capture(
+                BasePose(), FlightControlInput.Neutral, authorityGeneration: 3,
+                wasManned: false, aboardCount: 0, wasDocked: false, unfurledSailCount: 0);
+
+            string json = System.Text.Json.JsonSerializer.Serialize(snapshot);
+
+            Assert.DoesNotContain("Vector", json);
+        }
+
+        [Fact]
         public void The_vector_extension_rides_the_base_snapshot_additively()
         {
             DurableShipFlightSnapshot snapshot = DurableShipFlightSnapshot.Capture(

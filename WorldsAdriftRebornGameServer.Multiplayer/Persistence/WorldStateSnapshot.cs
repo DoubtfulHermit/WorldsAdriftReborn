@@ -231,8 +231,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// ADDITIVE, versioned, nullable: the vector-authority extension. Null for
         /// every scalar hull and for every pre-vector snapshot on disk, so the base
         /// <see cref="Version"/> and <see cref="TryRead"/> semantics are untouched
-        /// - a v1 file restores exactly as before this field existed.
+        /// - a v1 file restores exactly as before this field existed. Omitted from
+        /// the JSON when null, so a world-state file written with every vector
+        /// gate OFF is byte-identical to one written before this field existed.
         /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore(
+            Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
         public DurableVectorFlightState? Vector { get; set; }
 
         public bool TryRead(out FlightState state, out FlightControlInput input)
