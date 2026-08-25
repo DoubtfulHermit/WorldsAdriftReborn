@@ -135,6 +135,55 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Empty(capped.Corrections);
         }
 
+        [Theory]
+        [InlineData(50.0)]
+        [InlineData(100.0)]
+        [InlineData(175.0)]
+        [InlineData(250.0)]
+        public void High_speed_sweep_never_tunnels_through_a_thin_wall(double speed)
+        {
+            // Displacement up to 62.5 m fully crosses the 0.5 m wall at x=10 within
+            // one step; a discrete overlap test would miss it entirely.
+            CollisionRuntimeResult result = CollisionRuntime.Evaluate(12, 7,
+                new[] { Hull("ship", 12, 7, 1000, 0, speed) },
+                new[] { Terrain("wall", 12, 7, 10) }, 0.25, On(maxDelta: 50));
+
+            CollisionShadowContact contact = Assert.Single(result.Observation.Contacts);
+            Assert.False(contact.InitialOverlap);
+            Assert.InRange(contact.TimeOfImpact, 0.0, 1.0);
+            Assert.Equal(speed, contact.ClosingSpeedMetresPerSecond, 6);
+            Assert.Equal(CollisionResponseDisposition.Applied, result.Disposition);
+            CollisionVelocityCorrection correction = Assert.Single(result.Corrections);
+            Assert.True(correction.After.X >= speed - 50.0 - 1e-9); // response budget bound
+        }
+
+        [Fact]
+        public void Contact_records_carry_stamp_and_stable_ordinals_across_replay()
+        {
+            CollisionRuntimeProxy[] dynamics =
+            {
+                Hull("b-ship", 12, 7, 1000, 0, 60),
+                Hull("a-ship", 12, 7, 1000, 4, 60)
+            };
+            CollisionRuntimeProxy[] terrain = { Terrain("wall", 12, 7, 10) };
+            var options = new CollisionRuntimeOptions { ObserveEnabled = true };
+
+            CollisionRuntimeResult first = CollisionRuntime.Evaluate(12, 7,
+                dynamics, terrain, 0.2, options);
+            CollisionRuntimeResult replay = CollisionRuntime.Evaluate(12, 7,
+                dynamics.Reverse().ToArray(), terrain, 0.2, options);
+
+            Assert.NotEmpty(first.ContactRecords);
+            Assert.Equal(first.ContactRecords, replay.ContactRecords);
+            Assert.Equal(Enumerable.Range(0, first.ContactRecords.Count),
+                first.ContactRecords.Select(x => x.Ordinal));
+            Assert.All(first.ContactRecords, record =>
+            {
+                Assert.Equal(12, record.FixedStep);
+                Assert.Equal(7, record.AuthorityGeneration);
+            });
+        }
+
         [Fact]
         public void Duplicate_proxy_ids_reject_response_without_throwing()
         {

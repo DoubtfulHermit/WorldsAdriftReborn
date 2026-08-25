@@ -134,8 +134,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             }
             _lastStamp = stamped.Stamp;
             if (step.Reason != DockingRejectReason.None)
-                return Rejected(step.Reason);
+                return Rejected(step.Reason, step.FreezeVelocity, step.LinkReleased);
             return Committed(step.FreezeVelocity, step.LinkReleased);
+        }
+
+        /// <summary>
+        /// Authority-driven generation transition. Only the service that reads the
+        /// hull's live ShipDomain.Generation may call this (helm change, restart
+        /// restore): evidence arriving with a higher generation is never proof by
+        /// itself that the generation legitimately advanced, so stamps cannot
+        /// self-upgrade through StampAcceptable. After a rebase, every stamp and
+        /// clearance from an older generation is dead and the first frame of the
+        /// new generation is accepted from any non-negative step.
+        /// </summary>
+        public void RebaseGeneration(long authorityGeneration)
+        {
+            if (authorityGeneration <= 0) return;
+            if (_lastStamp.HasValue
+                && _lastStamp.Value.AuthorityGeneration >= authorityGeneration) return;
+            // FixedStep -1 is an intentionally invalid stamp used only as the
+            // strictly-below-zero acceptance baseline for the new generation.
+            _lastStamp = new FlightAuthorityStamp(-1, authorityGeneration);
+        }
+
+        /// <summary>
+        /// Authoritative hull deletion (salvage/retire). Releases any held claim and
+        /// publishes the unlink through the transaction. Deletion is not rolled back:
+        /// the hull no longer exists, so a failed publication only means peers learn
+        /// from the entity removal instead.
+        /// </summary>
+        public DockingRuntimeResult Delete(FlightAuthorityStamp stamp)
+        {
+            if (!_options.Enabled || _lifecycle.Phase == DockingPhase.Undocked)
+                return Off();
+            DockingStepResult step = _lifecycle.DeleteHull(_claims);
+            Commit(stamp, freeze: false, released: step.LinkReleased);
+            if (stamp.IsValid) _lastStamp = stamp;
+            return Committed(false, step.LinkReleased);
         }
 
         public bool TryRestore(DockingSnapshotV1 snapshot, long restoredYardEntityId,
@@ -202,8 +237,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         private DockingRuntimeResult StampRejected() => new(
             DockingRuntimeDisposition.RejectedStampMismatch, DockingRejectReason.StaleClaim,
             _lifecycle.Phase, false, false);
-        private DockingRuntimeResult Rejected(DockingRejectReason reason) => new(
-            DockingRuntimeDisposition.RejectedLifecycle, reason, _lifecycle.Phase, false, false);
+        private DockingRuntimeResult Rejected(DockingRejectReason reason,
+            bool freeze = false, bool released = false) => new(
+            DockingRuntimeDisposition.RejectedLifecycle, reason, _lifecycle.Phase,
+            freeze, released);
         private DockingRuntimeResult RolledBack() => new(
             DockingRuntimeDisposition.TransactionRolledBack, DockingRejectReason.None,
             _lifecycle.Phase, false, false);

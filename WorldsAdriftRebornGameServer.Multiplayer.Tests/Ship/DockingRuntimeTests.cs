@@ -163,6 +163,178 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
+        public void Two_ships_contending_for_one_yard_first_writer_wins()
+        {
+            var claims = new ShipDockRegistry();
+            var firstPort = new RecordingPort();
+            var secondPort = new RecordingPort();
+            var first = Enabled(claims, firstPort);
+            var second = new DockingRuntime(300, claims, secondPort,
+                new DockingRuntimeOptions { Enabled = true });
+
+            Assert.Equal(DockingRuntimeDisposition.Committed,
+                first.TryBeginApproach(Request(1), Clear(1)).Disposition);
+            DockingRuntimeResult loser = second.TryBeginApproach(
+                RequestForHull(300, 2), Clear(2));
+
+            Assert.Equal(DockingRuntimeDisposition.RejectedLifecycle, loser.Disposition);
+            Assert.Equal(DockingRejectReason.YardOccupied, loser.RejectReason);
+            Assert.Equal(200, claims.DockedShipFor(100));
+            Assert.Equal(DockingPhase.Undocked, second.Lifecycle.Phase);
+            Assert.Empty(secondPort.Commits);
+        }
+
+        [Fact]
+        public void Legacy_SetDocked_overwrite_is_detected_as_stale_and_fails_closed()
+        {
+            var claims = new ShipDockRegistry();
+            var port = new RecordingPort();
+            var runtime = Enabled(claims, port);
+            runtime.TryBeginApproach(Request(1, Target), Clear(1));
+            runtime.Step(Frame(2, Target), Clear(2));
+            Assert.Equal(DockingPhase.Captured, runtime.Lifecycle.Phase);
+
+            // A legacy writer overwrites the transactional claim behind our back.
+            claims.SetDocked(100, 555);
+
+            DockingRuntimeResult result = runtime.Step(Frame(3, Target), Clear(3));
+
+            Assert.Equal(DockingRejectReason.StaleClaim, result.RejectReason);
+            Assert.Equal(DockingPhase.Undocked, runtime.Lifecycle.Phase);
+            // The overwriting claimant is untouched: a stale reset never releases
+            // somebody else's live claim.
+            Assert.Equal(555, claims.DockedShipFor(100));
+        }
+
+        [Theory]
+        [InlineData(DockingPropulsion.Engine)]
+        [InlineData(DockingPropulsion.SailAndEngine)]
+        public void Engine_and_mixed_propulsion_also_begin_departure(DockingPropulsion propulsion)
+        {
+            var claims = new ShipDockRegistry();
+            var runtime = Enabled(claims, new RecordingPort());
+            runtime.TryBeginApproach(Request(1, Target), Clear(1));
+            runtime.Step(Frame(2, Target), Clear(2));
+
+            DockingRuntimeResult leaving = runtime.Step(
+                Frame(3, Target, propulsion, outside: false), Clear(3));
+            Assert.Equal(DockingPhase.Departing, leaving.Phase);
+            Assert.Equal(propulsion, runtime.Lifecycle.DeparturePropulsion);
+            Assert.Equal(200, claims.DockedShipFor(100));
+
+            DockingRuntimeResult released = runtime.Step(
+                Frame(4, Target, propulsion, outside: true), Clear(4));
+            Assert.True(released.LinkReleased);
+            Assert.False(claims.IsShipyardOccupied(100));
+        }
+
+        [Fact]
+        public void Yard_destruction_releases_claim_and_publishes_unlink()
+        {
+            var claims = new ShipDockRegistry();
+            var port = new RecordingPort();
+            var runtime = Enabled(claims, port);
+            runtime.TryBeginApproach(Request(1, Target), Clear(1));
+            runtime.Step(Frame(2, Target), Clear(2));
+
+            DockingRuntimeResult result = runtime.Step(new DockingFrame(0.02,
+                yardExists: false, permissionValid: true, DockingPropulsion.None,
+                Clear(3).Clearance, false, Target, DockingMotion.Frozen), Clear(3));
+
+            Assert.Equal(DockingRejectReason.YardUnavailable, result.RejectReason);
+            Assert.True(result.LinkReleased);
+            Assert.Equal(DockingPhase.Undocked, runtime.Lifecycle.Phase);
+            Assert.False(claims.IsShipyardOccupied(100));
+            Assert.Equal(0, port.Commits[^1].Components.YardEntityId);
+        }
+
+        [Fact]
+        public void Authorization_revocation_releases_claim_and_fails_closed()
+        {
+            var claims = new ShipDockRegistry();
+            var runtime = Enabled(claims, new RecordingPort());
+            runtime.TryBeginApproach(Request(1, Target), Clear(1));
+            runtime.Step(Frame(2, Target), Clear(2));
+
+            DockingRuntimeResult result = runtime.Step(new DockingFrame(0.02,
+                yardExists: true, permissionValid: false, DockingPropulsion.None,
+                Clear(3).Clearance, false, Target, DockingMotion.Frozen), Clear(3));
+
+            Assert.Equal(DockingRejectReason.Unauthorized, result.RejectReason);
+            Assert.True(result.LinkReleased);
+            Assert.False(claims.IsShipyardOccupied(100));
+        }
+
+        [Fact]
+        public void Blocked_or_step_mismatched_clearance_prevents_approach_and_capture()
+        {
+            var claims = new ShipDockRegistry();
+            var runtime = Enabled(claims, new RecordingPort());
+
+            // Approach with a blocked clearance never claims.
+            var blocked = new StampedCollisionClearance(
+                new CollisionClearanceRecord("ship:stable", "yard:stable", 1, 2, true),
+                new FlightAuthorityStamp(1, 9));
+            DockingRuntimeResult refused = runtime.TryBeginApproach(new DockingApproachRequest(
+                200, 100, "ship:stable", "yard:stable", "owner", "owner", false, false,
+                true, true, blocked.Clearance, new DockingPose(104, 20, -50, 0), Target,
+                new DockingMotion(0, 0, 0, 0)), blocked);
+            Assert.Equal(DockingRejectReason.CollisionBlocked, refused.RejectReason);
+            Assert.False(claims.IsShipyardOccupied(100));
+
+            // A clearance whose FixedStep is not the stamp's exact step is dead
+            // evidence: same-step means same step, not "recent".
+            DockingRuntimeResult mismatched = runtime.TryBeginApproach(Request(2),
+                new StampedCollisionClearance(
+                    new CollisionClearanceRecord("ship:stable", "yard:stable", 1, 0, true),
+                    new FlightAuthorityStamp(2, 9)));
+            Assert.Equal(DockingRuntimeDisposition.RejectedStampMismatch,
+                mismatched.Disposition);
+        }
+
+        [Fact]
+        public void Generation_rebase_is_authority_driven_not_evidence_driven()
+        {
+            var claims = new ShipDockRegistry();
+            var runtime = Enabled(claims, new RecordingPort());
+            Assert.Equal(DockingRuntimeDisposition.Committed,
+                runtime.TryBeginApproach(Request(5), Clear(5)).Disposition);
+
+            // Evidence stamped with a higher generation cannot self-upgrade.
+            Assert.Equal(DockingRuntimeDisposition.RejectedStampMismatch,
+                runtime.Step(Frame(6, runtime.Lifecycle.Pose),
+                    Clear(6, generation: 10)).Disposition);
+
+            // After the authority observes the generation advance, the new
+            // generation is accepted and the old one is dead.
+            runtime.RebaseGeneration(10);
+            Assert.Equal(DockingRuntimeDisposition.RejectedStampMismatch,
+                runtime.Step(Frame(7, runtime.Lifecycle.Pose), Clear(7)).Disposition);
+            Assert.Equal(DockingRuntimeDisposition.Committed,
+                runtime.Step(Frame(6, runtime.Lifecycle.Pose),
+                    Clear(6, generation: 10)).Disposition);
+        }
+
+        [Fact]
+        public void Hull_deletion_releases_claim_and_publishes_unlink()
+        {
+            var claims = new ShipDockRegistry();
+            var port = new RecordingPort();
+            var runtime = Enabled(claims, port);
+            runtime.TryBeginApproach(Request(1, Target), Clear(1));
+            runtime.Step(Frame(2, Target), Clear(2));
+            Assert.True(claims.IsShipyardOccupied(100));
+
+            DockingRuntimeResult result = runtime.Delete(new FlightAuthorityStamp(3, 9));
+
+            Assert.Equal(DockingRuntimeDisposition.Committed, result.Disposition);
+            Assert.True(result.LinkReleased);
+            Assert.False(claims.IsShipyardOccupied(100));
+            Assert.Equal(DockingPhase.Undocked, runtime.Lifecycle.Phase);
+            Assert.Equal(0, port.Commits[^1].Components.YardDockedHullEntityId);
+        }
+
+        [Fact]
         public void Impossible_exact_rollback_fails_closed_to_undocked_without_throwing()
         {
             var claims = new ShipDockRegistry();
@@ -203,7 +375,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             new(200, claims, port, new DockingRuntimeOptions { Enabled = true });
 
         private static DockingApproachRequest Request(long step,
-            DockingPose? pose = null) => new(200, 100, "ship:stable", "yard:stable",
+            DockingPose? pose = null) => RequestForHull(200, step, pose);
+
+        private static DockingApproachRequest RequestForHull(long hullEntityId, long step,
+            DockingPose? pose = null) => new(hullEntityId, 100, "ship:stable", "yard:stable",
                 "owner", "owner", false, false, true, true,
                 Clear(step).Clearance, pose ?? new DockingPose(104, 20, -50, 0),
                 Target, new DockingMotion(0, 0, 0, 0));
