@@ -128,6 +128,19 @@ namespace WorldsAdriftRebornGameServer.Game
             bool outside = observedPose.DistanceTo(runtime.Lifecycle.TargetPose)
                 > Tuning.ReleaseRadiusMetres;
 
+            // Steady docked state: nothing to decide, so nothing is committed,
+            // persisted or republished (event-on-change, like the rest of the
+            // publisher). Any propulsion, permission, yard or claim change falls
+            // through to a real stamped lifecycle step.
+            if (runtime.Lifecycle.Phase == DockingPhase.Docked
+                && propulsion == DockingPropulsion.None
+                && yardExists && permissionValid
+                && _claims.DockedShipFor(yardEntityId) == hullEntityId
+                && _claims.ShipyardForHull(hullEntityId) == yardEntityId)
+            {
+                return null;
+            }
+
             var frame = new DockingFrame(ShipMotionPolicy.SendIntervalSeconds, yardExists,
                 permissionValid, propulsion,
                 observation.ClearanceFor(runtime.Lifecycle.YardStableKey), outside,
