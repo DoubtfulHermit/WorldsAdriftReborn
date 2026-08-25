@@ -1,0 +1,284 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
+
+namespace WorldsAdriftRebornGameServer.Game
+{
+    /// <summary>
+    /// Per-hull driver for the Steps 4-5 runtime: holds each hull's in-tick
+    /// collision observation and its transactional DockingRuntime. All decidable
+    /// logic lives in the Multiplayer assembly (HullCollisionObserver,
+    /// CollisionRuntime, DockingRuntime, AuthenticDockingLifecycle); this class
+    /// only gathers runtime inputs from the ledgers and forwards them.
+    ///
+    /// Stable persisted keys: hulls key by persistent index ("ship:&lt;index&gt;"),
+    /// yards by their exact fixed-point position ("yard:x:y:z") - never runtime
+    /// entity ids (kill-list item 10).
+    /// </summary>
+    internal sealed class ShipDockingRuntimeDriver
+    {
+        private static readonly DockingTuning Tuning = new DockingTuning();
+
+        private readonly ShipDockRegistry _claims;
+        private readonly ShipDockingTransaction _transaction = new ShipDockingTransaction();
+        private readonly Dictionary<long, DockingRuntime> _runtimes = new Dictionary<long, DockingRuntime>();
+        private readonly Dictionary<long, HullCollisionObservation> _lastObservation =
+            new Dictionary<long, HullCollisionObservation>();
+        private readonly Dictionary<long, ShadowVector3> _halfExtentsByHull =
+            new Dictionary<long, ShadowVector3>();
+        private readonly HashSet<long> _geometryWarned = new HashSet<long>();
+
+        internal ShipDockingRuntimeDriver(ShipDockRegistry? claims = null)
+        {
+            _claims = claims ?? ShipDockRegistry.Shared;
+        }
+
+        internal HullCollisionObservation? ObservationFor(long hullEntityId) =>
+            _lastObservation.TryGetValue(hullEntityId, out HullCollisionObservation observation)
+                ? observation : (HullCollisionObservation?)null;
+
+        internal DockingPhase? PhaseFor(long hullEntityId) =>
+            _runtimes.TryGetValue(hullEntityId, out DockingRuntime? runtime)
+                ? runtime.Lifecycle.Phase : (DockingPhase?)null;
+
+        /// <summary>Whether this hull's dock lifecycle is under the transactional runtime.</summary>
+        internal bool Manages(long hullEntityId) =>
+            _runtimes.TryGetValue(hullEntityId, out DockingRuntime? runtime)
+            && runtime.Lifecycle.Phase != DockingPhase.Undocked;
+
+        /// <summary>
+        /// In-tick collision observation for one committed fixed-step slice. The
+        /// subject proxy is built ONLY from the session's committed state (the
+        /// canonical pose today); the stamp is the slice's last completed step.
+        /// </summary>
+        internal void ObserveAfterSlice(long hullEntityId, ShipDomain domain,
+            FlightState state, long lastCompletedStep, double massKg)
+        {
+            var stamp = new FlightAuthorityStamp(lastCompletedStep, domain.Generation.Value);
+            ShadowVector3? half = HalfExtentsFor(hullEntityId);
+            if (!half.HasValue) return; // no honest geometry -> no observation, never a clearance
+
+            ShadowVector3 position = new ShadowVector3(state.X, state.Y, state.Z);
+            IslandCollisionProxyBatch terrain = IslandCollisionProxyAdapter.Nearby(
+                position, stamp.FixedStep, stamp.AuthorityGeneration);
+            HullCollisionObservation observation = HullCollisionObserver.Observe(stamp,
+                HullKey(hullEntityId), position,
+                new ShadowVector3(state.VxMps, state.VyMps, state.VzMps),
+                half.Value, Math.Max(1.0, massKg), FixedFlightClock.StepSeconds, terrain,
+                new CollisionRuntimeOptions
+                {
+                    ObserveEnabled = true,
+                    ResponseEnabled = FlightRuntimeFlags.CollisionResponseEnabled
+                });
+            _lastObservation[hullEntityId] = observation;
+
+            if (observation.Result.MutatesAuthoritativeVelocity)
+            {
+                // Unreachable today by construction: the hull subject is always
+                // ConservativeEnvelope, so the response gate rejects as ambiguous
+                // geometry. This tripwire fires if a reviewed-convex source ever
+                // appears before the vector authority adapter (the only sanctioned
+                // velocity write path) is integrated in Step 6.
+                Console.WriteLine("[warning] flight collision: hull " + hullEntityId
+                    + " produced an Applied response but no authority adapter is"
+                    + " integrated to apply it; the correction was NOT applied.");
+            }
+        }
+
+        /// <summary>
+        /// One publication-paced docking decision for one hull. Returns the runtime
+        /// result when a lifecycle decision was made this scan, else null.
+        /// </summary>
+        internal DockingRuntimeResult? Scan(long hullEntityId, ShipDomain domain,
+            FlightSession session)
+        {
+            if (!_lastObservation.TryGetValue(hullEntityId,
+                    out HullCollisionObservation observation)) return null;
+            // Old-generation evidence is dead; wait for a fresh observation.
+            if (observation.Stamp.AuthorityGeneration != domain.Generation.Value) return null;
+
+            DockingRuntime runtime = RuntimeFor(hullEntityId);
+            runtime.RebaseGeneration(domain.Generation.Value);
+
+            FlightState state = session.State;
+            var observedPose = new DockingPose(state.X, state.Y, state.Z, state.YawRadians);
+            var observedMotion = new DockingMotion(state.VxMps, state.VyMps, state.VzMps,
+                state.YawRateRadPerSec);
+            DockingPropulsion propulsion = PropulsionOf(hullEntityId, session);
+
+            if (runtime.Lifecycle.Phase == DockingPhase.Undocked)
+            {
+                return TryBeginApproach(hullEntityId, runtime, observation,
+                    observedPose, observedMotion, propulsion, session);
+            }
+
+            long yardEntityId = runtime.Lifecycle.YardEntityId;
+            bool yardExists = Placement.PlacedShipyards.EntityIds.Contains(yardEntityId);
+            string hullOwner = Crafting.BuiltShips.OwnerFor(hullEntityId);
+            string? yardOwner = yardExists
+                ? Placement.PlacedShipyards.SeedFor(yardEntityId).OwnerCharacterUid : null;
+            bool permissionValid = yardExists && DockingPermissionPolicy.MayApproach(
+                hullOwner, yardOwner, crewAuthorized: false,
+                yardAbandoned: string.IsNullOrEmpty(yardOwner));
+            bool outside = observedPose.DistanceTo(runtime.Lifecycle.TargetPose)
+                > Tuning.ReleaseRadiusMetres;
+
+            var frame = new DockingFrame(ShipMotionPolicy.SendIntervalSeconds, yardExists,
+                permissionValid, propulsion,
+                observation.ClearanceFor(runtime.Lifecycle.YardStableKey), outside,
+                observedPose, observedMotion);
+            DockingRuntimeResult result = runtime.Step(frame,
+                new StampedCollisionClearance(frame.CollisionClearance, observation.Stamp));
+            if (result.FreezeVelocity)
+            {
+                DockingPose pose = runtime.Lifecycle.Pose;
+                session.DockAt(pose.X, pose.Y, pose.Z, pose.YawRadians);
+            }
+            return result;
+        }
+
+        /// <summary>Restores a persisted docking lifecycle onto fresh runtime ids at boot.</summary>
+        internal bool Restore(long hullEntityId, DockingSnapshotV1 snapshot,
+            long resolvedYardEntityId, long authorityGeneration)
+        {
+            DockingRuntime runtime = RuntimeFor(hullEntityId);
+            runtime.RebaseGeneration(authorityGeneration);
+            bool restored = runtime.TryRestore(snapshot, resolvedYardEntityId,
+                new FlightAuthorityStamp(0, authorityGeneration));
+            Console.WriteLine(restored
+                ? "[info] docking-txn: restored " + ((DockingPhase)snapshot.Phase)
+                    + " lifecycle for hull " + hullEntityId + " at yard " + resolvedYardEntityId + "."
+                : "[warning] docking-txn: could not restore docking snapshot for hull "
+                    + hullEntityId + "; it boots undocked.");
+            return restored;
+        }
+
+        /// <summary>Transactionally unlinks and forgets a retired/salvaged hull.</summary>
+        internal void Retire(long hullEntityId)
+        {
+            if (_runtimes.TryGetValue(hullEntityId, out DockingRuntime? runtime)
+                && runtime.Lifecycle.Phase != DockingPhase.Undocked)
+            {
+                FlightAuthorityStamp stamp = _lastObservation.TryGetValue(hullEntityId,
+                        out HullCollisionObservation observation)
+                    ? observation.Stamp : new FlightAuthorityStamp(0, 1);
+                runtime.Delete(stamp);
+            }
+            _runtimes.Remove(hullEntityId);
+            _lastObservation.Remove(hullEntityId);
+            _halfExtentsByHull.Remove(hullEntityId);
+            _geometryWarned.Remove(hullEntityId);
+            _transaction.Retire(hullEntityId);
+        }
+
+        private DockingRuntimeResult? TryBeginApproach(long hullEntityId,
+            DockingRuntime runtime, HullCollisionObservation observation,
+            DockingPose observedPose, DockingMotion observedMotion,
+            DockingPropulsion propulsion, FlightSession session)
+        {
+            string hullOwner = Crafting.BuiltShips.OwnerFor(hullEntityId);
+            foreach (long yardEntityId in Placement.PlacedShipyards.EntityIds.OrderBy(id => id))
+            {
+                FixedPointPosition yardPosition = WorldsAdriftRebornGameServer.WorldEntities
+                    .TransformSeedFor(yardEntityId);
+                FixedPointPosition target = Multiplayer.Ship.ShipyardDockingPolicy
+                    .DockPose(yardPosition);
+                double targetYaw = Multiplayer.Ship.ShipyardDockingPolicy.YawFromPacked(
+                    WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(yardEntityId));
+                var targetPose = new DockingPose(target.MetresX, target.MetresY,
+                    target.MetresZ, targetYaw);
+                if (observedPose.DistanceTo(targetPose) > Tuning.ApproachRadiusMetres) continue;
+
+                string? yardOwner = Placement.PlacedShipyards
+                    .SeedFor(yardEntityId).OwnerCharacterUid;
+                var request = new DockingApproachRequest(hullEntityId, yardEntityId,
+                    HullKey(hullEntityId), YardKey(yardPosition), hullOwner, yardOwner,
+                    crewAuthorized: false,
+                    yardAbandoned: string.IsNullOrEmpty(yardOwner),
+                    yardExists: true,
+                    propulsionNeutral: propulsion == DockingPropulsion.None,
+                    observation.ClearanceFor(YardKey(yardPosition)),
+                    observedPose, targetPose, observedMotion);
+                DockingRuntimeResult result = runtime.TryBeginApproach(request,
+                    new StampedCollisionClearance(request.CollisionClearance,
+                        observation.Stamp));
+                if (result.Disposition == DockingRuntimeDisposition.Committed)
+                {
+                    Console.WriteLine("[flight] docking-txn: hull " + hullEntityId
+                        + " began a stamped approach to shipyard " + yardEntityId + ".");
+                    return result;
+                }
+                // One decision per scan: the next stamped observation retries.
+                return result;
+            }
+            return null;
+        }
+
+        private DockingRuntime RuntimeFor(long hullEntityId)
+        {
+            if (_runtimes.TryGetValue(hullEntityId, out DockingRuntime? existing))
+                return existing;
+            var runtime = new DockingRuntime(hullEntityId, _claims, _transaction,
+                new DockingRuntimeOptions { Enabled = FlightRuntimeFlags.DockingTxnEnabled },
+                Tuning);
+            _runtimes[hullEntityId] = runtime;
+            return runtime;
+        }
+
+        private DockingPropulsion PropulsionOf(long hullEntityId, FlightSession session)
+        {
+            bool sails = WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId) > 0;
+            bool engine = !session.Input.IsNeutral;
+            if (sails && engine) return DockingPropulsion.SailAndEngine;
+            if (sails) return DockingPropulsion.Sail;
+            if (engine) return DockingPropulsion.Engine;
+            return DockingPropulsion.None;
+        }
+
+        private ShadowVector3? HalfExtentsFor(long hullEntityId)
+        {
+            if (_halfExtentsByHull.TryGetValue(hullEntityId, out ShadowVector3 cached))
+                return cached;
+            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
+            if (hullBytes == null
+                || !Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes,
+                    out Multiplayer.Ship.ShipPlanModel? plan, out _)
+                || plan == null)
+            {
+                if (_geometryWarned.Add(hullEntityId))
+                {
+                    Console.WriteLine("[warning] flight collision: hull " + hullEntityId
+                        + " has no decodable geometry; it gets no observation and can"
+                        + " never produce a clearance.");
+                }
+                return null;
+            }
+            Multiplayer.Ship.ShipHullMetrics metrics =
+                Multiplayer.Ship.ShipHullMetrics.Measure(plan);
+            ShadowVector3 half = new ShadowVector3(
+                Math.Max(0.25, metrics.BeamMetres * 0.5),
+                Math.Max(0.25, metrics.DeckPlaneMetres * 0.5),
+                Math.Max(0.25, metrics.KeelMetres * 0.5));
+            _halfExtentsByHull[hullEntityId] = half;
+            return half;
+        }
+
+        private static string HullKey(long hullEntityId)
+        {
+            int? persistentIndex = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
+            return persistentIndex.HasValue
+                ? "ship:" + persistentIndex.Value.ToString(CultureInfo.InvariantCulture)
+                : "ship:runtime:" + hullEntityId.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static string YardKey(FixedPointPosition position) =>
+            "yard:" + position.X.ToString(CultureInfo.InvariantCulture)
+            + ":" + position.Y.ToString(CultureInfo.InvariantCulture)
+            + ":" + position.Z.ToString(CultureInfo.InvariantCulture);
+    }
+}

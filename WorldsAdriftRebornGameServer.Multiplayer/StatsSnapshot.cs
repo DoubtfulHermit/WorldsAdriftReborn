@@ -413,6 +413,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>The vector-authority / lift-runtime gates and last committed evidence.</summary>
         public VectorAuthorityStat VectorAuthority { get; }
 
+        /// <summary>The Steps 4-5 collision/docking runtime gates and last stamped facts.</summary>
+        public FlightCollisionDockingStat CollisionDocking { get; }
+
         /// <summary>
         /// The character uid this hull belongs to, or "" when the owner is not
         /// known to this boot. The operator surface answers "the ship this player
@@ -440,7 +443,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             ShipHullStat hull = default, ShipFlightStat flight = default,
             ShipWorldBoundsStat worldBounds = default,
             FixedFlightClockStat fixedClock = default,
-            VectorAuthorityStat vectorAuthority = default)
+            VectorAuthorityStat vectorAuthority = default,
+            FlightCollisionDockingStat collisionDocking = default)
         {
             YawRadians = yawRadians;
             YawRateRadPerSec = yawRateRadPerSec;
@@ -452,6 +456,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             WorldBounds = worldBounds;
             FixedClock = fixedClock;
             VectorAuthority = vectorAuthority;
+            CollisionDocking = collisionDocking;
             DomainId = domainId ?? string.Empty;
             HullEntityId = hullEntityId;
             AuthorityGeneration = authorityGeneration;
@@ -582,6 +587,42 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public string MassFingerprint { get; }
         public string LastStepDisposition { get; }
         public bool Overloaded { get; }
+    }
+
+    /// <summary>
+    /// The Steps 4-5 runtime gates and per-hull last stamped collision/docking
+    /// facts. Values are the last COMMITTED in-tick observation - the admin path
+    /// never re-evaluates from a later clock.
+    /// </summary>
+    public readonly struct FlightCollisionDockingStat
+    {
+        public FlightCollisionDockingStat(bool observeEnabled, bool responseEnabled,
+            bool dockingTxnEnabled, long lastObservedFixedStep,
+            long lastObservedGeneration, string lastCollisionDisposition,
+            int lastContactCount, bool lastTerrainComplete, string dockingPhase)
+        {
+            Present = true;
+            ObserveEnabled = observeEnabled;
+            ResponseEnabled = responseEnabled;
+            DockingTxnEnabled = dockingTxnEnabled;
+            LastObservedFixedStep = lastObservedFixedStep;
+            LastObservedGeneration = lastObservedGeneration;
+            LastCollisionDisposition = lastCollisionDisposition ?? string.Empty;
+            LastContactCount = lastContactCount;
+            LastTerrainComplete = lastTerrainComplete;
+            DockingPhase = dockingPhase ?? string.Empty;
+        }
+
+        public bool Present { get; }
+        public bool ObserveEnabled { get; }
+        public bool ResponseEnabled { get; }
+        public bool DockingTxnEnabled { get; }
+        public long LastObservedFixedStep { get; }
+        public long LastObservedGeneration { get; }
+        public string LastCollisionDisposition { get; }
+        public int LastContactCount { get; }
+        public bool LastTerrainComplete { get; }
+        public string DockingPhase { get; }
     }
 
     /// <summary>
@@ -1688,7 +1729,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             AppendHull(b, d.Hull); b.Append(',');
             AppendShipFlight(b, d.Flight); b.Append(',');
             AppendWorldBounds(b, d.WorldBounds); b.Append(',');
-            AppendFixedClock(b, d.FixedClock);
+            AppendFixedClock(b, d.FixedClock); b.Append(',');
+            AppendCollisionDocking(b, d.CollisionDocking);
+            b.Append('}');
+        }
+
+        private static void AppendCollisionDocking(StringBuilder b, FlightCollisionDockingStat c)
+        {
+            Key(b, "collisionDocking"); b.Append('{');
+            Bool(b, "present", c.Present); b.Append(',');
+            Bool(b, "observeEnabled", c.ObserveEnabled); b.Append(',');
+            Bool(b, "responseEnabled", c.ResponseEnabled); b.Append(',');
+            Bool(b, "dockingTxnEnabled", c.DockingTxnEnabled); b.Append(',');
+            Num(b, "lastObservedFixedStep", c.LastObservedFixedStep); b.Append(',');
+            Num(b, "lastObservedGeneration", c.LastObservedGeneration); b.Append(',');
+            Str(b, "lastCollisionDisposition", c.LastCollisionDisposition); b.Append(',');
+            Num(b, "lastContactCount", c.LastContactCount); b.Append(',');
+            Bool(b, "lastTerrainComplete", c.LastTerrainComplete); b.Append(',');
+            Str(b, "dockingPhase", c.DockingPhase);
             b.Append('}');
         }
 
