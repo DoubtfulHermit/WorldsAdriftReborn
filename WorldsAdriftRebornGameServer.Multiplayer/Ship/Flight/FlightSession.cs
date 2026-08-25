@@ -247,7 +247,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double fixedStepSeconds = FixedFlightClock.StepSeconds,
             bool emitDue = true,
             bool phaseLockedEmit = false,
-            bool stampContinuity = false)
+            bool stampContinuity = false,
+            long lostSimulationMs = 0)
         {
             FlightStampMode stampMode = StampModeFor(phaseLockedEmit, stampContinuity);
             if (fixedStepCount < 0 || fixedStepCount > FixedFlightClock.DefaultMaxCatchUpSteps)
@@ -307,11 +308,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 }
 
                 return DecideEmission(nowMs, emitStepSeconds, tuning, live: true,
-                    emitDue, stampMode);
+                    emitDue, stampMode, lostSimulationMs);
             }
 
             return DecideEmission(nowMs, emitStepSeconds, tuning, live: false,
-                emitDue, stampMode);
+                emitDue, stampMode, lostSimulationMs);
         }
 
         /// <summary>
@@ -337,7 +338,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// </summary>
         public FlightEmit AdvanceAdopted(long nowMs, double emitStepSeconds,
             int fixedStepCount, FlightState adopted, FlightTuning tuning,
-            bool emitDue = true, bool phaseLockedEmit = false)
+            bool emitDue = true, bool phaseLockedEmit = false,
+            long lostSimulationMs = 0)
         {
             if (fixedStepCount < 0 || fixedStepCount > FixedFlightClock.DefaultMaxCatchUpSteps)
                 throw new ArgumentOutOfRangeException(nameof(fixedStepCount));
@@ -350,7 +352,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 _state = adopted;
             }
             return DecideEmission(nowMs, emitStepSeconds, tuning, live, emitDue,
-                StampModeFor(phaseLockedEmit, stampContinuity: false));
+                StampModeFor(phaseLockedEmit, stampContinuity: false), lostSimulationMs);
         }
 
         /// <summary>
@@ -359,7 +361,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// or rest behavior.
         /// </summary>
         private FlightEmit DecideEmission(long nowMs, double emitStepSeconds,
-            FlightTuning tuning, bool live, bool emitDue, FlightStampMode stampMode)
+            FlightTuning tuning, bool live, bool emitDue, FlightStampMode stampMode,
+            long lostSimulationMs = 0)
         {
             if (live)
             {
@@ -390,7 +393,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     if (tuning.IdleBobMetres > 0.0)
                     {
                         return EmitBobbedAt(nowMs, emitStepSeconds, tuning,
-                            stampMode);
+                            stampMode, lostSimulationMs);
                     }
 
                     // Keep the 1130 playback buffer continuously populated while
@@ -408,7 +411,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     _restEmitted = 0;
                 }
 
-                return EmitAt(nowMs, emitStepSeconds, stampMode);
+                return EmitAt(nowMs, emitStepSeconds, stampMode, lostSimulationMs);
             }
 
             // At rest, unmanned.
@@ -419,7 +422,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             if (_restEmitted <= RestRepeats)
             {
                 _restEmitted++;
-                return EmitAt(nowMs, emitStepSeconds, stampMode);
+                return EmitAt(nowMs, emitStepSeconds, stampMode, lostSimulationMs);
             }
 
             // Do not send a perpetual zero-speed heartbeat. The shipped
@@ -509,9 +512,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         }
 
         private FlightEmit EmitAt(long nowMs, double stepSeconds,
-            FlightStampMode stampMode = FlightStampMode.WallClock)
+            FlightStampMode stampMode = FlightStampMode.WallClock, long lostSimulationMs = 0)
         {
-            long stamp = NextStamp(nowMs, stepSeconds, stampMode);
+            long stamp = NextStamp(nowMs, stepSeconds, stampMode, lostSimulationMs);
             return new FlightEmit(
                 true,
                 FlightIntegrator.ToControlPoint(_state, stamp),
@@ -525,9 +528,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// arrived point claims zero velocity, and this one is honestly moving.
         /// </summary>
         private FlightEmit EmitBobbedAt(long nowMs, double stepSeconds,
-            FlightTuning tuning, FlightStampMode stampMode)
+            FlightTuning tuning, FlightStampMode stampMode, long lostSimulationMs = 0)
         {
-            long stamp = NextStamp(nowMs, stepSeconds, stampMode);
+            long stamp = NextStamp(nowMs, stepSeconds, stampMode, lostSimulationMs);
             double omega = 2.0 * System.Math.PI / FlightTuning.IdleBobPeriodSeconds;
             double phase = (nowMs / 1000.0) * omega;
             double bobY = tuning.IdleBobMetres * System.Math.Sin(phase);
@@ -542,7 +545,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         }
 
         private long NextStamp(long nowMs, double stepSeconds,
-            FlightStampMode stampMode = FlightStampMode.WallClock)
+            FlightStampMode stampMode = FlightStampMode.WallClock, long lostSimulationMs = 0)
         {
             long stepMs = (long)System.Math.Round(stepSeconds * 1000.0);
             // The rule itself is pure and lives in FlightStampPolicy, which also
@@ -550,7 +553,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // exact 240 ms of simulation is the turn-vibration defect. This method
             // is only the session's mutable half: remember the stamp we issued.
             long stamp = FlightStampPolicy.NextStamp(
-                stampMode, _everEmitted, _lastStampMs, nowMs, stepMs);
+                stampMode, _everEmitted, _lastStampMs, nowMs, stepMs, lostSimulationMs);
             _lastStampMs = stamp;
             _everEmitted = true;
             return stamp;

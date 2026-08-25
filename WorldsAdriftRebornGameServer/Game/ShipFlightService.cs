@@ -88,6 +88,18 @@ namespace WorldsAdriftRebornGameServer.Game
         /// smoothed server-latency estimate is built from. <see cref="FixedStepEnabled"/>
         /// already phase-locks its own publisher and does not need this.
         /// </summary>
+        /// <summary>
+        /// WAREBORN_FLIGHT_CADENCE_TRACE=1 - a read-only measurement, no behaviour
+        /// change. Per hull it records the WALL-CLOCK spacing of consecutive 1130
+        /// sends against the spacing their timestamps claim, and reports the running
+        /// difference. That difference is the client's playback-buffer erosion
+        /// budget: see <see cref="FlightSendCadence"/> for why a growing drift
+        /// predicts the halt/frozen-rotation/spline-correction cycle that reads as a
+        /// re-snap during a turn. Off by default because it logs.
+        /// </summary>
+        internal static readonly bool CadenceTraceEnabled =
+            Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_CADENCE_TRACE") == "1";
+
         internal static readonly bool StampContinuityEnabled =
             Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_STAMP_CONTINUITY") == "1";
 
@@ -232,6 +244,11 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         private readonly Dictionary<long, TimeSpan> _lastWakeAt = new Dictionary<long, TimeSpan>();
 
+        /// <summary>Per-hull 1130 send-cadence measurement; populated only under
+        /// <see cref="CadenceTraceEnabled"/>.</summary>
+        private readonly Dictionary<long, FlightSendCadence> _sendCadence =
+            new Dictionary<long, FlightSendCadence>();
+
         /// <summary>
         /// Mounted "~" followers need a bounded wake drain after the final hull
         /// 1130. The client root may still be finishing its own extrapolation/halt
@@ -311,8 +328,14 @@ namespace WorldsAdriftRebornGameServer.Game
                     + " s of simulation, so ON stamps it that far apart and resyncs to"
                     + " wall clock only after a whole skipped interval)."
                     + (FixedStepEnabled
-                        ? " Not consulted: the fixed-step publisher phase-locks its own stamps."
+                        ? " Under fixed step it instead compensates the stamp for simulation"
+                          + " the catch-up cap dropped, so the wire clock cannot bank"
+                          + " permanent lag behind wall clock."
                         : string.Empty));
+                Console.WriteLine("[info] 1130 send-cadence trace is "
+                    + (CadenceTraceEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_CADENCE_TRACE; read-only, logs [flight-cadence]"
+                    + " send spacing versus stamp spacing and the running drift).");
                 Console.WriteLine("[info] vector flight authority is "
                     + (RuntimeFlags.VectorAuthorityEnabled ? "ON" : "OFF")
                     + " (WAREBORN_FLIGHT_VECTOR_AUTHORITY), "
@@ -1119,6 +1142,17 @@ namespace WorldsAdriftRebornGameServer.Game
                         - Math.Max(0, fixedBatch.Steps - 1) * FixedFlightClock.StepSeconds;
                     int consumedSteps = 0;
                     bool vectorAuthority = RuntimeFlags.IsPromoted(domain.PersistentIndex);
+                    // The simulated time this batch's catch-up cap THREW AWAY. The
+                    // phase-locked stamp advances one publication interval per point
+                    // regardless, so without this every dropped step is 20 ms of
+                    // permanent wire-clock lag behind wall clock - which the stock
+                    // client eventually turns into a halt, a frozen-rotation
+                    // extrapolation and a 5 s spline correction. Charged to the FIRST
+                    // point this batch emits, then cleared, so it is counted once.
+                    long lostSimulationMs = StampContinuityEnabled
+                        ? FlightStampPolicy.LostSimulationMilliseconds(
+                            fixedBatch.DroppedSteps, FixedFlightClock.StepSeconds)
+                        : 0L;
                     foreach (FixedFlightPublicationSlice slice in
                         FixedFlightPublicationSchedule.Slice(fixedBatch))
                     {
@@ -1141,7 +1175,8 @@ namespace WorldsAdriftRebornGameServer.Game
                                 PropulsionFor(hullEntityId, unfurledSails),
                                 _wallFlightInfluence.Segments, _worldBounds,
                                 emitDue: slice.PublishAfter,
-                                phaseLockedEmit: true);
+                                phaseLockedEmit: true,
+                                lostSimulationMs: lostSimulationMs);
                             if (RuntimeFlags.VectorAuthorityEnabled)
                             {
                                 ObserveScalarSliceAuthority(hullEntityId, domain,
@@ -1150,6 +1185,10 @@ namespace WorldsAdriftRebornGameServer.Game
                             }
                         }
                         consumedSteps += slice.Steps;
+                        if (emit.Emit)
+                        {
+                            lostSimulationMs = 0L;
+                        }
                         ObserveWorldBounds(hullEntityId, session.State,
                             session.LastWorldBoundsTelemetry);
                         CompleteDepartureIfOutside(hullEntityId, session.State);
@@ -1205,6 +1244,13 @@ namespace WorldsAdriftRebornGameServer.Game
                     FlightSession session = domain.Flight;
                     if (session.IsManned || !session.State.IsAtRest)
                     {
+                        if (CadenceTraceEnabled
+                            && _sendCadence.TryGetValue(hullEntityId, out FlightSendCadence? cadence)
+                            && cadence.WindowCount > 0)
+                        {
+                            Console.WriteLine("[flight-cadence] hull " + hullEntityId
+                                + " " + cadence.Describe());
+                        }
                         Console.WriteLine("[flight] hull " + hullEntityId + ": " + session.State
                             + (session.IsManned
                                 ? " piloted by entity " + _seats.PilotOf(hullEntityId)!.Value.PlayerEntityId
@@ -1230,6 +1276,7 @@ namespace WorldsAdriftRebornGameServer.Game
             FlightSession session, FlightEmit emit,
             HashSet<ulong> domainFrameSenders)
         {
+            ObserveSendCadence(hullEntityId, emit);
             if (session.State.IsAtRest && !session.IsManned)
             {
                 ArmRestingMemberTail(hullEntityId);
@@ -1590,6 +1637,25 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             return members;
+        }
+
+        /// <summary>
+        /// Records where this point actually left the server against where its
+        /// timestamp says it belongs. Pure measurement: it reads the emit, touches no
+        /// pose, stamp or packet, and does nothing at all unless the trace is armed.
+        /// </summary>
+        private void ObserveSendCadence(long hullEntityId, FlightEmit emit)
+        {
+            if (!CadenceTraceEnabled || !emit.Emit)
+            {
+                return;
+            }
+            if (!_sendCadence.TryGetValue(hullEntityId, out FlightSendCadence? cadence))
+            {
+                cadence = new FlightSendCadence(ShipMotionPolicy.SendIntervalSeconds);
+                _sendCadence[hullEntityId] = cadence;
+            }
+            cadence.Observe(_clock.Elapsed.TotalMilliseconds, emit.Spec.TimestampMs);
         }
 
         private void ArmRestingMemberTail(long hullEntityId)

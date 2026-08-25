@@ -105,15 +105,49 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <param name="lastStampMs">The stamp the previous point carried.</param>
         /// <param name="nowMs">Wall clock at the instant this point is being built.</param>
         /// <param name="stepMs">The publication interval in milliseconds (240).</param>
+        /// <param name="lostSimulationMs">
+        /// Simulated time the fixed clock DROPPED before this point, milliseconds.
+        ///
+        /// WHY A PHASE-LOCKED STAMP NEEDS THIS (docs/research/findings-turn-vibration.md,
+        /// production section). <see cref="FixedFlightClock.Advance"/> caps a backlog at
+        /// <see cref="FixedFlightClock.DefaultMaxCatchUpSteps"/> steps and then consumes
+        /// the WHOLE accumulator anyway, including the part it refused to simulate. The
+        /// publication schedule still encloses exactly twelve EXECUTED steps per point,
+        /// so the point is honest about the simulation it contains - but the wall clock
+        /// moved further than the wire clock did, and <see cref="FlightStampMode.PhaseLocked"/>
+        /// advances the stamp by exactly one step regardless. Every dropped step is
+        /// therefore 20 ms of PERMANENT, never-recovered lag of the wire clock behind
+        /// wall clock.
+        ///
+        /// The stock client turns that lag into the reported re-snap.
+        /// <c>PathFollower.AddControlPoint</c> derives
+        /// <c>_serverLatency = SynchronisedTime.UpdateNow - (stamp - ExtrapolationTime)</c>
+        /// at arrival (decompile PathFollower.cs:146-147) and clamps it to
+        /// <c>MaximumServerLatency = 5 s</c> (ShipConfiguration.cs). Once accumulated lag
+        /// passes that clamp the playback time outruns the newest buffered point,
+        /// <c>SplineInterpolator.Interpolate</c> returns false (SplineInterpolator.cs:23-26),
+        /// and the follower enters its halt/extrapolate branch (PathFollower.cs:280-305).
+        /// <c>ControlPoint.ExtrapolateWithConstantVelocity</c> copies the previous
+        /// ROTATION unchanged (ControlPoint.cs:71-76) because there is no angular velocity
+        /// on the wire - so the hull's yaw FREEZES - and the next real point then triggers
+        /// <c>StartSplineCorrection</c>, blended over <c>SlowSplineCorrectionTime = 5 s</c>
+        /// and applied multiplicatively to rotation (PathFollower.cs:209).
+        ///
+        /// Adding the lost time here keeps the wire clock locked to wall clock with zero
+        /// permanent drift. It confines the rate error to the one segment that genuinely
+        /// lost simulation - which is the honest place for it - instead of banking it
+        /// forever. Zero (the default) reproduces the historic behaviour exactly.
+        /// </param>
         public static long NextStamp(
-            FlightStampMode mode, bool everEmitted, long lastStampMs, long nowMs, long stepMs)
+            FlightStampMode mode, bool everEmitted, long lastStampMs, long nowMs, long stepMs,
+            long lostSimulationMs = 0)
         {
             if (!everEmitted)
             {
                 return nowMs;
             }
 
-            long phaseLocked = lastStampMs + stepMs;
+            long phaseLocked = lastStampMs + stepMs + NonNegative(lostSimulationMs);
             switch (mode)
             {
                 case FlightStampMode.PhaseLocked:
@@ -142,6 +176,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         {
             return nowMs - phaseLockedStampMs >= ContinuityResyncIntervals * stepMs;
         }
+
+        /// <summary>
+        /// The simulated milliseconds a dropped-step batch threw away, for
+        /// <paramref name="droppedSteps"/> steps of <paramref name="stepSeconds"/>.
+        /// Rounded to whole milliseconds because the wire stamp is integral; a
+        /// negative or non-finite input contributes nothing rather than rewinding
+        /// the timeline.
+        /// </summary>
+        public static long LostSimulationMilliseconds(long droppedSteps, double stepSeconds)
+        {
+            if (droppedSteps <= 0 || !double.IsFinite(stepSeconds) || stepSeconds <= 0.0)
+            {
+                return 0;
+            }
+            return (long)System.Math.Round(droppedSteps * stepSeconds * 1000.0);
+        }
+
+        private static long NonNegative(long value) => value > 0 ? value : 0;
 
         /// <summary>
         /// The angular rate a client renders for a point that represents

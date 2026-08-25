@@ -12,7 +12,11 @@ component visibly vibrate and re-snap, as if client and server were fighting
 over their positions. Straight flight is clean. Three prior corrections reduced
 this but did not remove it.
 
-## Root cause
+## Root cause on the LEGACY publisher (local dev servers)
+
+> Production does **not** run this publisher - see evidence item 6 and
+> "Production conditions" below. This section diagnoses the legacy path; the
+> production path is diagnosed separately further down.
 
 The legacy 1130 publisher advances **exactly one 240 ms step of simulation per
 emitted control point**, and then stamps that point at **wall clock** whenever
@@ -120,18 +124,30 @@ therefore multiplied by each part's offset from the rotation axis before it
 reaches the eye, and the two consumers sample the same wobbling spline through
 different code paths. Both are zero-error in straight flight.
 
-**6. The already-shipped fix for this exists but is inert in production.**
-`docs/architecture/flight-publication-phase-lock.md` records the same class of
-defect measured live: *"nominal 240 ms turn points contained 11, 12, or 13
-completed 20 ms physics steps ... producing alternating measured turn rates
-around 18-23 degrees/second for a nominal 20 degrees/second command"*. The
-correction was implemented **only** in the fixed-step publisher
-(`ShipFlightService.cs:1113-1173`, `phaseLockedEmit: true`), and
-`docs/architecture/fixed-clock-durable-flight-snapshots.md:142` records
-*"Production was rolled back to `WAREBORN_FLIGHT_FIXED_STEP=0`"*. The live
-launcher `~/Games/WAReborn-servers/run-gameserver.sh` sets **no `WAREBORN_*`
-variables at all**, so every flight the user tests runs the legacy wall-clock
-publisher with the phase lock switched off.
+**6. WHICH SERVER THIS APPLIES TO - the phase lock is ON in production.**
+
+Corrected 2026-08-25 after the coordinator verified the live host directly
+(`root@62.171.161.19`, both the systemd unit and `/proc/<MainPID>/environ`):
+
+```
+WAREBORN_FLIGHT_FIXED_STEP=1
+WAREBORN_FLIGHT_FORCES=1
+WAREBORN_HELM_FLIGHT=1
+```
+
+`~/Games/WAReborn-servers/run-gameserver.sh`, which sets no `WAREBORN_*`
+variables at all, is the **local dev launcher**, not the server the user plays
+on. So:
+
+| Server | Publisher | Does the `WallClock` defect above apply? |
+|---|---|---|
+| **Production** (`WAREBORN_FLIGHT_FIXED_STEP=1`) | fixed-step, `phaseLockedEmit: true` (`ShipFlightService.cs:1144`, `:1970`, `:1992`) -> `FlightStampMode.PhaseLocked` | **No.** Stamps are already exactly 240 ms apart. |
+| **Local dev** (no flags) | legacy `session.Advance` | **Yes.** |
+
+The `Continuity` correction below is therefore a **legacy-path fix**. It will
+change nothing for a player on the live server, and that is stated plainly so
+nobody re-attributes a live symptom to it. What production still suffers from is
+analysed in "Production conditions" below.
 
 ## Why the three prior fixes reduced but did not eliminate it
 
@@ -246,34 +262,239 @@ that *"Passive client probes ruled out the pilot/camera LateUpdate order"*, and
 the earlier acceptance found instruments vibrating **more** than hull and deck -
 camera jitter would shake everything equally.
 
-## Still client-side, and deliberately not patched
+## Production conditions: what still vibrates when stamps ARE even
 
-Two amplifiers remain on the client and are documented here rather than fixed,
-because patching the client DLL triggers the project's standing patcher-update
-rule and neither is the driver.
+Added 2026-08-25. Everything below is read off the **full retail decompile with
+method bodies** at `/home/ttanurhan/Games/WAReborn-decompiled/acs` (see
+`docs/HANDOVER.md:46`), not off the stripped assemblies. Two claims in the
+earlier revision of this document were made without method bodies and are
+**wrong**; they are corrected here rather than quietly dropped.
 
-1. **The `"~"` follower apply threshold.**
-   `DefaultPhysicalParameters.MinAngleToInterpolateBetween = 0.01f` and
-   `MinDistanceToInterpolateBetween = 0.0001f`, consumed through
-   `ILerpTransformSettings` and overridable per prefab by `TransformNature`. A
-   `"~"` part's composed rotation is therefore applied in ~1.15 degree steps. With
-   a *constant* yaw rate that is a uniform, mild shimmer; with a wobbling rate it
-   becomes irregular re-snapping. Removing the driver is what turns the second
-   into the first. A client mod that wanted to remove it entirely would have to
-   raise `TransformNature.MinAngleToInterpolateBetween` on ship-part prefabs (NOT
-   the global default - the same threshold gates the send side), and would need to
-   be re-validated against the rejected 2026.08.24-1 continuity trial, which
-   proved that blindly defeating these thresholds exposes a contact/carry
-   disagreement
-   (`docs/architecture/client-ship-motion-continuity-2026-08-24.md:35-47`).
+### Corrected: the 0.01 quaternion threshold does NOT gate a flying ship
 
-2. **`MaxSecondsToInterpolateAfterLastUpdate = 0f`.** Interpolation ceases the
-   instant the last update's window is consumed. Our 4.2 Hz member wake refills it
-   in time, so this is currently latent, but it is the reason a member wake cadence
-   below the point cadence would read as snapping.
+The earlier claim - inherited from `client-ship-motion-continuity-2026-08-24.md:28-32`
+- was that `FixedUpdateLerpLocalTransformBehaviour` "applies a hull-relative
+entity only when a quaternion component differs by at least 0.01", quantising
+mounted-part rotation into ~1.15 degree steps. The real gate is an **OR across
+position and rotation**, and the position side is 1 mm per axis:
 
-Neither can be measured further without a live client; both are named so the next
-person does not re-derive them.
+```csharp
+// FixedUpdateLerpLocalTransformBehaviour.cs:274-287
+private static float cheapQuaternionThreshold = 0.01f;   // :72
+private static float cheapPositionThreshold   = 0.001f;  // :74
+
+private bool TransformExceedsThreshold(TransformData last, TransformData now)
+    => PositionExceedsThreshold(last.Position, now.Position)
+    || RotationExceedsThreshold(last.Rotation, now.Rotation);
+```
+
+Any ship translating faster than ~0.05 m/s moves a mounted part more than 1 mm
+per 20 ms physics step, so the position term opens the gate on **every**
+FixedUpdate and the composed rotation is applied with it. At a 4 m lever arm and
+a 20 deg/s turn the part moves 28 mm per step - 28x the threshold. **The
+threshold never quantises anything during flight.** ELIMINATED.
+
+### Corrected: the follower does NOT freeze between 190602 updates
+
+`MaxSecondsToInterpolateAfterLastUpdate = 0f` was listed as an amplifier. It is
+not, because a `"~"` follower does not take its world pose from its own
+interpolator at all. `GetNextFrameData` composes the **hull's live pose** with
+the local offset every FixedUpdate:
+
+```csharp
+// FixedUpdateLerpLocalTransformBehaviour.cs:231-241
+fixedUpdateNonAuthoritativeMode.RunNextFixedUpdate();
+var local = interp.GetInterpolatedValueForTime(fixedUpdateNonAuthoritativeMode.Timestamp);
+Coordinates c = m.NextFramePosition + m.NextFrameRotation * local.Position;
+Quaternion  r = m.NextFrameRotation * local.Rotation;
+```
+
+and `NextFramePosition/NextFrameRotation` are `PathFollower.PreviousSample`
+(`SSPDeadReckoningVisualizer.cs:49-63`), refreshed by the hull's own 50 Hz
+`PathFollower.FixedUpdate`. The 190602 wake only keeps `UpdatesEnabled` true
+(`ManagedFixedUpdate:167-175`). A part therefore tracks the hull at 50 Hz
+regardless of the 4.2 Hz wake. ELIMINATED.
+
+This also closes H6 with code rather than argument. The child interpolator's
+`pendingValues` is a **`CircularFifoQueue(5)`**
+(`DelayedLinearInterpolator.cs:12`), so the frozen parent clock cannot leak
+memory; and because `GetInterpolatedValueForTime` sets `CurrentTime = targetTime`
+before computing `num = CurrentTime - previousTime` (`:64-71`, `:95-104`), a
+frozen parent time yields `num = 0`, ratio 0, and the interpolator returns its
+current value unchanged. Constant in, constant out.
+
+### What is left, and it is one thing: the wire has no angular velocity
+
+Component 1130 `SSPPredictedMotionState` has two fields, and its
+`ShipControlPoint` has exactly five:
+
+```
+field1_timestamp (long) | field2_position (Coordinates) |
+field3_rotation (Quaternion32) | field4_velocity (Vector3f) | field5_fsim_id_hash (int)
+```
+
+(`WAReborn-decompiled/gencode/Schema.Bossa.Travellers.Motion.Prediction/ShipControlPoint.cs:14-101`;
+client mirror `acs/Bossa.DeadReckoning/ControlPoint.cs:19-30`.) `field4_velocity`
+is **linear** velocity. There is no angular-velocity field anywhere in the
+component.
+
+That single omission produces three separate turn-only artefacts, none of which
+exists in straight flight:
+
+1. **Attitude is C0, position is C1.**
+   `SplineInterpolator.CubicHermiteInterpolation` builds position from a cubic
+   with real endpoint velocity tangents (`SplineInterpolator.cs:41-51`) but
+   rotation from a bare `Quaternion.SlerpUnclamped` (`:44`). Angular velocity is
+   therefore piecewise constant with a kink at every 240 ms point. A held,
+   steady turn is smooth; every *change* of turn rate - winding in, unwinding,
+   a gust, the bank-roll chasing `yawRate` (`FlightIntegrator.cs:299-308`) -
+   lands as an angular-acceleration step at 4.2 Hz.
+
+2. **Extrapolation FREEZES the rotation.**
+   `ControlPoint.ExtrapolateWithConstantVelocity` advances position by
+   `velocity * time` and copies `previous.Rotation` **unchanged**
+   (`ControlPoint.cs:71-76`), because there is no rate to extrapolate. Whenever
+   the playback clock outruns the newest buffered point,
+   `SplineInterpolator.Interpolate` returns false (`SplineInterpolator.cs:23-26`)
+   and `PathFollower.FixedUpdate:280-305` builds a halt ladder out of exactly
+   those extrapolations. In straight flight that is very nearly exact and
+   invisible. **In a turn the hull simply stops yawing** for the duration.
+   When the next real point lands, `AddControlPoint:153-167` sets
+   `_nextSampleRequiresSplineCorrection`, `StartSplineCorrection:174-194` picks
+   `SlowSplineCorrectionTime = 5 s` (the fast 0.5 s path needs >25 m or >30 deg,
+   `ShipConfiguration.cs:46-52`), and `ApplySplineCorrection:209` applies the
+   correction **multiplicatively to rotation**. Freeze, then a five-second
+   rotational unwind. That is the best available description of "vibrates
+   heavily / re-snaps, but only while turning".
+
+3. **Quaternion32 endpoint quantisation, which is exactly zero in straight
+   flight.** `Quaternion32Packing.To10Bits` maps a component over
+   `[-1/sqrt2, +1/sqrt2]` onto 0..1022
+   (`Multiplayer/Placement/Quaternion32Packing.cs:148-153`), so the component
+   step is `sqrt2/1022 = 0.001384`. A quaternion component error `e` is a
+   rotation error of `2e`, giving a worst case of **0.0793 degrees** per point -
+   about 5.5 mm at a 4 m lever arm. In straight flight consecutive points encode
+   to the *same* lattice value, so the contribution is bit-exactly zero; in a
+   turn every point re-quantises and the error is a fresh draw at 4.2 Hz. Small,
+   but structurally turn-only. (An earlier estimate of 0.35 deg/LSB was 360/1022
+   and is wrong - the packing is per component, not per degree.)
+
+Position is immune to all three: it has real tangents, its extrapolation is
+exact for constant velocity, and it is transmitted as full-precision `double`
+`Coordinates` (`ShipControlPoint.cs:16`).
+
+### Can the server fix this? No, and here is why, plainly
+
+- **Emit angular velocity so the client can use tangents.** Impossible against
+  the stock client: there is no field to put it in, and even if the schema were
+  extended, `CubicHermiteInterpolation` would have to be rewritten to consume it.
+  **Client mod required.**
+- **Publish 1130 more often for a rotating hull.** Impossible against the stock
+  client. `ControlPoint.ValidateControlPoints` drops any point whose timestamp is
+  less than `desiredInterval * 0.95` after the previous one
+  (`ControlPoint.cs:113-126`), with `desiredInterval = ShipConfiguration.SendInterval
+  = 0.24` - a hard **228 ms floor**. Worse, on rejection
+  `SSPDeadReckoningVisualizer.cs:116-121` does **not** advance
+  `PreviousControlPoint`, so a 120 ms cadence would have exactly half its points
+  silently discarded and still play at 240 ms, for double the bandwidth. The only
+  lever is `SendInterval` itself, which lives in a client-side `ShipConfig`
+  ScriptableObject (`ShipConfiguration.cs:6`, `:82-86`) - i.e. a patched client
+  asset that would have to move in lockstep with the server's
+  `ShipMotionPolicy.SendIntervalSeconds` and `StepsPerPublication`.
+  **Client mod required.**
+
+So **240 ms is too coarse for rotation, and neither remedy is available
+server-side.** That is the honest answer to the question.
+
+### What IS server-fixable on the production path
+
+One thing, and it is real. `FixedFlightClock.Advance` caps a backlog at 25 steps
+and then **consumes the whole accumulator anyway, including the part it refused
+to simulate** (`Multiplayer/Ship/Flight/FixedFlightClock.cs:50-61`). Emission
+stays honest - `_simulationStep` counts only executed steps (`:63`), so every
+published point still encloses exactly twelve integrated 20 ms steps - but
+`FlightStampMode.PhaseLocked` advances the stamp by exactly one interval
+regardless. **Every dropped step is therefore 20 ms of permanent, never-recovered
+lag of the wire clock behind wall clock**, and `Continuity`'s resync is
+unreachable in fixed-step mode because `phaseLockedEmit` wins
+(`FlightSession.StampModeFor`).
+
+The client turns accumulated lag into artefact 2 above:
+`_serverLatency = UpdateNow - (stamp - ExtrapolationTime)`
+(`PathFollower.cs:146-147`) is clamped at `MaximumServerLatency = 5.0`
+(`ShipConfiguration.cs:20`); past that clamp the playback time outruns the buffer
+and the halt / frozen-rotation / 5 s spline-correction cycle begins.
+
+The correction charges the dropped simulated time to the next emitted stamp, so
+the wire clock stays locked to wall clock with zero permanent drift and the rate
+error is confined to the one segment that actually lost simulation. It rides the
+same `WAREBORN_FLIGHT_STAMP_CONTINUITY` opt-in, whose meaning is now "keep the
+1130 wire clock aligned with real elapsed time" on both publishers.
+
+**This is a correction for an occasional lurch, not a claim that it is the whole
+symptom.** Whether it matters live is a measurable question, answered below.
+
+### Ranked candidates for PRODUCTION
+
+| # | Candidate | Evidence | Fixable? |
+|---|---|---|---|
+| 1 | Rotation freezes during every extrapolation, then unwinds over a 5 s spline correction | `ControlPoint.cs:71-76`, `PathFollower.cs:280-305`, `:153-167`, `:174-194`, `:209` | **Client-only.** Server can only avoid triggering it by never letting the buffer erode. |
+| 2 | Attitude is C0 across every 240 ms point while position is C1 | `SplineInterpolator.cs:41-51` vs `:44` | **Client/protocol-only.** No angular-velocity field exists. |
+| 3 | Phase-locked stamp banks permanent lag when the catch-up cap drops steps | `FixedFlightClock.cs:50-63`, `PathFollower.cs:146-147`, `ShipConfiguration.cs:20` | **SERVER-FIXABLE - fixed in this branch, default OFF.** |
+| 4 | Quaternion32 endpoint quantisation, +/-0.079 deg, zero in straight flight | `Quaternion32Packing.cs:148-153` | **Not fixable** - the wire type is `Quaternion32`. |
+| 5 | Send-time jitter vs phase-locked stamps poisons the client's latency estimate and erodes the buffer | `PathFollower.cs:146-147`, `:106` (>=2 s convolution), `:251-256` | **Server-fixable in principle; unmeasured.** The new cadence trace measures exactly this. |
+
+Eliminated for production: the 0.01 quaternion apply threshold; the follower
+freezing between wakes; per-part pose competition (H1); the `WallClock` stamp
+defect (that publisher is not running); dropped-step batches emitting *short*
+points (`_simulationStep` counts executed steps only, so they do not).
+
+### The measurement that decides between 1/5 and the rest
+
+Before any further change, three numbers from the live host:
+
+1. `grep -c 'flight fixed-clock pressure' <server log>` - each occurrence is a
+   dropped-step event, i.e. candidate 3 firing.
+2. `fixedClock.droppedSteps` and `fixedClock.pressureEvents` from the shipdiag
+   JSON snapshot - monotonic totals, so one snapshot answers "has it ever
+   happened" and two answer "how often".
+3. `WAREBORN_FLIGHT_CADENCE_TRACE=1` and watch the `[flight-cadence]` line during
+   a sustained turn. `worstStampDev` must be `0.0ms` under fixed step - if it is
+   not, the phase lock is not doing what it claims. `drift` is the buffer-erosion
+   budget: bounded oscillation around zero is healthy, a growing positive number
+   is candidate 5 and predicts candidate 1.
+
+If pressure is zero and drift is flat, candidates 3 and 5 are dead and the live
+symptom is candidates 1, 2 and 4 - which are client-side interpolation limits
+that no server change can reach.
+
+### If it is client-side: exactly what the mod would change
+
+Recorded so the decision can be made separately, since a client change triggers
+the standing patcher-update rule. In increasing order of intrusiveness:
+
+1. **Lower `SendInterval` in the patched `ShipConfig` ScriptableObject** from
+   0.24 to e.g. 0.12, and move `ShipMotionPolicy.SendIntervalSeconds` and
+   `FixedFlightPublicationSchedule.StepsPerPublication` to match. This halves
+   every artefact above at once: the C0 kink rate doubles so each kink is half as
+   large, the quantisation draw happens twice as often over half the arc, and the
+   extrapolation window halves. It is a config asset, not code. Risk: it doubles
+   1130 bandwidth per flying ship, and the two sides MUST ship together or the
+   0.95 reject floor silently drops half the stream.
+2. **Give rotation a tangent.** Patch `SplineInterpolator.CubicHermiteInterpolation`
+   to squad-interpolate using the neighbouring control points' rotations as
+   implicit tangents. No schema change, no server change, no extra bandwidth -
+   it derives the missing derivative from points the client already buffers.
+   This is the surgical fix for artefact 1 and it is worth costing.
+3. **Extrapolate rotation.** Patch `ControlPoint.ExtrapolateWithConstantVelocity`
+   to carry an angular delta derived from the last two received points, so a
+   buffer underrun no longer freezes the yaw. Directly targets candidate 1.
+
+Options 2 and 3 need no server or schema change at all, which makes them
+strictly cheaper than option 1. None of them may be attempted without
+re-validating against the rejected `2026.08.24-1` continuity trial, which proved
+that defeating client smoothing blindly exposes a contact/carry disagreement
+(`docs/architecture/client-ship-motion-continuity-2026-08-24.md:35-47`).
 
 ## The correction
 
@@ -294,10 +515,22 @@ Server-side, pure logic in the Multiplayer assembly plus one line of glue.
 - **`FlightSession`** now routes every stamp through the policy; the private
   plumbing carries a `FlightStampMode` instead of a `bool phaseLocked`. The public
   signatures are unchanged apart from one optional `stampContinuity = false`.
+- **Dropped-step compensation (the production-path half).**
+  `FlightStampPolicy.LostSimulationMilliseconds(droppedSteps, stepSeconds)` turns
+  a capped batch's thrown-away simulation into milliseconds, and `NextStamp` adds
+  it to the phase-locked candidate. `ShipFlightService`'s fixed-step branch
+  charges it to the FIRST point a batch emits and then clears it, so it is counted
+  once. Zero - the default - reproduces today's stamps exactly.
 - **`ShipFlightService.StampContinuityEnabled`** reads
-  `WAREBORN_FLIGHT_STAMP_CONTINUITY`, **default OFF**, and is passed only to the
-  legacy `session.Advance` call. It is not consulted in fixed-step mode, which
-  already phase-locks.
+  `WAREBORN_FLIGHT_STAMP_CONTINUITY`, **default OFF**. One flag, one meaning on
+  both publishers: *keep the 1130 wire clock aligned with real elapsed time.* On
+  the legacy path that means not stretching a point for poll jitter; on the
+  fixed-step path it means not banking permanent lag when the catch-up cap drops
+  simulation.
+- **`FlightSendCadence` + `WAREBORN_FLIGHT_CADENCE_TRACE`** (default OFF, pure
+  measurement, no behaviour change): per hull, the wall-clock spacing of
+  consecutive 1130 sends against the spacing their stamps claim, and the running
+  difference. That difference is the client's playback-buffer erosion budget.
 
 Default OFF because it changes wire timestamps, which is what the client's
 latency estimate is built from - the evidence for the mechanism is strong, the
@@ -307,12 +540,21 @@ A/B-able against the exact symptom.
 ### How to enable it
 
 ```
-# a systemd drop-in, or an export in run-gameserver.sh
+# a systemd drop-in, or an export in the launcher
 Environment=WAREBORN_FLIGHT_STAMP_CONTINUITY=1
+Environment=WAREBORN_FLIGHT_CADENCE_TRACE=1     # measurement only, safe to leave off
 ```
 
-Startup then logs `[info] legacy 1130 stamp continuity is ON (...)`. Rollback is
-removing the variable and restarting; nothing persistent changes.
+Startup logs `[info] legacy 1130 stamp continuity is ON (...)` and
+`[info] 1130 send-cadence trace is ON (...)`. Rollback is removing the variables
+and restarting; nothing persistent changes.
+
+**Set expectations honestly.** On the LIVE server (fixed step ON) this flag only
+removes the dropped-step lag - candidate 3. If
+`grep -c 'flight fixed-clock pressure'` on the live log is zero, it will change
+nothing you can see, and the remaining symptom is candidates 1, 2 and 4, which
+are client-side. On a LOCAL dev server (no flags) it additionally removes the
+`WallClock` stamp stretching, which is a much larger effect.
 
 ## Verification
 
@@ -323,13 +565,22 @@ removing the variable and restarting; nothing persistent changes.
   `ShipMotionPolicy.IsLegalSeparation`), the OFF path being byte-identical, the
   steering latch, and the source contract that no new per-part publication was
   invented.
-- Full Multiplayer suite: 5,148 passed / 0 failed (5,119 baseline + 29 new).
+- `FlightProductionCadenceTests`: 17 further tests for the production path -
+  that an uncompensated phase lock banks lag, that compensation tracks wall clock,
+  that lag grows past the client's 5 s clamp without it, that compensation never
+  rewinds and never violates the reject floor, that zero is byte-identical to
+  today, and that the cadence trace reports drift only when drift is real.
+- Full Multiplayer suite: 5,165 passed / 0 failed (5,119 baseline + 46 new).
 - Server suite: 1,262 passed / 26 skipped, unchanged.
 
 ## Visual verification checklist
 
-One scenario, one boot. Set `WAREBORN_FLIGHT_STAMP_CONTINUITY=1` and restart the
-game server; confirm `[info] legacy 1130 stamp continuity is ON` in the log.
+One scenario, one boot. **Do the measurement first** (previous section): if
+`fixedClock.droppedSteps` is zero on the live host, expect this flag to change
+nothing there and treat the run as a client-side confirmation instead.
+
+Set `WAREBORN_FLIGHT_STAMP_CONTINUITY=1` and `WAREBORN_FLIGHT_CADENCE_TRACE=1`,
+restart the game server, and confirm both `[info]` lines report ON.
 
 1. Board the equipped ship and take the helm.
 2. Bring it to a **low, steady speed** - one engine at part throttle, or sails
@@ -360,8 +611,10 @@ at high turn rates is the remaining client-side apply threshold (section "Still
 client-side") and is not a failure of this correction - report it as "smooth but
 grainy" rather than "vibrating", so the two stay separable.
 
-If the vibration is unchanged with the flag on, the driver is not the stamp and
-the next place to instrument is a live client probe of the hull's
-`SSPDeadReckoningVisualizer.NextFrameRotation` versus the hull rigidbody's
-rotation, sampled every FixedUpdate during a held turn - that is the one seam this
-investigation could not measure offline.
+If the vibration is unchanged with the flag on - which is the EXPECTED outcome on
+the live server unless the log shows fixed-clock pressure - then the driver is
+candidate 1 or 2 and it is client-side. The decision then moves to the three
+client-mod options listed above, of which patching
+`SplineInterpolator.CubicHermiteInterpolation` to give rotation a tangent is the
+cheapest: no schema change, no server change, no extra bandwidth. That is a
+separate decision because it triggers the patcher-update rule.
