@@ -216,6 +216,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public const double RestAngularSpeedThresholdRadPerSec = 0.005;
         public const double RestVerticalAccelerationThresholdMps2 = 0.001;
 
+        /// <summary>
+        /// WAREBORN stabilization constant: the residual roll/pitch magnitude
+        /// below which the rest snap may level the hull in one step. Half a
+        /// degree - under the packed-rotation quantisation, so the one-step
+        /// level-off is invisible on the wire. Above it the snap is FORBIDDEN:
+        /// a hull parked at 10 degrees of roll must settle gradually (below),
+        /// never pop flat in one 20 ms step.
+        /// </summary>
+        public const double RestAttitudeSnapThresholdRadians = 0.5 * Math.PI / 180.0;
+
+        /// <summary>
+        /// WAREBORN tuning: the bounded rate at which a hull that meets every
+        /// OTHER rest condition settles its residual roll/pitch toward level.
+        /// NOT recovered self-righting - retail's in-flight self-leveling is not
+        /// recovered and none is invented (see the gap list above); this acts
+        /// only while the hull is otherwise at rest, and rest is not claimed
+        /// until the residual is inside the snap threshold.
+        /// </summary>
+        public const double RestAttitudeSettleRateRadPerSec = 10.0 * Math.PI / 180.0;
+
         /// <summary>APPROXIMATION: the retail rigidbody angularDrag value is lost.</summary>
         public const double AngularDampingPerSecond = 1.0;
 
@@ -503,12 +523,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 && Math.Abs(integrated.Lift.VerticalAccelerationMps2)
                     < RestVerticalAccelerationThresholdMps2)
             {
-                (double yaw, _, _) = ExtractYawPitchRoll(orientation);
-                next = new VectorFlightState(next.Position,
-                    ShadowQuaternion.FromAxisAngle(ShadowVector3.Up, yaw),
-                    ShadowVector3.Zero, ShadowVector3.Zero,
-                    CommandLiftForceNewtons: 0.0, CommandLiftSmoothingVelocity: 0.0);
-                snapped = true;
+                (double yaw, double pitch, double roll) = ExtractYawPitchRoll(orientation);
+                double residual = Math.Max(Math.Abs(pitch), Math.Abs(roll));
+                if (residual <= RestAttitudeSnapThresholdRadians)
+                {
+                    next = new VectorFlightState(next.Position,
+                        ShadowQuaternion.FromAxisAngle(ShadowVector3.Up, yaw),
+                        ShadowVector3.Zero, ShadowVector3.Zero,
+                        CommandLiftForceNewtons: 0.0, CommandLiftSmoothingVelocity: 0.0);
+                    snapped = true;
+                }
+                else
+                {
+                    // WAREBORN rest stabilization, NOT recovered self-righting:
+                    // the residual attitude settles toward level at the labelled
+                    // bounded rate - through the same qY*qX*qZ composition the
+                    // projection speaks - and rest is NOT claimed until it is
+                    // inside the snap threshold. A 10-degree roll takes about a
+                    // second to level; it never pops flat in one 20 ms step.
+                    double maxStepRadians = RestAttitudeSettleRateRadPerSec
+                        * input.DeltaSeconds;
+                    (double w, double qx, double qy, double qz) =
+                        FlightIntegrator.AttitudeQuaternion(new FlightState(
+                            0.0, 0.0, 0.0, yaw, 0.0,
+                            SettleToward(roll, maxStepRadians),
+                            SettleToward(pitch, maxStepRadians),
+                            0.0, 0.0, 0.0, 0.0));
+                    if (ShadowQuaternion.TryNormalized(w, qx, qy, qz,
+                            out ShadowQuaternion settled))
+                    {
+                        next = next with { Orientation = settled };
+                    }
+                }
             }
 
             if (!next.IsFinite)
@@ -520,6 +566,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 worldForce, bodyTorque, integrated.Collision.Telemetry,
                 accepted, rejected, snapped, carriedWindMps);
         }
+
+        /// <summary>One bounded settle increment toward level; never overshoots zero.</summary>
+        private static double SettleToward(double angleRadians, double maxStepRadians) =>
+            angleRadians - (Math.Sign(angleRadians)
+                * Math.Min(Math.Abs(angleRadians), maxStepRadians));
 
         private static double TotalPropulsorPower(IReadOnlyList<ShadowPropulsor> propulsors)
         {

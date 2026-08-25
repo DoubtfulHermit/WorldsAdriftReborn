@@ -332,6 +332,68 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void A_tilted_hull_settles_gradually_and_never_claims_rest_while_tilted()
+        {
+            // Left at a 10-degree roll with everything else quiet, the hull must
+            // neither fly tilted forever nor pop flat in one 20 ms step: the
+            // labelled WAREBORN rest stabilization walks it level at a bounded
+            // per-step rate, and rest is not claimed until it is inside the
+            // half-degree snap threshold.
+            double initialRoll = 10.0 * Math.PI / 180.0;
+            VectorFlightRuntime runtime = new VectorFlightRuntime(
+                VectorFlightRuntime.FromFlightState(new FlightState(
+                    0, 300, 0, 0.5, 0, initialRoll, 0, 0, 0, 0, 0)));
+            VectorFlightStepInput step = Input();
+            double maxPerStep = (VectorFlightRuntime.RestAttitudeSettleRateRadPerSec * Dt)
+                + 1e-9;
+
+            double previousRoll = initialRoll;
+            int stepsToRest = 0;
+            for (int i = 0; i < 200 && stepsToRest == 0; i++)
+            {
+                VectorFlightStepResult result = runtime.Step(step);
+                (_, _, double roll) = VectorFlightRuntime.ExtractYawPitchRoll(
+                    runtime.State.Orientation);
+                if (result.SnappedToRest)
+                {
+                    // The one sanctioned discontinuity: the final level-off is
+                    // bounded by the labelled threshold, under wire quantisation.
+                    Assert.True(Math.Abs(previousRoll)
+                        <= VectorFlightRuntime.RestAttitudeSnapThresholdRadians + 1e-9);
+                    stepsToRest = i + 1;
+                    break;
+                }
+                Assert.True(Math.Abs(roll - previousRoll) <= maxPerStep,
+                    "attitude popped " + Math.Abs(roll - previousRoll)
+                    + " rad in one step at step " + i);
+                // Never at rest while tilted beyond the threshold.
+                Assert.False(VectorFlightRuntime.Project(runtime.State).IsAtRest);
+                previousRoll = roll;
+            }
+
+            // ~0.2 deg/step: a 10-degree roll is a ~1 s settle, not a pop.
+            Assert.InRange(stepsToRest, 40, 60);
+            FlightState rested = VectorFlightRuntime.Project(runtime.State);
+            Assert.True(rested.IsAtRest);
+            Assert.Equal(0.5, rested.YawRadians, 6);
+        }
+
+        [Fact]
+        public void A_barely_tilted_hull_still_snaps_level_inside_the_labelled_threshold()
+        {
+            // Upright-rest behavior unchanged: within the half-degree threshold
+            // the snap is the same one-step level-off it always was.
+            VectorFlightRuntime runtime = new VectorFlightRuntime(
+                VectorFlightRuntime.FromFlightState(new FlightState(
+                    0, 300, 0, 0.5, 0, 0.4 * Math.PI / 180.0, 0, 0, 0, 0, 0)));
+
+            VectorFlightStepResult result = runtime.Step(Input());
+
+            Assert.True(result.SnappedToRest);
+            Assert.True(VectorFlightRuntime.Project(runtime.State).IsAtRest);
+        }
+
+        [Fact]
         public void An_overloaded_hull_never_snaps_to_rest_at_its_apex()
         {
             var overloaded = new LiftRuntimeStepPolicy(500.0,
