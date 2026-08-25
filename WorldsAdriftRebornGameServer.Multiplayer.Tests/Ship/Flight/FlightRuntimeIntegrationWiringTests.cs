@@ -118,7 +118,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void The_adapter_glue_consumes_the_parked_durable_vector_restore()
         {
-            Contains(FlightService(), "_pendingVectorRestore.Remove(hullEntityId",
+            // Scoped to AdapterFor's body and to the two-argument consume (with
+            // the out parameter): RetireHull's cleanup Remove must not satisfy
+            // this needle.
+            string service = FlightService();
+            int adapterFor = service.IndexOf(
+                "private FlightAuthorityAdapter AdapterFor", StringComparison.Ordinal);
+            Assert.True(adapterFor >= 0, "AdapterFor went missing.");
+            int consume = service.IndexOf("_pendingVectorRestore.Remove(hullEntityId,",
+                adapterFor, StringComparison.Ordinal);
+            Assert.True(consume >= 0 && consume - adapterFor < 800,
                 "AdapterFor must consume the parked durable vector state; ignoring it "
                 + "would silently re-seed every promoted hull from the scalar pose on "
                 + "restart (mutation program item 9).");
