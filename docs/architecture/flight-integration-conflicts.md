@@ -161,7 +161,11 @@ the two layers that are singly load-bearing.
 - 1258 live re-push on mid-flight capacity change (converges on checkout).
 - Per-wing Power/AirBrake (lost retail data; refused, not invented).
 - 1113/1106/1222 component serving (audited; 1124 wing torque law runs server-side).
-- Live docking near islands fails closed under conservative envelopes (Step 7 decision).
+- ~~Live docking near islands fails closed under conservative envelopes (Step 7
+  decision).~~ **CLOSED** by the reviewed dock volume — a terrain contact inside a
+  yard's own influence sphere is not counted as a blocker, with truncation,
+  hull-hull and out-of-volume contacts all still blocking. See
+  `docs/architecture/shipyard-dock-bubble.md`.
 - Old-binary re-save drops new snapshot fields on rollback (degraded-not-corrupt; Step 7
   runbook line).
 - Per-step proposed-motion collision evaluation (this branch encodes it as a hard response
