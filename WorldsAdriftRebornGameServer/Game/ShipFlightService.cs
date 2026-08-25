@@ -67,6 +67,31 @@ namespace WorldsAdriftRebornGameServer.Game
             Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FIXED_STEP") == "1";
 
         /// <summary>
+        /// WAREBORN_FLIGHT_STAMP_CONTINUITY=1 - the LEGACY publisher's turn-vibration
+        /// correction (docs/research/findings-turn-vibration.md).
+        ///
+        /// The legacy branch below integrates EXACTLY
+        /// <see cref="ShipMotionPolicy.SendIntervalSeconds"/> of simulation per emitted
+        /// 1130 point, but then stamps that point at wall clock whenever the poll loop
+        /// was late - and the loop turns once per ENet event under a 50 ms poll timeout,
+        /// so it is late by a different amount on nearly every point. A control point
+        /// carries linear velocity but NO angular velocity (decompile: <c>ControlPoint</c>
+        /// is <c>Timestamp/Position/Velocity/FsimIdHash/Received/Rotation</c>, and
+        /// <c>SplineInterpolator.CubicHermiteInterpolation</c> takes position and velocity
+        /// only), so the client hermite-eases the uneven interval out of the POSITION path
+        /// and can only slerp the attitude across the raw timestamp gap. The rendered turn
+        /// rate is therefore <c>trueRate * 240 / stampDelta</c> and wobbles on every point
+        /// - invisible in straight flight, a ~4 Hz shudder in a sustained turn, amplified
+        /// by the lever arm at each mounted part.
+        ///
+        /// Default OFF because it changes wire timestamps, which is what the client's
+        /// smoothed server-latency estimate is built from. <see cref="FixedStepEnabled"/>
+        /// already phase-locks its own publisher and does not need this.
+        /// </summary>
+        internal static readonly bool StampContinuityEnabled =
+            Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_STAMP_CONTINUITY") == "1";
+
+        /// <summary>
         /// The vector-authority / lift-runtime / collision / docking gates, parsed
         /// and dependency-checked in ONE tested place
         /// (<see cref="FlightRuntimeFlags.Parse"/>). All six default OFF; a
@@ -278,6 +303,16 @@ namespace WorldsAdriftRebornGameServer.Game
                     + (FixedStepEnabled ? "ON" : "OFF")
                     + " (WAREBORN_FLIGHT_FIXED_STEP; 20 ms step, 25-step catch-up cap;"
                     + " 1130 remains 240 ms).");
+                Console.WriteLine("[info] legacy 1130 stamp continuity is "
+                    + (StampContinuityEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_STAMP_CONTINUITY; a point carries exactly "
+                    + ShipMotionPolicy.SendIntervalSeconds.ToString("0.###",
+                        System.Globalization.CultureInfo.InvariantCulture)
+                    + " s of simulation, so ON stamps it that far apart and resyncs to"
+                    + " wall clock only after a whole skipped interval)."
+                    + (FixedStepEnabled
+                        ? " Not consulted: the fixed-step publisher phase-locks its own stamps."
+                        : string.Empty));
                 Console.WriteLine("[info] vector flight authority is "
                     + (RuntimeFlags.VectorAuthorityEnabled ? "ON" : "OFF")
                     + " (WAREBORN_FLIGHT_VECTOR_AUTHORITY), "
@@ -1142,7 +1177,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     FlightEmit emit = session.Advance(
                         nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility,
                         PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
-                        _worldBounds);
+                        _worldBounds, stampContinuity: StampContinuityEnabled);
                     ObserveWorldBounds(hullEntityId, session.State,
                         session.LastWorldBoundsTelemetry);
                     CompleteDepartureIfOutside(hullEntityId, session.State);

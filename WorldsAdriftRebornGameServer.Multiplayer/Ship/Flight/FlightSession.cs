@@ -36,13 +36,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// later checkout starts at the latest authoritative pose rather than the old
     /// build location.
     ///
-    /// TIMESTAMPS. Each emitted point is stamped
-    /// <c>max(now, lastStamp + step)</c>: monotonic by construction, never
-    /// closer than the client's 0.228 s reject floor (step is 0.24 s), and
-    /// pinned to wall-clock whenever the cadence has a real gap, so the client's
-    /// server-latency estimate stays sane across a pause. The
-    /// pure test asserts <see cref="ShipMotionPolicy.IsLegalSeparation"/> across
-    /// every phase transition.
+    /// TIMESTAMPS. Every emitted point is stamped through
+    /// <see cref="FlightStampPolicy"/>: monotonic by construction, never closer
+    /// than the client's 0.228 s reject floor (step is 0.24 s) in any mode, and
+    /// the pure test asserts <see cref="ShipMotionPolicy.IsLegalSeparation"/>
+    /// across every phase transition. The historic legacy rule
+    /// (<c>max(now, lastStamp + step)</c>) is pinned to wall-clock whenever the
+    /// cadence has a real gap so the client's server-latency estimate stays sane
+    /// across a pause - but it ALSO stretches the stamp for ordinary poll jitter,
+    /// which is the turn-vibration defect
+    /// (docs/research/findings-turn-vibration.md), because this class integrates
+    /// exactly one step of simulation per emitted point regardless. The
+    /// <c>stampContinuity</c> opt-in keeps the phase lock for jitter and resyncs
+    /// only on a real gap.
     ///
     /// A session survives dismount ON PURPOSE: the ship stays where it was flown
     /// (this object is the only holder of the flown pose - WorldEntity.Position
@@ -209,14 +215,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// control point goes out. Call at the control-point cadence
         /// (<paramref name="stepSeconds"/> = ShipMotionPolicy.SendIntervalSeconds).
         /// </summary>
+        /// <param name="stampContinuity">
+        /// <c>WAREBORN_FLIGHT_STAMP_CONTINUITY=1</c>. This overload advances EXACTLY
+        /// one <paramref name="stepSeconds"/> of simulation per emitted point, so its
+        /// wire timestamps must advance by exactly that too or the client renders the
+        /// attitude delta over the wrong interval - see
+        /// <see cref="FlightStampPolicy"/> for why that is a turn-only artefact.
+        /// Default false keeps the historic wall-clock stamp.
+        /// </param>
         public FlightEmit Advance(long nowMs, double stepSeconds, FlightTuning tuning,
             int unfurledSails = 0, double agilityScale = 1.0,
             ShipPropulsion? propulsion = null,
             IReadOnlyList<WeatherWallSegment>? walls = null,
-            RetailWorldBoundsPolicy? worldBounds = null) =>
+            RetailWorldBoundsPolicy? worldBounds = null,
+            bool stampContinuity = false) =>
             AdvanceFixed(nowMs, stepSeconds, 1, nowMs / 1000.0, tuning,
                 unfurledSails, agilityScale, propulsion, walls, worldBounds,
-                fixedStepSeconds: stepSeconds);
+                fixedStepSeconds: stepSeconds, stampContinuity: stampContinuity);
 
         /// <summary>
         /// Advances authoritative physics through zero or more deterministic
@@ -231,8 +246,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             RetailWorldBoundsPolicy? worldBounds = null,
             double fixedStepSeconds = FixedFlightClock.StepSeconds,
             bool emitDue = true,
-            bool phaseLockedEmit = false)
+            bool phaseLockedEmit = false,
+            bool stampContinuity = false)
         {
+            FlightStampMode stampMode = StampModeFor(phaseLockedEmit, stampContinuity);
             if (fixedStepCount < 0 || fixedStepCount > FixedFlightClock.DefaultMaxCatchUpSteps)
                 throw new ArgumentOutOfRangeException(nameof(fixedStepCount));
             // A latched non-zero throttle is live even if the pilot released the
@@ -290,11 +307,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 }
 
                 return DecideEmission(nowMs, emitStepSeconds, tuning, live: true,
-                    emitDue, phaseLockedEmit);
+                    emitDue, stampMode);
             }
 
             return DecideEmission(nowMs, emitStepSeconds, tuning, live: false,
-                emitDue, phaseLockedEmit);
+                emitDue, stampMode);
+        }
+
+        /// <summary>
+        /// Which stamp rule an <c>AdvanceFixed</c> call asked for. Phase lock wins:
+        /// a phase-locked caller already represents an exact amount of simulation
+        /// time and has no wall-clock resync to make, so the two options can never
+        /// half-apply each other.
+        /// </summary>
+        private static FlightStampMode StampModeFor(bool phaseLockedEmit, bool stampContinuity)
+        {
+            if (phaseLockedEmit) return FlightStampMode.PhaseLocked;
+            return stampContinuity ? FlightStampMode.Continuity : FlightStampMode.WallClock;
         }
 
         /// <summary>
@@ -321,7 +350,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 _state = adopted;
             }
             return DecideEmission(nowMs, emitStepSeconds, tuning, live, emitDue,
-                phaseLockedEmit);
+                StampModeFor(phaseLockedEmit, stampContinuity: false));
         }
 
         /// <summary>
@@ -330,7 +359,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// or rest behavior.
         /// </summary>
         private FlightEmit DecideEmission(long nowMs, double emitStepSeconds,
-            FlightTuning tuning, bool live, bool emitDue, bool phaseLockedEmit)
+            FlightTuning tuning, bool live, bool emitDue, FlightStampMode stampMode)
         {
             if (live)
             {
@@ -361,7 +390,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     if (tuning.IdleBobMetres > 0.0)
                     {
                         return EmitBobbedAt(nowMs, emitStepSeconds, tuning,
-                            phaseLockedEmit);
+                            stampMode);
                     }
 
                     // Keep the 1130 playback buffer continuously populated while
@@ -379,7 +408,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     _restEmitted = 0;
                 }
 
-                return EmitAt(nowMs, emitStepSeconds, phaseLockedEmit);
+                return EmitAt(nowMs, emitStepSeconds, stampMode);
             }
 
             // At rest, unmanned.
@@ -390,7 +419,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             if (_restEmitted <= RestRepeats)
             {
                 _restEmitted++;
-                return EmitAt(nowMs, emitStepSeconds, phaseLockedEmit);
+                return EmitAt(nowMs, emitStepSeconds, stampMode);
             }
 
             // Do not send a perpetual zero-speed heartbeat. The shipped
@@ -480,9 +509,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         }
 
         private FlightEmit EmitAt(long nowMs, double stepSeconds,
-            bool phaseLocked = false)
+            FlightStampMode stampMode = FlightStampMode.WallClock)
         {
-            long stamp = NextStamp(nowMs, stepSeconds, phaseLocked);
+            long stamp = NextStamp(nowMs, stepSeconds, stampMode);
             return new FlightEmit(
                 true,
                 FlightIntegrator.ToControlPoint(_state, stamp),
@@ -496,9 +525,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// arrived point claims zero velocity, and this one is honestly moving.
         /// </summary>
         private FlightEmit EmitBobbedAt(long nowMs, double stepSeconds,
-            FlightTuning tuning, bool phaseLocked)
+            FlightTuning tuning, FlightStampMode stampMode)
         {
-            long stamp = NextStamp(nowMs, stepSeconds, phaseLocked);
+            long stamp = NextStamp(nowMs, stepSeconds, stampMode);
             double omega = 2.0 * System.Math.PI / FlightTuning.IdleBobPeriodSeconds;
             double phase = (nowMs / 1000.0) * omega;
             double bobY = tuning.IdleBobMetres * System.Math.Sin(phase);
@@ -513,15 +542,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         }
 
         private long NextStamp(long nowMs, double stepSeconds,
-            bool phaseLocked = false)
+            FlightStampMode stampMode = FlightStampMode.WallClock)
         {
             long stepMs = (long)System.Math.Round(stepSeconds * 1000.0);
-            // A phase-locked point represents an exact amount of simulation time,
-            // so a late poll must not stretch its timestamp back to wall time.
-            // Legacy callers intentionally retain the old wall-clock behavior.
-            long stamp = _everEmitted && (phaseLocked || nowMs < _lastStampMs + stepMs)
-                ? _lastStampMs + stepMs
-                : nowMs;
+            // The rule itself is pure and lives in FlightStampPolicy, which also
+            // records WHY a legacy wall-clock stamp on a point that represents an
+            // exact 240 ms of simulation is the turn-vibration defect. This method
+            // is only the session's mutable half: remember the stamp we issued.
+            long stamp = FlightStampPolicy.NextStamp(
+                stampMode, _everEmitted, _lastStampMs, nowMs, stepMs);
             _lastStampMs = stamp;
             _everEmitted = true;
             return stamp;
