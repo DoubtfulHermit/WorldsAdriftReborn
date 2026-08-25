@@ -200,5 +200,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 + "way for the serve to know when to fall back.");
         }
 
+        /// <summary>
+        /// The reviewed dock volume is what makes docking beside an island-placed
+        /// yard possible at all. It must reach the clearance builder, and it must
+        /// stay scoped to the docking decision.
+        /// </summary>
+        [Fact]
+        public void The_docking_clearance_is_built_against_the_reviewed_dock_volume()
+        {
+            string driver = DockingDriver();
+            Contains(driver, "observation.ClearanceFor(YardKey(yardPosition), bubble)",
+                "an approach's clearance must be built with the yard's reviewed dock "
+                + "volume, or an island-placed yard fails closed as CollisionBlocked "
+                + "forever.");
+            Contains(driver, "observation.ClearanceFor(runtime.Lifecycle.YardStableKey, bubble)",
+                "and so must every subsequent frame's, or the approach is refused on "
+                + "the step after it was granted.");
+        }
     }
 }

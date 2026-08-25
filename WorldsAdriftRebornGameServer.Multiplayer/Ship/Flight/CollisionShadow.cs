@@ -114,8 +114,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         public bool IsClear => IsValid && EvaluationComplete && BlockingContactCount == 0;
 
+        /// <param name="reviewedDockVolume">
+        /// Optional REVIEWED DOCK VOLUME: the yard's own bubble. Island terrain
+        /// proxies are conservative AABB envelopes, and an island-placed shipyard is
+        /// by construction INSIDE its island's envelope - so beside such a yard the
+        /// hull is permanently in contact with a box that says nothing about the air
+        /// it is actually in, and every approach fails closed as blocked. A terrain
+        /// contact whose point lies inside the yard's own influence sphere - the
+        /// whole sphere, not just the docking half: the terrain a yard stands on is
+        /// BELOW it - is therefore not evidence of an obstruction and is not counted.
+        ///
+        /// What this deliberately does NOT do: it never turns truncation, caps, a
+        /// dropped proxy or a hard rejection into "clear" - <c>complete</c> below is
+        /// untouched, and an incomplete evaluation stays incomplete. It never exempts
+        /// a hull-hull contact, and it never exempts a contact outside the volume. It
+        /// is scoped to CONSERVATIVE terrain evidence, which the response path
+        /// already refuses to act on (<c>RejectedAmbiguousGeometry</c>), so no
+        /// physical correction changes: only the docking veto does.
+        /// </param>
         public static CollisionClearanceRecord From(CollisionShadowResult result,
-            string subjectStableKey, string expectedTargetStableKey, long fixedStep)
+            string subjectStableKey, string expectedTargetStableKey, long fixedStep,
+            ShipyardBubble? reviewedDockVolume = null)
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
             // RejectedProxyCount == 0 is load-bearing: a proxy the evaluator's
@@ -130,10 +149,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 && !result.Telemetry.ContactCapReached;
             int blockers = result.Contacts.Count(contact =>
                 Touches(contact, subjectStableKey)
-                && !IsExpectedPair(contact, subjectStableKey, expectedTargetStableKey));
+                && !IsExpectedPair(contact, subjectStableKey, expectedTargetStableKey)
+                && !IsInsideReviewedDockVolume(contact, reviewedDockVolume));
             return new CollisionClearanceRecord(subjectStableKey,
                 expectedTargetStableKey, fixedStep, blockers, complete);
         }
+
+        private static bool IsInsideReviewedDockVolume(CollisionShadowContact contact,
+            ShipyardBubble? reviewedDockVolume) =>
+            reviewedDockVolume.HasValue && reviewedDockVolume.Value.IsValid
+            && contact.Kind == CollisionContactKind.Terrain
+            && reviewedDockVolume.Value.IsWithinRange(contact.Point);
+
         private static bool Touches(CollisionShadowContact contact, string stableKey) =>
             string.Equals(contact.FirstId, stableKey, StringComparison.Ordinal)
             || string.Equals(contact.SecondId, stableKey, StringComparison.Ordinal);

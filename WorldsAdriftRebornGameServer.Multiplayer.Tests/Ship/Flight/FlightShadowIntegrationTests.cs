@@ -78,6 +78,85 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.False(BeginDock(blocked));
         }
 
+        /// <summary>
+        /// THE LIVE ISLAND-ENVELOPE BLOCKER. Island terrain proxies are conservative
+        /// AABB envelopes and an island-placed shipyard is by construction inside its
+        /// island's envelope, so beside such a yard every approach used to fail
+        /// closed as CollisionBlocked - the transactional docking path could not be
+        /// switched on anywhere real. The yard's own bubble is the reviewed dock
+        /// volume: a TERRAIN contact inside it says nothing about the air the hull is
+        /// in and is not counted. Everything else still blocks.
+        /// </summary>
+        [Fact]
+        public void An_island_envelope_inside_the_reviewed_dock_volume_is_not_an_obstruction()
+        {
+            CollisionProxy ship = Hull("ship:stable", new ShadowVector3(0, 0, 0),
+                new ShadowVector3(1, 1, 1));
+            // The island the yard stands on: a huge box that swallows the yard.
+            CollisionProxy island = Terrain("island:home", new ShadowVector3(0, -100, 0),
+                new ShadowVector3(400, 200, 400));
+            CollisionShadowResult swept = CollisionShadowEvaluator.Evaluate(
+                new[] { ship }, new[] { island }, 0.02);
+
+            CollisionClearanceRecord withoutVolume = CollisionClearanceRecord.From(
+                swept, "ship:stable", "yard:stable", 11);
+            CollisionClearanceRecord withVolume = CollisionClearanceRecord.From(
+                swept, "ship:stable", "yard:stable", 11, OriginBubble);
+
+            Assert.False(withoutVolume.IsClear);
+            Assert.Equal(1, withoutVolume.BlockingContactCount);
+            Assert.True(withVolume.IsClear);
+            Assert.Equal(0, withVolume.BlockingContactCount);
+            Assert.True(BeginDock(withVolume));
+        }
+
+        /// <summary>
+        /// The exemption is narrow on purpose. It never launders a truncated sweep
+        /// into clearance, never exempts another SHIP, and never reaches outside the
+        /// volume: the fail-closed rules are untouched.
+        /// </summary>
+        [Fact]
+        public void The_reviewed_dock_volume_never_launders_truncation_hulls_or_distant_terrain()
+        {
+            CollisionProxy ship = Hull("ship:stable", new ShadowVector3(0, 0, 0),
+                new ShadowVector3(1, 1, 1));
+
+            // Another ship sitting in the same volume still blocks.
+            CollisionProxy other = Hull("ship:other", new ShadowVector3(0, 0, 0),
+                new ShadowVector3(1, 1, 1));
+            CollisionClearanceRecord hullContact = CollisionClearanceRecord.From(
+                CollisionShadowEvaluator.Evaluate(new[] { ship, other },
+                    Array.Empty<CollisionProxy>(), 0.02),
+                "ship:stable", "yard:stable", 12, OriginBubble);
+            Assert.False(hullContact.IsClear);
+            Assert.Equal(1, hullContact.BlockingContactCount);
+
+            // Terrain the hull is touching OUTSIDE the volume still blocks: this
+            // cliff face is 44 m from the yard, past the 35 m influence sphere.
+            CollisionProxy farCliff = Terrain("island:far", new ShadowVector3(48, 0, 0),
+                new ShadowVector3(4, 4, 4));
+            CollisionProxy movingShip = new("ship:stable", CollisionProxyKind.ShipHull,
+                CollisionAabb.FromCentreHalfExtents(new ShadowVector3(40, 0, 0),
+                    new ShadowVector3(1, 1, 1)),
+                new ShadowVector3(200, 0, 0));
+            CollisionClearanceRecord distantTerrain = CollisionClearanceRecord.From(
+                CollisionShadowEvaluator.Evaluate(new[] { movingShip },
+                    new[] { farCliff }, 0.02),
+                "ship:stable", "yard:stable", 13, OriginBubble);
+            Assert.False(distantTerrain.IsClear);
+            Assert.Equal(1, distantTerrain.BlockingContactCount);
+
+            // And a truncated sweep is still incomplete, volume or not.
+            CollisionProxy[] hulls = Enumerable.Range(0, CollisionShadowLimits.MaxDynamicProxies + 1)
+                .Select(index => Hull("ship:" + index, ShadowVector3.Zero,
+                    new ShadowVector3(1, 1, 1))).ToArray();
+            CollisionClearanceRecord truncated = CollisionClearanceRecord.From(
+                CollisionShadowEvaluator.Evaluate(hulls, Array.Empty<CollisionProxy>(), 0.02),
+                "ship:0", "yard:stable", 14, OriginBubble);
+            Assert.False(truncated.EvaluationComplete);
+            Assert.False(truncated.IsClear);
+        }
+
         [Fact]
         public void Truncated_collision_work_can_never_issue_clearance()
         {

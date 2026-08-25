@@ -39,7 +39,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// the record is explicitly EvaluationComplete=false, which
         /// <see cref="CollisionClearanceRecord.IsClear"/> refuses.
         /// </summary>
-        public CollisionClearanceRecord ClearanceFor(string expectedTargetStableKey)
+        public CollisionClearanceRecord ClearanceFor(string expectedTargetStableKey,
+            ShipyardBubble? reviewedDockVolume = null)
         {
             if (!ObservationRan)
             {
@@ -48,7 +49,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     EvaluationComplete: false);
             }
             return CollisionClearanceRecord.From(Result.Observation, HullStableKey,
-                expectedTargetStableKey, Stamp.FixedStep);
+                expectedTargetStableKey, Stamp.FixedStep, reviewedDockVolume);
         }
     }
 

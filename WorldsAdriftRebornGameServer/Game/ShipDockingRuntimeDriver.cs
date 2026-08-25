@@ -164,7 +164,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             var frame = new DockingFrame(ShipMotionPolicy.SendIntervalSeconds, yardExists,
                 permissionValid, propulsion,
-                observation.ClearanceFor(runtime.Lifecycle.YardStableKey),
+                observation.ClearanceFor(runtime.Lifecycle.YardStableKey, bubble),
                 bubble, observedPose, observedMotion,
                 helmManned: session.IsManned,
                 hullClearanceRadiusMetres: HullClearanceRadiusFor(hullEntityId));
@@ -254,7 +254,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     yardAbandoned: string.IsNullOrEmpty(yardOwner),
                     yardExists: true,
                     propulsionNeutral: propulsion == DockingPropulsion.None,
-                    observation.ClearanceFor(YardKey(yardPosition)),
+                    observation.ClearanceFor(YardKey(yardPosition), bubble),
                     observedPose, targetPose, observedMotion, bubble,
                     helmManned: session.IsManned);
                 DockingRuntimeResult result = runtime.TryBeginApproach(request,
