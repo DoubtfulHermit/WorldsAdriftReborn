@@ -44,8 +44,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public VectorFlightStepInput(string stableHullKey, double deltaSeconds,
             ShadowMassProperties mass, ShadowVector3 halfExtentsMetres,
             IReadOnlyList<ShadowPropulsor> propulsors, IReadOnlyList<VectorWingSurface> wings,
-            double engineSpin, ShadowVector3 worldWindMps, FlightControlInput input,
-            LiftRuntimeStepPolicy lift)
+            double engineSpin, WindSample wind, FlightControlInput input,
+            LiftRuntimeStepPolicy lift, FlightTuning tuning)
         {
             StableHullKey = stableHullKey;
             DeltaSeconds = deltaSeconds;
@@ -54,9 +54,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             Propulsors = propulsors ?? Array.Empty<ShadowPropulsor>();
             Wings = wings ?? Array.Empty<VectorWingSurface>();
             EngineSpin = engineSpin;
-            WorldWindMps = worldWindMps;
+            Wind = wind;
             Input = input;
             Lift = lift;
+            Tuning = tuning;
         }
 
         public string StableHullKey { get; }
@@ -77,9 +78,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         public IReadOnlyList<VectorWingSurface> Wings { get; }
         public double EngineSpin { get; }
-        public ShadowVector3 WorldWindMps { get; }
+
+        /// <summary>
+        /// The ONE wind answer for this hull at this step, sampled by the caller
+        /// from the production <see cref="WindField"/> (walls included). Sail trim
+        /// reads its components; the carried-wind tier decision reads the whole
+        /// sample - one wind truth, never two.
+        /// </summary>
+        public WindSample Wind { get; }
+
         public FlightControlInput Input { get; }
         public LiftRuntimeStepPolicy Lift { get; }
+
+        /// <summary>
+        /// The live flight tuning, consumed ONLY by the shared
+        /// <see cref="ShipForceEvaluator.CarriedWindAlongHeadingMps"/> decision
+        /// and the canvas-is-driving test - the same knobs the scalar path reads.
+        /// </summary>
+        public FlightTuning Tuning { get; }
 
         public bool IsValid => !string.IsNullOrWhiteSpace(StableHullKey)
             && StableHullKey.Length <= CollisionShadowLimits.MaxIdLength
@@ -91,7 +107,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             && Propulsors.Count <= VectorRigidBodyShadowPolicy.MaxParts
             && Wings.Count <= VectorRigidBodyShadowPolicy.MaxParts
             && double.IsFinite(EngineSpin) && EngineSpin >= -1.0 && EngineSpin <= 1.0
-            && WorldWindMps.IsFinite
+            && Tuning != null
             && Lift.IsValid;
     }
 
@@ -101,7 +117,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public VectorFlightStepResult(bool integrated, string disposition,
             LiftGravityEvaluation lift, ShadowVector3 worldForceNewtons,
             ShadowVector3 bodyTorqueNewtonMetres, CollisionShadowTelemetry collision,
-            int acceptedParts, int rejectedParts, bool snappedToRest)
+            int acceptedParts, int rejectedParts, bool snappedToRest,
+            double carriedWindAlongHeadingMps)
         {
             Integrated = integrated;
             Disposition = disposition;
@@ -112,6 +129,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             AcceptedParts = acceptedParts;
             RejectedParts = rejectedParts;
             SnappedToRest = snappedToRest;
+            CarriedWindAlongHeadingMps = carriedWindAlongHeadingMps;
         }
 
         /// <summary>False = the step failed closed and the hull merely coasted.</summary>
@@ -124,6 +142,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public int AcceptedParts { get; }
         public int RejectedParts { get; }
         public bool SnappedToRest { get; }
+
+        /// <summary>
+        /// The carried-wind tier the step actually applied, straight from the
+        /// SHARED <see cref="ShipForceEvaluator.CarriedWindAlongHeadingMps"/>
+        /// decision - the commanded sky-core baseline, canvas floor, or
+        /// mass-attenuated wall air. Telemetry; parity with the scalar
+        /// evaluation is asserted on this exact value.
+        /// </summary>
+        public double CarriedWindAlongHeadingMps { get; }
     }
 
     /// <summary>
@@ -140,11 +167,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     ///
     /// PROVENANCE, stated once: propulsor geometry and force equations are
     /// RECOVERED with WAREBORN power tuning; lift/gravity is the RECOVERED retail
-    /// vertical policy; horizontal drag is the RECOVERED serialized drag law;
-    /// angular damping is an APPROXIMATION (the retail rigidbody's angularDrag
-    /// is lost); the wing steering torque is the RECOVERED WingVisualizer shape
-    /// with WAREBORN power tuning; sail and wing mount orientation comes from
-    /// the packed mount rotation, not live joint state (the visible seam).
+    /// vertical policy; the horizontal air interaction is the RECOVERED
+    /// relative-wind law (<see cref="ShipForceModel.RelativeWindApproachDeltaMps"/>)
+    /// aimed at the SHARED carried-wind tier decision
+    /// (<see cref="ShipForceEvaluator.CarriedWindAlongHeadingMps"/> - the same
+    /// code the scalar path runs, covering the sky-core commanded baseline,
+    /// canvas floor and mass-attenuated wall air); angular damping is an
+    /// APPROXIMATION (the retail rigidbody's angularDrag is lost); the wing
+    /// steering torque is the RECOVERED WingVisualizer shape with WAREBORN power
+    /// tuning; sail and wing mount orientation comes from the packed mount
+    /// rotation, not live joint state (the visible seam).
+    ///
+    /// REMAINING BEHAVIOR GAPS, each named so none can hide (world bounds are
+    /// already labelled at the service startup warning):
+    /// <list type="bullet">
+    /// <item>WORLD BOUNDS - the retail edge pushback is not routed through the
+    ///   vector path; promoted hulls fly unbounded (service startup warning).</item>
+    /// <item>NO SELF-RIGHTING IN FLIGHT - retail's self-leveling behavior is
+    ///   NOT recovered and none is invented: a hull rolled or pitched by torque
+    ///   keeps that attitude while flying. Only the labelled WAREBORN rest
+    ///   stabilization (bounded settle, then snap) levels it, and only once
+    ///   every rest condition holds.</item>
+    /// <item>WING AIRBRAKE - the recovered WingVisualizer airbrake term needs
+    ///   the lost per-wing AirBrake value; it is absent, not approximated.</item>
+    /// <item>SAIL/WING JOINT STATE - orientation is the packed mount rotation,
+    ///   not live joint state (<see cref="SailYawSeam"/>).</item>
+    /// <item>ABANDONED SINK - the retail 24 h CoreDampenTime accumulator is not
+    ///   tracked; the tested IsAbandoned path is fed false by the service.</item>
+    /// <item>VERTICAL WIND - <see cref="WindSample"/> is horizontal-only; a
+    ///   Wind Rift's downward component has nowhere to enter yet.</item>
+    /// <item>STORMS - the wall/storm vector shadow
+    ///   (<c>VectorWallStormShadow</c>) stays dormant; only the wall WIND
+    ///   (carry tier above) acts here, not storm forces.</item>
+    /// </list>
     /// </summary>
     public sealed class VectorFlightRuntime
     {
@@ -310,10 +365,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// mount positions (local frame, snapshot COM) -> retail-filtered torque
         /// + recovered wing steering torque -> angular integration with labelled
         /// damping -> world-frame force through the IntegratedFlightShadow seam
-        /// (lift + gravity exactly once, linear integration) -> recovered
-        /// horizontal drag on the committed velocity -> orientation integration
-        /// -> rest snap. A step that fails validation COASTS (position advances
-        /// on the held velocity) rather than freezing or inventing forces.
+        /// (lift + gravity exactly once, linear integration) -> the SHARED
+        /// carried-wind decision + the recovered relative-wind law on the
+        /// committed horizontal velocity -> orientation integration -> rest
+        /// snap. A step that fails validation COASTS (position advances on the
+        /// held velocity) rather than freezing or inventing forces.
         /// </summary>
         public VectorFlightStepResult Step(VectorFlightStepInput input)
         {
@@ -328,16 +384,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             }
 
             // 1. Propulsor forces in the hull-local frame, torque about the
-            //    snapshot COM. Sail trim consumes the hull-local wind.
-            ShadowVector3 localWind = _state.Orientation.InverseRotate(input.WorldWindMps);
+            //    snapshot COM. Sail trim consumes the hull-local wind - the SAME
+            //    WindSample the carried-wind tier decision below reads.
+            ShadowVector3 worldWind = new ShadowVector3(
+                input.Wind.WindX, 0.0, input.Wind.WindZ);
+            ShadowVector3 localWind = _state.Orientation.InverseRotate(worldWind);
             var accumulator = new ShadowForceAccumulator();
             int accepted = 0, rejected = 0;
+            int poweredSails = 0;
             for (int i = 0; i < input.Propulsors.Count; i++)
             {
                 ShadowPropulsor part = input.Propulsors[i];
                 ShadowVector3 force = part.Kind == ShadowPartKind.Engine
                     ? VectorRigidBodyShadow.EngineForce(part, input.EngineSpin)
                     : VectorRigidBodyShadow.TrimmedSailForce(part, localWind);
+                if (part.Kind == ShadowPartKind.Sail && part.Power > 0.0)
+                {
+                    poweredSails++;
+                }
                 if (accumulator.TryAdd(force, part.LocalPosition, input.Mass.CentreOfMass,
                         part.Torqueless))
                 {
@@ -385,11 +449,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 return Coast(input.DeltaSeconds, "lift-seam-rejected");
             }
 
-            // 5. Recovered horizontal drag on the committed velocity: it opposes
-            //    motion and never reverses it. (Vertical speed is governed by the
-            //    recovered lift caps, not by drag.)
-            ShadowVector3 velocity = ApplyRecoveredHorizontalDrag(
-                integrated.NextVelocityMetresPerSecond, input.DeltaSeconds);
+            // 5. The horizontal air interaction, in two SHARED pieces so the
+            //    scalar and vector paths cannot diverge (kill-list: no parallel
+            //    calculations):
+            //    a. WHAT wind carries this hull - the exact tier decision the
+            //       scalar evaluator runs (sky-core commanded baseline, canvas
+            //       floor, mass-attenuated wall air), via
+            //       ShipForceEvaluator.CarriedWindAlongHeadingMps. Canvas-is-
+            //       driving is decided by the same production
+            //       ShipForceModel.SailForwardNewtons the scalar path uses.
+            //    b. HOW the air closes the gap - the recovered relative-wind law
+            //       (ShipForceModel.RelativeWindApproachDeltaMps: 2.5-power
+            //       primary + always-on 0.03 m/s2 residual settle), applied to
+            //       the velocity RELATIVE to the carried wind along the heading.
+            //       With no carried wind it is plain drag opposing motion; with
+            //       one it is what actually gets a bare hull under way. Never
+            //       overshoots, never reverses. (Vertical speed is governed by
+            //       the recovered lift caps, not by drag.)
+            (double headingYaw, _, _) = ExtractYawPitchRoll(_state.Orientation);
+            double throttle = Math.Clamp(input.Input.Throttle, -1.0, 1.0);
+            double scalarSailForce = ShipForceModel.SailForwardNewtons(
+                poweredSails, headingYaw, input.Tuning.SailPowerNewtons,
+                input.Wind.WindX, input.Wind.WindZ);
+            double carriedWindMps = ShipForceEvaluator.CarriedWindAlongHeadingMps(
+                input.Wind, headingYaw, throttle, scalarSailForce,
+                input.Mass.TotalMassKg, input.Tuning);
+            ShadowVector3 velocity = ApplyRecoveredRelativeWindLaw(
+                integrated.NextVelocityMetresPerSecond, headingYaw, carriedWindMps,
+                input.DeltaSeconds);
 
             // 6. Orientation integration from the body angular velocity.
             ShadowQuaternion orientation = IntegrateOrientation(
@@ -402,11 +489,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
             // 7. WAREBORN rest snap so the publisher's exact-zero rest contract
             //    holds. Never fires while lift/gravity still accelerates the hull
-            //    (an overloaded ship at its apex keeps falling) or while any
-            //    propulsor is powered.
+            //    (an overloaded ship at its apex keeps falling), while any
+            //    propulsor is powered, or while a carried wind still pushes it -
+            //    with the lever centred that can only be wall air, which is
+            //    spatial resistance and keeps shoving a parked hull exactly as
+            //    the scalar integrator keeps integrating it.
             bool snapped = false;
             if (input.Input.IsNeutral
                 && TotalPropulsorPower(input.Propulsors) <= 0.0
+                && Math.Abs(carriedWindMps) < RestLinearSpeedThresholdMps
                 && next.VelocityMps.Magnitude < RestLinearSpeedThresholdMps
                 && next.AngularVelocityRadPerSec.Magnitude < RestAngularSpeedThresholdRadPerSec
                 && Math.Abs(integrated.Lift.VerticalAccelerationMps2)
@@ -427,7 +518,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             _state = next;
             return new VectorFlightStepResult(true, "integrated", integrated.Lift,
                 worldForce, bodyTorque, integrated.Collision.Telemetry,
-                accepted, rejected, snapped);
+                accepted, rejected, snapped, carriedWindMps);
         }
 
         private static double TotalPropulsorPower(IReadOnlyList<ShadowPropulsor> propulsors)
@@ -447,19 +538,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             return next * damping;
         }
 
-        private static ShadowVector3 ApplyRecoveredHorizontalDrag(ShadowVector3 velocity,
-            double dt)
+        /// <summary>
+        /// The recovered relative-wind law in the horizontal plane: the shared
+        /// <see cref="ShipForceModel.RelativeWindApproachDeltaMps"/> step closes
+        /// the gap between the velocity and the carried wind aimed along the
+        /// heading. The delta is bounded by the gap itself, so the air can bring
+        /// a hull TO its carried speed but never past it, and with no carried
+        /// wind this is exactly drag opposing motion - it never reverses travel.
+        /// </summary>
+        private static ShadowVector3 ApplyRecoveredRelativeWindLaw(ShadowVector3 velocity,
+            double headingRadians, double carriedWindAlongHeadingMps, double dt)
         {
-            double horizontal = Math.Sqrt(
-                (velocity.X * velocity.X) + (velocity.Z * velocity.Z));
-            if (horizontal <= VectorRigidBodyShadowPolicy.VectorEpsilon)
+            double carryX = Math.Sin(headingRadians) * carriedWindAlongHeadingMps;
+            double carryZ = Math.Cos(headingRadians) * carriedWindAlongHeadingMps;
+            double relX = carryX - velocity.X;
+            double relZ = carryZ - velocity.Z;
+            double relMagnitude = Math.Sqrt((relX * relX) + (relZ * relZ));
+            if (relMagnitude <= VectorRigidBodyShadowPolicy.VectorEpsilon)
             {
                 return velocity;
             }
-            double slowed = Math.Max(0.0,
-                horizontal - (ShipForceModel.DragDecelerationMps2(horizontal) * dt));
-            double scale = slowed / horizontal;
-            return new ShadowVector3(velocity.X * scale, velocity.Y, velocity.Z * scale);
+            double delta = ShipForceModel.RelativeWindApproachDeltaMps(relMagnitude, dt);
+            double scale = delta / relMagnitude;
+            return new ShadowVector3(
+                velocity.X + (relX * scale), velocity.Y, velocity.Z + (relZ * scale));
         }
 
         private static ShadowQuaternion IntegrateOrientation(ShadowQuaternion orientation,
@@ -487,11 +589,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 };
             }
             return new VectorFlightStepResult(false, reason, default,
-                ShadowVector3.Zero, ShadowVector3.Zero, default, 0, 0, false);
+                ShadowVector3.Zero, ShadowVector3.Zero, default, 0, 0, false, 0.0);
         }
 
         private static VectorFlightStepResult Rejected(string reason) =>
             new VectorFlightStepResult(false, reason, default,
-                ShadowVector3.Zero, ShadowVector3.Zero, default, 0, 0, false);
+                ShadowVector3.Zero, ShadowVector3.Zero, default, 0, 0, false, 0.0);
     }
 }

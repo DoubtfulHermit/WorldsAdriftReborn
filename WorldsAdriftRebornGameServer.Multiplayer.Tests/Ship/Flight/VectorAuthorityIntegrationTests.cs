@@ -37,10 +37,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 new ShadowPropulsor(ShadowPartKind.Engine, ShadowVector3.Zero,
                     ShadowQuaternion.Identity, 1400.0, 58.5),
             },
-            Array.Empty<VectorWingSurface>(), 1.0, ShadowVector3.Zero,
+            Array.Empty<VectorWingSurface>(), 1.0, WindSample.Calm,
             new FlightControlInput(1f, 0f, 0f, 0f, 0f),
             new LiftRuntimeStepPolicy(ShipLiftPolicy.SeededTotalLiftKg,
-                GravityParameter.UnityDefaultApproximation, false));
+                GravityParameter.UnityDefaultApproximation, false), Tuning);
 
         private static void RunSlices(FixedFlightStepBatch batch, ShipDomain domain,
             FlightAuthorityAdapter adapter, FlightSession session, long nowMs,

@@ -10,6 +10,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
     {
         private const double Dt = FixedFlightClock.StepSeconds;
         private const double MassKg = 1000.0;
+        private static readonly FlightTuning Tuning = new FlightTuning();
 
         private static ShadowMassProperties Mass(double inertia = 100000.0) =>
             new ShadowMassProperties(MassKg, ShadowVector3.Zero,
@@ -30,13 +31,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             FlightControlInput input = default,
             LiftRuntimeStepPolicy? lift = null,
             ShadowMassProperties? mass = null,
-            ShadowVector3? wind = null) =>
+            WindSample? wind = null,
+            FlightTuning? tuning = null) =>
             new VectorFlightStepInput("hull:test", Dt,
                 mass ?? Mass(), new ShadowVector3(2.0, 1.5, 6.0),
                 propulsors ?? Array.Empty<ShadowPropulsor>(),
                 wings ?? Array.Empty<VectorWingSurface>(),
-                engineSpin, wind ?? ShadowVector3.Zero, input,
-                lift ?? GenerousLift());
+                engineSpin, wind ?? WindSample.Calm, input,
+                lift ?? GenerousLift(), tuning ?? Tuning);
 
         private static VectorFlightRuntime AtRestRuntime() => new VectorFlightRuntime(
             VectorFlightRuntime.FromFlightState(FlightState.AtRestAt(0.0, 300.0, 0.0)));
@@ -47,7 +49,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             VectorFlightStepInput step = Input(
                 new[] { Engine(1.5, -3.0) }, engineSpin: 1.0,
                 input: new FlightControlInput(1f, 0.2f, 0.1f, 0.3f, 0f),
-                wind: new ShadowVector3(1.0, 0.0, -2.0));
+                wind: WindSample.FromComponents(1.0, -2.0, 0.0));
             VectorFlightRuntime a = AtRestRuntime();
             VectorFlightRuntime b = AtRestRuntime();
 
@@ -185,9 +187,130 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 
             runtime.Step(Input());
 
-            double expected = 12.0 - (ShipForceModel.DragDecelerationMps2(12.0) * Dt);
+            // Neutral input, calm air: the carried wind is zero, so the SHARED
+            // relative-wind law reduces to the recovered 2.5-power drag plus the
+            // always-on 0.03 m/s2 residual settle - the same pair the scalar
+            // StepSpeed applies - opposing travel.
+            double expected = 12.0
+                - (ShipForceModel.RelativeWindApproachDeltaMps(12.0, Dt));
+            Assert.Equal(12.0 - ((ShipForceModel.DragDecelerationMps2(12.0)
+                + ShipForceModel.LowSpeedSettleAccelMps2) * Dt), expected, 12);
             Assert.Equal(expected, runtime.State.VelocityMps.Z, 9);
             Assert.True(runtime.State.VelocityMps.Z > 0.0);
+        }
+
+        [Fact]
+        public void Hull_3639_full_throttle_empty_generator_furled_sails_carries_the_commanded_baseline()
+        {
+            // THE DEPLOYED "SLOW SHIP" REGRESSION, on the vector path: promote
+            // hull 3639, man the helm, full throttle, generator empty (engines
+            // mounted but unpowered), sails mounted but furled. The scalar
+            // additive-tier fix carries this hull at the commanded sky-core
+            // baseline; the vector path must produce the SAME carry through the
+            // SAME shared decision and the SAME terminal-speed model, or the
+            // player-visible defect the last deployment fixed returns.
+            ShipMassSnapshot snapshot = Materials.ShipMassEvaluatorTests.Hull3639();
+            // The deployed additive-tier configuration:
+            // WAREBORN_FLIGHT_BARE_HULL_MULTIPLIER=4.
+            var tuning = new FlightTuning(bareHullDriveMultiplier: 4.0);
+            var mass = new ShadowMassProperties(snapshot.TotalFlightMassKg,
+                snapshot.CentreOfMassApprox, snapshot.DiagonalInertiaApproxKgM2,
+                isApproximation: true);
+            ShadowPropulsor[] unpowered =
+            {
+                new ShadowPropulsor(ShadowPartKind.Sail, new ShadowVector3(-1.0, 0.0, 1.0),
+                    ShadowQuaternion.Identity, 0.0, 50.0),
+                new ShadowPropulsor(ShadowPartKind.Sail, new ShadowVector3(1.0, 0.0, 1.0),
+                    ShadowQuaternion.Identity, 0.0, 50.0),
+                new ShadowPropulsor(ShadowPartKind.Engine, new ShadowVector3(0.0, 0.0, -4.0),
+                    ShadowQuaternion.Identity, 0.0, 58.5),
+            };
+            WindSample wind = WindSample.FromComponents(
+                ShipForceModel.DefaultWindX, ShipForceModel.DefaultWindZ, 0.0);
+            var helm = new FlightControlInput(1f, 0f, 0f, 0f, 0f);
+
+            // The scalar reference is the production evaluation itself: no
+            // powered engines, no unfurled canvas, full throttle.
+            ShipForceEvaluation scalar = ShipForceEvaluator.Evaluate(
+                0.0, 0.0, 0.0, helm, new ShipPropulsion(snapshot.TotalFlightMassKg, 0.0, 0),
+                tuning, 0.0);
+            Assert.True(scalar.WindAlongHeadingMps > 2.0,
+                "the scalar commanded baseline itself vanished: " + scalar.WindAlongHeadingMps);
+
+            VectorFlightRuntime runtime = AtRestRuntime();
+            VectorFlightStepInput step = Input(unpowered, input: helm, mass: mass,
+                wind: wind, tuning: tuning);
+            double scalarSpeed = 0.0;
+            VectorFlightStepResult last = default;
+            for (int i = 0; i < 6000; i++)
+            {
+                last = runtime.Step(step);
+                scalarSpeed = ShipForceModel.StepSpeed(
+                    scalarSpeed, 0.0, Dt, scalar.WindAlongHeadingMps);
+            }
+
+            Assert.True(last.Integrated);
+            // Same tier decision - the shared code, fed the same inputs.
+            Assert.Equal(scalar.WindAlongHeadingMps, last.CarriedWindAlongHeadingMps, 12);
+            // Same terminal-speed model - the vector velocity tracks the scalar
+            // integration step for step over two minutes of flight.
+            Assert.Equal(scalarSpeed, runtime.State.VelocityMps.Z, 9);
+            // And the hull is genuinely CARRIED, not parked: it has reached the
+            // commanded baseline, the exact speed the scalar path settles at.
+            Assert.True(runtime.State.VelocityMps.Z > 0.99 * scalar.WindAlongHeadingMps,
+                "vector carry " + runtime.State.VelocityMps.Z + " never reached the scalar "
+                + scalar.WindAlongHeadingMps);
+        }
+
+        [Fact]
+        public void Wall_air_mass_attenuation_applies_identically_in_scalar_and_vector()
+        {
+            // A Wind Rift 100 m ahead, lever centred: wall air is spatial
+            // resistance and must act in BOTH paths, attenuated by the SAME
+            // recovered mass law - a heavy hull feels less of the wall than a
+            // light one, identically on either integrator.
+            var walls = new List<WeatherWallSegment>
+            {
+                new WeatherWallSegment(-1000.0, 100.0, 1000.0, 100.0,
+                    WeatherWallType.WindRift, windMultiplier: 3.0),
+            };
+            var tuning = new FlightTuning();
+            var helm = new FlightControlInput(0f, 0f, 0f, 0f, 0f);
+            WindSample sample = WindField.SampleAt(0.0, 0.0, 5.0,
+                tuning.WindSpeedMps, tuning.WindVariation, walls);
+            Assert.Equal(1.0, sample.WallIntensity);
+
+            double CarryFor(double massKg)
+            {
+                var mass = new ShadowMassProperties(massKg, ShadowVector3.Zero,
+                    new ShadowVector3(1e5, 1e5, 1e5), true);
+                VectorFlightRuntime runtime = AtRestRuntime();
+                VectorFlightStepResult result = runtime.Step(Input(
+                    input: helm, mass: mass, wind: sample, tuning: tuning));
+                Assert.True(result.Integrated);
+                // The wall pushes the hull; it is felt, not merely reported.
+                Assert.True(runtime.State.VelocityMps.Z < 0.0);
+
+                ShipForceEvaluation scalar = ShipForceEvaluator.Evaluate(
+                    0.0, 0.0, 0.0, helm, new ShipPropulsion(massKg, 0.0, 0),
+                    tuning, 5.0, walls);
+                // Identical evidence, identical answer, in both paths.
+                Assert.Equal(scalar.WindAlongHeadingMps, result.CarriedWindAlongHeadingMps, 12);
+                Assert.Equal(WindField.SignedAlongHeading(in sample, 0.0)
+                    * ShipForceModel.WindMultiplier(massKg),
+                    result.CarriedWindAlongHeadingMps, 12);
+                return result.CarriedWindAlongHeadingMps;
+            }
+
+            double light = CarryFor(500.0);
+            double heavy = CarryFor(4000.0);
+            // The recovered attenuation: a 4000 kg barge feels 25% of the wall a
+            // 500 kg skiff feels at 90.625% - the ratio is the mass law's, exactly.
+            Assert.Equal(ShipForceModel.WindMultiplier(4000.0)
+                / ShipForceModel.WindMultiplier(500.0), heavy / light, 9);
+            // Headwind sign preserved: crossing a wall is a force contest, not a
+            // free speed bonus.
+            Assert.True(light < 0.0 && heavy < 0.0);
         }
 
         [Fact]
@@ -231,8 +354,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             var invalid = new VectorFlightStepInput("hull:test", Dt,
                 new ShadowMassProperties(-1.0, ShadowVector3.Zero, ShadowVector3.Zero, true),
                 new ShadowVector3(2, 1.5, 6), Array.Empty<ShadowPropulsor>(),
-                Array.Empty<VectorWingSurface>(), 0.0, ShadowVector3.Zero,
-                default, GenerousLift());
+                Array.Empty<VectorWingSurface>(), 0.0, WindSample.Calm,
+                default, GenerousLift(), Tuning);
 
             VectorFlightStepResult result = runtime.Step(invalid);
 

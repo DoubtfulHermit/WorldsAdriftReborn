@@ -105,7 +105,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Materials
             Part(3719, "engine", "proceduralEngineDefault", "engine", x: 0, y: 0, z: -4),
         };
 
-        private static ShipMassSnapshot Hull3639() =>
+        /// <summary>
+        /// Internal so the vector-runtime propulsion-parity facts can drive the
+        /// SAME live regression fixture rather than a second composition.
+        /// </summary>
+        internal static ShipMassSnapshot Hull3639() =>
             ShipMassEvaluator.Build(Input(parts: Hull3639Parts()), previous: null);
 
         [Fact]

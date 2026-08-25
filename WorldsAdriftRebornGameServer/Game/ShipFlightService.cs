@@ -1969,7 +1969,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     _wallFlightInfluence.Segments);
                 var stepInput = new VectorFlightStepInput(stableKey,
                     FixedFlightClock.StepSeconds, mass, half, propulsors, wings, spin,
-                    new ShadowVector3(wind.WindX, 0.0, wind.WindZ), session.Input, lift);
+                    wind, session.Input, lift, _tuning);
                 VectorFlightStepResult result = runtime.Step(stepInput);
                 adapter?.TryCommitVector(slice.FirstStep + i, domain.Generation.Value,
                     result, plan);

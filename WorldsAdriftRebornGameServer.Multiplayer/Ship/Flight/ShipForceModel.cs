@@ -451,9 +451,47 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // (see BaselineDriveSpeedMps for the magnitude and for the one way the
             // aim differs from retail's).
             double relativeWind = windAlongHeadingMps - speedMps;
-            double relativeMagnitude = Math.Abs(relativeWind);
-            double primaryAccel = relativeMagnitude > PrimaryDragDirectionThresholdMps
-                ? DragDecelerationMps2(relativeWind)
+            double delta = RelativeWindApproachDeltaMps(Math.Abs(relativeWind), dtSeconds);
+
+            double next = speedMps
+                + (Math.Sign(relativeWind) * delta)
+                + (thrustAccelMps2 * dtSeconds);
+            return double.IsFinite(next) ? next : 0.0;
+        }
+
+        /// <summary>
+        /// THE ONE RELATIVE-WIND APPROACH LAW, extracted so the scalar integrator
+        /// (<see cref="StepSpeed"/>) and the vector runtime's horizontal air step
+        /// consume the identical transcription and can never diverge. Given the
+        /// magnitude of the relative wind (|wind - velocity|), returns how many
+        /// m/s of that gap ONE step closes - always in [0, relativeMagnitude], so
+        /// a caller can add it toward the wind without ever overshooting.
+        ///
+        /// Both terms are the recovered <c>WindPhysicsVisualizer.GetDrag</c>, in
+        /// its decompiled order, exactly:
+        ///
+        /// 1. The primary 2.5-power law, gated OFF at or below the recovered
+        ///    0.1 m/s direction threshold and clamped to magnitude/dt - retail's
+        ///    first anti-overshoot clamp.
+        /// 2. The residual settling correction, capped at 0.03*dt and clamped to
+        ///    the relative wind LEFT OVER after the primary step (retail's
+        ///    vector5). It exists because the power law vanishes faster than the
+        ///    gap it is closing; without it a hull crawls at its last tenth of a
+        ///    metre per second for ever and never goes quiet on the wire. There
+        ///    is no speed threshold and no throttle/sail gate in the shipped
+        ///    method, so there is none here.
+        /// </summary>
+        public static double RelativeWindApproachDeltaMps(
+            double relativeMagnitudeMps, double dtSeconds)
+        {
+            if (!double.IsFinite(relativeMagnitudeMps) || relativeMagnitudeMps < 0.0
+                || !double.IsFinite(dtSeconds) || dtSeconds <= 0.0)
+            {
+                return 0.0;
+            }
+
+            double primaryAccel = relativeMagnitudeMps > PrimaryDragDirectionThresholdMps
+                ? DragDecelerationMps2(relativeMagnitudeMps)
                 : 0.0;
 
             // The first of retail's two anti-overshoot clamps. GetDrag clamps the
@@ -461,26 +499,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // the residual correction. This is normally load-bearing only for a
             // very coarse step or extreme relative wind, but reproducing the order
             // makes this a transcription rather than a lookalike.
-            primaryAccel = Math.Min(primaryAccel, relativeMagnitude / dtSeconds);
+            primaryAccel = Math.Min(primaryAccel, relativeMagnitudeMps / dtSeconds);
             double primaryDelta = primaryAccel * dtSeconds;
 
-            // The settling term. It exists because the primary law vanishes
-            // faster than the gap it is closing - relative wind decays as
-            // 1/(1 + c*u0*t), so a hull approaching the air's speed crawls the last
-            // metre per second for ever and, on the wire, never goes quiet.
-            //
-            // IT AIMS AT THE RELATIVE WIND, not at zero. Retail's own term does
-            // (GetDrag's vector5 is the relative wind LEFT OVER after the primary
-            // step, capped at 0.03 m/s^2), and the distinction is invisible until a
-            // wind exists: with no wind the relative wind IS -velocity, so this
-            // stays exactly the brake-to-a-stop it has always been. With a wind it
-            // is what actually lets a bare hull REACH its drift speed instead of
-            // asymptotically creeping at it.
-            //
-            // Decompiled order, exactly: vector5 is the relative wind LEFT after
-            // vector2's primary step, capped to 0.03*dt. There is no speed threshold
-            // and no throttle/sail gate in WindPhysicsVisualizer.GetDrag.
-            double residualMagnitude = Math.Max(0.0, relativeMagnitude - primaryDelta);
+            // The settling term aims at the relative wind, not at zero: with no
+            // wind the relative wind IS -velocity, so it is the familiar
+            // brake-to-a-stop; with a wind it is what actually lets a hull REACH
+            // its drift speed instead of asymptotically creeping at it.
+            double residualMagnitude = Math.Max(0.0, relativeMagnitudeMps - primaryDelta);
             double residualDelta = Math.Min(
                 residualMagnitude, LowSpeedSettleAccelMps2 * dtSeconds);
 
@@ -489,12 +515,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // can bring a ship TO the air's speed but never push it past and
             // oscillate. At our 0.24 s cadence this is the difference between a
             // settled hull and one that hunts around the wind speed for ever.
-            double delta = primaryDelta + residualDelta;
-
-            double next = speedMps
-                + (Math.Sign(relativeWind) * delta)
-                + (thrustAccelMps2 * dtSeconds);
-            return double.IsFinite(next) ? next : 0.0;
+            return primaryDelta + residualDelta;
         }
 
         /// <summary>
