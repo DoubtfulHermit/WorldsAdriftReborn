@@ -87,6 +87,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// stored in it; boot restore resolves this record's stable shipyard
         /// position before reacquiring the one-to-one dock claim.
         /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public Ship.DockingSnapshotV1? DockingSnapshot { get; set; }
 
         /// <summary>The hull geometry blob the 1209 CustomShipHullState serves (base64 in JSON).</summary>

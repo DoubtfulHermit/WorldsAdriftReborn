@@ -211,6 +211,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 replay.Disposition);
         }
 
+        /// <summary>
+        /// THE COMBINED OFF-PATH BYTE GUARANTEE (integration brief, known
+        /// conflicts): the vector branch and the docking branch each added a
+        /// nullable extension to the durable ship record. With every gate off a
+        /// written world state must contain NEITHER property - the two branches
+        /// each proved their own field, this proves the merge. Found live: the
+        /// docking sibling landed without the WhenWritingNull attribute, so a
+        /// gates-off save would have gained "DockingSnapshot": null on every
+        /// built ship.
+        /// </summary>
+        [Fact]
+        public void A_gates_off_built_ship_record_serializes_with_neither_extension()
+        {
+            var record = new Multiplayer.Persistence.BuiltShipRecord
+            {
+                FlightSnapshot = Multiplayer.Persistence.DurableShipFlightSnapshot.Capture(
+                    FlightState.AtRestAt(10, 300, -5, 0.4), FlightControlInput.Neutral,
+                    authorityGeneration: 3, wasManned: false, aboardCount: 0,
+                    wasDocked: false, unfurledSailCount: 0),
+            };
+
+            string json = System.Text.Json.JsonSerializer.Serialize(record);
+
+            Assert.DoesNotContain("\"Vector\"", json);
+            Assert.DoesNotContain("\"DockingSnapshot\"", json);
+        }
+
         private sealed class RecordingPort : IDockingRuntimeTransaction
         {
             public DockingCommitResult TryCommit(DockingRuntimeCommit commit) =>
