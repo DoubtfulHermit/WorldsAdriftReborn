@@ -118,7 +118,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             string subjectStableKey, string expectedTargetStableKey, long fixedStep)
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
+            // RejectedProxyCount == 0 is load-bearing: a proxy the evaluator's
+            // Validate silently dropped (over-speed, non-finite, oversized) may be
+            // the SUBJECT itself, and a sweep that never contained the subject has
+            // zero contacts for the wrong reason. Dropped input never means clear.
             bool complete = !result.Telemetry.HardInputRejected
+                && result.Telemetry.RejectedProxyCount == 0
                 && !result.Telemetry.DynamicCapReached
                 && !result.Telemetry.TerrainCapReached
                 && !result.Telemetry.PairCapReached

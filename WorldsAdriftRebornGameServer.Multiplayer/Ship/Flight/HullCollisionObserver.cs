@@ -19,16 +19,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>
         /// Whether the swept evaluation actually covered every supplied and nearby
         /// proxy for this frame. Response-side rejections (ambiguous geometry,
-        /// initial overlap, incomplete caps) still observed honestly; only a
-        /// non-run (Off / invalid input / stamp mismatch) or a truncated terrain
-        /// candidate set voids the observation.
+        /// initial overlap, incomplete caps) still observed honestly; a non-run
+        /// (Off / invalid input / stamp mismatch), a truncated terrain candidate
+        /// set, or any evaluator-dropped proxy voids the observation - a dropped
+        /// proxy may be the SUBJECT itself, and a sweep that never contained the
+        /// subject observed nothing about it.
         /// </summary>
         public bool ObservationRan =>
             Terrain.EvaluationComplete
             && Result != null
             && Result.Disposition != CollisionResponseDisposition.Off
             && Result.Disposition != CollisionResponseDisposition.RejectedInvalidInput
-            && Result.Disposition != CollisionResponseDisposition.RejectedStampMismatch;
+            && Result.Disposition != CollisionResponseDisposition.RejectedStampMismatch
+            && Result.Observation.Telemetry.RejectedProxyCount == 0;
 
         /// <summary>
         /// Builds the docking clearance for one expected target. Kill-list rule:

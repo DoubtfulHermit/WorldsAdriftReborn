@@ -52,6 +52,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Dropped_subject_hull_proxy_never_yields_a_clear_clearance()
+        {
+            // 300 m/s exceeds the evaluator's 250 m/s validation cap, so the
+            // subject proxy itself is silently dropped and the sweep runs with
+            // zero dynamics. Zero contacts here means "the hull was never
+            // evaluated", not "the approach is clear".
+            HullCollisionObservation observation = HullCollisionObserver.Observe(Stamp,
+                "ship:3", new ShadowVector3(0, 5000, 0), new ShadowVector3(300, 0, 0),
+                new ShadowVector3(3, 1, 8), 4044.0, 0.02, EmptyCompleteTerrain(), Observe);
+
+            Assert.False(observation.ObservationRan);
+            Assert.Equal(1,
+                observation.Result.Observation.Telemetry.RejectedProxyCount);
+            CollisionClearanceRecord clearance = observation.ClearanceFor("yard:1:2:3");
+            Assert.False(clearance.EvaluationComplete);
+            Assert.False(clearance.IsClear);
+            Assert.Equal(Stamp.FixedStep, clearance.FixedStep);
+        }
+
+        [Fact]
         public void Observer_off_or_invalid_stamp_never_yields_a_clear_clearance()
         {
             HullCollisionObservation off = HullCollisionObserver.Observe(Stamp, "ship:3",
