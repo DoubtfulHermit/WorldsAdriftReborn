@@ -67,6 +67,80 @@ namespace WorldsAdriftRebornGameServer.Game
             Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FIXED_STEP") == "1";
 
         /// <summary>
+        /// WAREBORN_FLIGHT_STAMP_CONTINUITY=1 - the LEGACY publisher's turn-vibration
+        /// correction (docs/research/findings-turn-vibration.md).
+        ///
+        /// The legacy branch below integrates EXACTLY
+        /// <see cref="ShipMotionPolicy.SendIntervalSeconds"/> of simulation per emitted
+        /// 1130 point, but then stamps that point at wall clock whenever the poll loop
+        /// was late - and the loop turns once per ENet event under a 50 ms poll timeout,
+        /// so it is late by a different amount on nearly every point. A control point
+        /// carries linear velocity but NO angular velocity (decompile: <c>ControlPoint</c>
+        /// is <c>Timestamp/Position/Velocity/FsimIdHash/Received/Rotation</c>, and
+        /// <c>SplineInterpolator.CubicHermiteInterpolation</c> takes position and velocity
+        /// only), so the client hermite-eases the uneven interval out of the POSITION path
+        /// and can only slerp the attitude across the raw timestamp gap. The rendered turn
+        /// rate is therefore <c>trueRate * 240 / stampDelta</c> and wobbles on every point
+        /// - invisible in straight flight, a ~4 Hz shudder in a sustained turn, amplified
+        /// by the lever arm at each mounted part.
+        ///
+        /// Default OFF because it changes wire timestamps, which is what the client's
+        /// smoothed server-latency estimate is built from. <see cref="FixedStepEnabled"/>
+        /// already phase-locks its own publisher and does not need this.
+        /// </summary>
+        /// <summary>
+        /// WAREBORN_FLIGHT_CADENCE_TRACE=1 - a read-only measurement, no behaviour
+        /// change. Per hull it records the WALL-CLOCK spacing of consecutive 1130
+        /// sends against the spacing their timestamps claim, and reports the running
+        /// difference. That difference is the client's playback-buffer erosion
+        /// budget: see <see cref="FlightSendCadence"/> for why a growing drift
+        /// predicts the halt/frozen-rotation/spline-correction cycle that reads as a
+        /// re-snap during a turn. Off by default because it logs.
+        /// </summary>
+        internal static readonly bool CadenceTraceEnabled =
+            Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_CADENCE_TRACE") == "1";
+
+        internal static readonly bool StampContinuityEnabled =
+            Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_STAMP_CONTINUITY") == "1";
+
+        /// <summary>
+        /// The vector-authority / lift-runtime / collision / docking gates, parsed
+        /// and dependency-checked in ONE tested place
+        /// (<see cref="FlightRuntimeFlags.Parse"/>). All six default OFF; a
+        /// dependent flag with its prerequisite off stays off and logs one
+        /// startup warning from the constructor.
+        /// NOTE: ForceModelEnabled is declared further down this file; C# runs
+        /// static field initialisers in declaration order, so this one reads the
+        /// environment directly for the prerequisite instead of the field.
+        ///
+        /// STATIC READONLY IS LOAD-BEARING, not a style choice: a scalar/vector
+        /// mode flip therefore requires a process restart, and the restart is
+        /// what advances every hull's AuthorityGeneration
+        /// (ShipDomain.RestoreAfterProcessRestart). Stamp monotonicity across
+        /// scalar/vector flips depends on this - hot-reloading these flags would
+        /// let two authority models mint stamps under one generation. See the
+        /// guarantee pinned on <see cref="FlightRuntimeFlags"/> before touching
+        /// the lifetime of this field.
+        /// </summary>
+        internal static readonly FlightRuntimeFlags RuntimeFlags = FlightRuntimeFlags.Parse(
+            Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_VECTOR_AUTHORITY"),
+            Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_VECTOR_HULLS"),
+            Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_LIFT_RUNTIME"),
+            fixedStepEnabled: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FIXED_STEP") == "1",
+            forceModelEnabled: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FORCES") == "1",
+            collisionObserveRaw: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_COLLISION_OBSERVE"),
+            collisionResponseRaw: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_COLLISION_RESPONSE"),
+            dockingTxnRaw: Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_DOCKING_TXN"));
+
+        /// <summary>
+        /// The one gravity value the lift runtime integrates under, provenance
+        /// attached (contract open item: the retail project gravity is not
+        /// recovered, so the stand-in must say what it is).
+        /// </summary>
+        internal static readonly GravityParameter Gravity =
+            GravityParameter.UnityDefaultApproximation;
+
+        /// <summary>
         /// WAREBORN_FLIGHT_DRIVE_TARGET=helm points 1109 DrivingEntityId at the
         /// HELM entity instead of the hull. Default: the HULL - it is what
         /// ShipControlsBehaviour.UpdateVertical expects to find the
@@ -97,6 +171,38 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly HashSet<long> _adminHeldHullIds = new();
         private readonly Dictionary<long, FixedFlightClock> _fixedClocks = new();
         private readonly Dictionary<long, FixedFlightStepBatch> _fixedClockTelemetry = new();
+
+        /// <summary>
+        /// One authority adapter per hull, beside <see cref="_fixedClocks"/> - the
+        /// single stamp minter and pose owner. Created lazily, and ONLY while the
+        /// vector master flag is on: with every gate off the tick path allocates
+        /// and calls nothing new.
+        /// </summary>
+        private readonly Dictionary<long, FlightAuthorityAdapter> _authorityAdapters = new();
+
+        /// <summary>Durable vector state parked between RegisterHull and adapter creation.</summary>
+        private readonly Dictionary<long, Multiplayer.Persistence.DurableVectorFlightState>
+            _pendingVectorRestore = new();
+
+        /// <summary>
+        /// Hulls whose session pose was reset OUTSIDE the vector runtime (dock
+        /// snap, emergency stop): the runtime re-seeds from the session state on
+        /// its next slice so the two can never hold divergent poses.
+        /// </summary>
+        private readonly HashSet<long> _vectorReseedRequested = new();
+
+        /// <summary>Last committed observer-phase divergence sample per hull.</summary>
+        private readonly Dictionary<long, Multiplayer.VectorShadowComparison>
+            _vectorShadowComparison = new();
+
+        /// <summary>Hull half extents are build-time geometry; cached until retire.</summary>
+        private readonly Dictionary<long, ShadowVector3> _hullHalfExtents = new();
+
+        /// <summary>
+        /// Steps 4-5: per-hull in-tick collision observations and the transactional
+        /// docking runtime (all default-OFF behind <see cref="FlightRuntimeFlags"/>).
+        /// </summary>
+        private readonly ShipDockingRuntimeDriver _dockingDriver = new ShipDockingRuntimeDriver();
         private static readonly IReadOnlySet<ulong> NoDomainFrameSenders =
             new HashSet<ulong>();
 
@@ -137,6 +243,11 @@ namespace WorldsAdriftRebornGameServer.Game
         /// throttles the bounded member-only drain.
         /// </summary>
         private readonly Dictionary<long, TimeSpan> _lastWakeAt = new Dictionary<long, TimeSpan>();
+
+        /// <summary>Per-hull 1130 send-cadence measurement; populated only under
+        /// <see cref="CadenceTraceEnabled"/>.</summary>
+        private readonly Dictionary<long, FlightSendCadence> _sendCadence =
+            new Dictionary<long, FlightSendCadence>();
 
         /// <summary>
         /// Mounted "~" followers need a bounded wake drain after the final hull
@@ -209,6 +320,50 @@ namespace WorldsAdriftRebornGameServer.Game
                     + (FixedStepEnabled ? "ON" : "OFF")
                     + " (WAREBORN_FLIGHT_FIXED_STEP; 20 ms step, 25-step catch-up cap;"
                     + " 1130 remains 240 ms).");
+                Console.WriteLine("[info] legacy 1130 stamp continuity is "
+                    + (StampContinuityEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_STAMP_CONTINUITY; a point carries exactly "
+                    + ShipMotionPolicy.SendIntervalSeconds.ToString("0.###",
+                        System.Globalization.CultureInfo.InvariantCulture)
+                    + " s of simulation, so ON stamps it that far apart and resyncs to"
+                    + " wall clock only after a whole skipped interval)."
+                    + (FixedStepEnabled
+                        ? " Under fixed step it instead compensates the stamp for simulation"
+                          + " the catch-up cap dropped, so the wire clock cannot bank"
+                          + " permanent lag behind wall clock."
+                        : string.Empty));
+                Console.WriteLine("[info] 1130 send-cadence trace is "
+                    + (CadenceTraceEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_CADENCE_TRACE; read-only, logs [flight-cadence]"
+                    + " send spacing versus stamp spacing and the running drift).");
+                Console.WriteLine("[info] vector flight authority is "
+                    + (RuntimeFlags.VectorAuthorityEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_VECTOR_AUTHORITY), "
+                    + RuntimeFlags.PromotedHullPersistentIndices.Count
+                    + " hull(s) promoted (WAREBORN_FLIGHT_VECTOR_HULLS), lift runtime "
+                    + (RuntimeFlags.LiftRuntimeEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_LIFT_RUNTIME; gravity "
+                    + Gravity.YMetresPerSecondSquared.ToString("0.##",
+                        System.Globalization.CultureInfo.InvariantCulture)
+                    + " m/s2, " + Gravity.Provenance + ").");
+                Console.WriteLine("[info] in-tick collision observation is "
+                    + (RuntimeFlags.CollisionObserveEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_COLLISION_OBSERVE), response "
+                    + (RuntimeFlags.CollisionResponseEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_COLLISION_RESPONSE), transactional docking "
+                    + (RuntimeFlags.DockingTxnEnabled ? "ON" : "OFF")
+                    + " (WAREBORN_FLIGHT_DOCKING_TXN).");
+                if (RuntimeFlags.VectorAuthorityEnabled && _worldBounds.Enabled)
+                {
+                    Console.WriteLine("[warning] flight: WORLD BOUNDS are not yet applied to "
+                        + "vector-authority hulls; promoted hulls fly without the retail "
+                        + "edge pushback until the bounds seam is routed through the "
+                        + "vector runtime.");
+                }
+            }
+            foreach (string warning in RuntimeFlags.StartupWarnings)
+            {
+                Console.WriteLine("[warning] flight flags: " + warning);
             }
         }
 
@@ -679,6 +834,9 @@ namespace WorldsAdriftRebornGameServer.Game
 
             RefreshDomainMembership(domain);
             domain.Flight.EmergencyStop();
+            // The session pose was reset outside the vector runtime; the runtime
+            // re-seeds from it on the next slice instead of flying on.
+            _vectorReseedRequested.Add(hullEntityId);
             _adminHeldHullIds.Remove(hullEntityId);
             _activeHullIds.Add(hullEntityId);
             FlightEmit point = domain.Flight.PrimePlayback(
@@ -756,7 +914,9 @@ namespace WorldsAdriftRebornGameServer.Game
 
         internal void RegisterHull(long hullEntityId, int? persistentIndex,
             FixedPointPosition position, double yawRadians,
-            Multiplayer.Persistence.DurableShipFlightSnapshot? durable = null)
+            Multiplayer.Persistence.DurableShipFlightSnapshot? durable = null,
+            Multiplayer.Ship.DockingSnapshotV1? dockingSnapshot = null,
+            long dockedYardEntityId = 0)
         {
             ShipDomain domain = _domains.GetOrAdd(hullEntityId, () =>
             {
@@ -787,6 +947,22 @@ namespace WorldsAdriftRebornGameServer.Game
                         position.MetresX, position.MetresY, position.MetresZ, yawRadians)));
             });
             RefreshDomainMembership(domain);
+            if (RuntimeFlags.IsPromoted(persistentIndex) && durable?.Vector != null
+                && !durable.WasDocked)
+            {
+                // Park the durable vector/lift-smoothing extension until the
+                // hull's authority adapter is created in the tick; a docked hull
+                // restores at the dock pose and seeds fresh instead.
+                _pendingVectorRestore[hullEntityId] = durable.Vector;
+            }
+            if (RuntimeFlags.DockingTxnEnabled && dockingSnapshot != null
+                && dockedYardEntityId > 0)
+            {
+                // Stable persisted yard/hull keys resolve to THIS boot's fresh
+                // runtime ids here; the snapshot itself never carried entity ids.
+                _dockingDriver.Restore(hullEntityId, dockingSnapshot,
+                    dockedYardEntityId, domain.Generation.Value);
+            }
             if (!domain.Flight.State.IsAtRest)
             {
                 // A durable moving ship resumes coasting under server authority;
@@ -842,6 +1018,9 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Refreshes host ownership after a mount or detach outside the flight tick.</summary>
         internal void RefreshDomainOwnership(long hullEntityId)
         {
+            // A mount/detach/salvage changed what the ship carries: the ONE mass
+            // snapshot must rebuild, whether or not a flight domain exists yet.
+            ShipMassSnapshots.Invalidate(hullEntityId);
             if (_domains.ByHull(hullEntityId) is ShipDomain domain)
                 RefreshDomainMembership(domain);
         }
@@ -849,6 +1028,10 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Forgets every session-side trace of a hull after authoritative salvage.</summary>
         internal void RetireHull(long hullEntityId)
         {
+            // Read before the domain is removed below: the docking retirement
+            // stamps its transactional unlink with the hull's REAL generation
+            // (0 when no domain ever existed - the driver then stamps invalid).
+            long authorityGeneration = _domains.ByHull(hullEntityId)?.Generation.Value ?? 0;
             PilotSeats.Seat? seat = _seats.PilotOf(hullEntityId);
             if (seat.HasValue)
             {
@@ -872,6 +1055,13 @@ namespace WorldsAdriftRebornGameServer.Game
             _boundsQuarantinedHulls.Remove(hullEntityId);
             _fixedClocks.Remove(hullEntityId);
             _fixedClockTelemetry.Remove(hullEntityId);
+            _authorityAdapters.Remove(hullEntityId);
+            _pendingVectorRestore.Remove(hullEntityId);
+            _vectorReseedRequested.Remove(hullEntityId);
+            _vectorShadowComparison.Remove(hullEntityId);
+            _hullHalfExtents.Remove(hullEntityId);
+            ShipMassSnapshots.Retire(hullEntityId);
+            _dockingDriver.Retire(hullEntityId, authorityGeneration);
             ShipPublisher.RetireDomain(hullEntityId);
         }
 
@@ -928,7 +1118,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 if (publicationDue)
                 {
                     RefreshDomainMembership(domain);
-                    TryCaptureAtEmptyShipyard(hullEntityId, session);
+                    RunDockingScan(hullEntityId, domain, session);
                     EchoHelmFeedback(hullEntityId, session);
                 }
 
@@ -951,22 +1141,59 @@ namespace WorldsAdriftRebornGameServer.Game
                     double batchFirstStepTime = batchLastStepTime
                         - Math.Max(0, fixedBatch.Steps - 1) * FixedFlightClock.StepSeconds;
                     int consumedSteps = 0;
+                    bool vectorAuthority = RuntimeFlags.IsPromoted(domain.PersistentIndex);
+                    // The simulated time this batch's catch-up cap THREW AWAY. The
+                    // phase-locked stamp advances one publication interval per point
+                    // regardless, so without this every dropped step is 20 ms of
+                    // permanent wire-clock lag behind wall clock - which the stock
+                    // client eventually turns into a halt, a frozen-rotation
+                    // extrapolation and a 5 s spline correction. Charged to the FIRST
+                    // point this batch emits, then cleared, so it is counted once.
+                    long lostSimulationMs = StampContinuityEnabled
+                        ? FlightStampPolicy.LostSimulationMilliseconds(
+                            fixedBatch.DroppedSteps, FixedFlightClock.StepSeconds)
+                        : 0L;
                     foreach (FixedFlightPublicationSlice slice in
                         FixedFlightPublicationSchedule.Slice(fixedBatch))
                     {
-                        FlightEmit emit = session.AdvanceFixed(
-                            nowMs, ShipMotionPolicy.SendIntervalSeconds,
-                            slice.Steps,
-                            batchFirstStepTime + consumedSteps * FixedFlightClock.StepSeconds,
-                            _tuning, unfurledSails, agility,
-                            PropulsionFor(hullEntityId, unfurledSails),
-                            _wallFlightInfluence.Segments, _worldBounds,
-                            emitDue: slice.PublishAfter,
-                            phaseLockedEmit: true);
+                        double sliceFirstStepTime = batchFirstStepTime
+                            + consumedSteps * FixedFlightClock.StepSeconds;
+                        FlightEmit emit;
+                        if (vectorAuthority)
+                        {
+                            emit = AdvanceVectorAuthoritySlice(hullEntityId, domain,
+                                session, slice, nowMs, unfurledSails, sliceFirstStepTime);
+                        }
+                        else
+                        {
+                            FlightState preSliceState = session.State;
+                            emit = session.AdvanceFixed(
+                                nowMs, ShipMotionPolicy.SendIntervalSeconds,
+                                slice.Steps,
+                                sliceFirstStepTime,
+                                _tuning, unfurledSails, agility,
+                                PropulsionFor(hullEntityId, unfurledSails),
+                                _wallFlightInfluence.Segments, _worldBounds,
+                                emitDue: slice.PublishAfter,
+                                phaseLockedEmit: true,
+                                lostSimulationMs: lostSimulationMs);
+                            if (RuntimeFlags.VectorAuthorityEnabled)
+                            {
+                                ObserveScalarSliceAuthority(hullEntityId, domain,
+                                    session, slice, preSliceState, unfurledSails,
+                                    sliceFirstStepTime);
+                            }
+                        }
                         consumedSteps += slice.Steps;
+                        if (emit.Emit)
+                        {
+                            lostSimulationMs = 0L;
+                        }
                         ObserveWorldBounds(hullEntityId, session.State,
                             session.LastWorldBoundsTelemetry);
                         CompleteDepartureIfOutside(hullEntityId, session.State);
+                        ObserveCollisionAfterSlice(hullEntityId, domain, session,
+                            slice);
                         PersistPoseWhenDue(hullEntityId, domain);
                         if (emit.Emit)
                         {
@@ -989,7 +1216,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     FlightEmit emit = session.Advance(
                         nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility,
                         PropulsionFor(hullEntityId, unfurledSails), _wallFlightInfluence.Segments,
-                        _worldBounds);
+                        _worldBounds, stampContinuity: StampContinuityEnabled);
                     ObserveWorldBounds(hullEntityId, session.State,
                         session.LastWorldBoundsTelemetry);
                     CompleteDepartureIfOutside(hullEntityId, session.State);
@@ -1017,6 +1244,13 @@ namespace WorldsAdriftRebornGameServer.Game
                     FlightSession session = domain.Flight;
                     if (session.IsManned || !session.State.IsAtRest)
                     {
+                        if (CadenceTraceEnabled
+                            && _sendCadence.TryGetValue(hullEntityId, out FlightSendCadence? cadence)
+                            && cadence.WindowCount > 0)
+                        {
+                            Console.WriteLine("[flight-cadence] hull " + hullEntityId
+                                + " " + cadence.Describe());
+                        }
                         Console.WriteLine("[flight] hull " + hullEntityId + ": " + session.State
                             + (session.IsManned
                                 ? " piloted by entity " + _seats.PilotOf(hullEntityId)!.Value.PlayerEntityId
@@ -1042,6 +1276,7 @@ namespace WorldsAdriftRebornGameServer.Game
             FlightSession session, FlightEmit emit,
             HashSet<ulong> domainFrameSenders)
         {
+            ObserveSendCadence(hullEntityId, emit);
             if (session.State.IsAtRest && !session.IsManned)
             {
                 ArmRestingMemberTail(hullEntityId);
@@ -1404,6 +1639,25 @@ namespace WorldsAdriftRebornGameServer.Game
             return members;
         }
 
+        /// <summary>
+        /// Records where this point actually left the server against where its
+        /// timestamp says it belongs. Pure measurement: it reads the emit, touches no
+        /// pose, stamp or packet, and does nothing at all unless the trace is armed.
+        /// </summary>
+        private void ObserveSendCadence(long hullEntityId, FlightEmit emit)
+        {
+            if (!CadenceTraceEnabled || !emit.Emit)
+            {
+                return;
+            }
+            if (!_sendCadence.TryGetValue(hullEntityId, out FlightSendCadence? cadence))
+            {
+                cadence = new FlightSendCadence(ShipMotionPolicy.SendIntervalSeconds);
+                _sendCadence[hullEntityId] = cadence;
+            }
+            cadence.Observe(_clock.Elapsed.TotalMilliseconds, emit.Spec.TimestampMs);
+        }
+
         private void ArmRestingMemberTail(long hullEntityId)
         {
             bool newlyArmed = !_memberWakeTailUntil.ContainsKey(hullEntityId);
@@ -1458,47 +1712,15 @@ namespace WorldsAdriftRebornGameServer.Game
 
         /// <summary>
         /// The flight agility multiplier for one hull, from what it is made of and how
-        /// big it is: heavier ships accelerate, turn and climb more lazily.
-        ///
-        /// Cached per hull for the life of the ship. A hull's materials and geometry
-        /// are immutable once built, so recomputing them - which means decoding the
-        /// hull blob - on every 0.24 s tick for every flying ship would be pure waste.
-        ///
-        /// Falls back to 1.0 (today's exact behaviour) for anything that is not a
-        /// recognised built hull, so the static demo ship and the acceptance fixture
-        /// fly unchanged.
+        /// big it is: heavier ships accelerate, turn and climb more lazily. Thin glue
+        /// over the ONE cached mass snapshot - a hull that is not a decodable built
+        /// ship carries the 800 kg reference mass there, and AgilityScale(800) is
+        /// exactly 1.0, so the static demo ship and the acceptance fixture fly
+        /// unchanged.
         /// </summary>
-        private double AgilityScaleFor(long hullEntityId)
-        {
-            if (_agilityByHull.TryGetValue(hullEntityId, out double cached))
-            {
-                return cached;
-            }
-
-            double agility = 1.0;
-            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
-            if (hullBytes != null
-                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
-                && plan != null)
-            {
-                Multiplayer.Ship.ShipHullMetrics metrics = Multiplayer.Ship.ShipHullMetrics.Measure(plan);
-                double massKg = Multiplayer.Materials.HullMassCalculator.HullMassKg(
-                    Crafting.BuiltShips.MaterialsFor(hullEntityId), metrics.CellCount, metrics.DeckCount);
-                agility = Multiplayer.Materials.HullMassCalculator.AgilityScale(massKg);
-
-                Console.WriteLine("[flight] hull " + hullEntityId + " mass "
-                    + massKg.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
-                    + " kg (" + Crafting.BuiltShips.MaterialsFor(hullEntityId)
-                    + ", " + metrics.CellCount + " cell(s), " + metrics.DeckCount + " deck(s)) -> agility x"
-                    + agility.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
-            }
-
-            _agilityByHull[hullEntityId] = agility;
-            return agility;
-        }
-
-        /// <summary>Per-hull agility cache; see <see cref="AgilityScaleFor"/>.</summary>
-        private readonly Dictionary<long, double> _agilityByHull = new Dictionary<long, double>();
+        private double AgilityScaleFor(long hullEntityId) =>
+            Multiplayer.Materials.HullMassCalculator.AgilityScale(
+                ShipMassSnapshots.For(hullEntityId).HullStructuralMassKg);
 
         /// <summary>
         /// WAREBORN_FLIGHT_FORCES=1 replaces the kinematic speed-command model
@@ -1541,9 +1763,10 @@ namespace WorldsAdriftRebornGameServer.Game
         /// Engines are counted LIVE rather than cached, because unlike hull
         /// materials they are not immutable: a player can mount or salvage an
         /// engine mid-flight and should feel the difference on the next control
-        /// point. <c>MountedParts.OnHull</c> is a yielding scan over a per-ship
-        /// handful of parts and is already called twice per flight tick for
-        /// replication bookkeeping, so this adds no new traversal class.
+        /// point. Mass comes from the ONE snapshot (typed per-part masses, hull
+        /// override applied) whose cache the same mount/detach/salvage hooks
+        /// invalidate - so the wall attenuation downstream of ship.MassKg reads
+        /// the identical truth the 1121/1257 writers serve.
         /// </summary>
         private ShipPropulsion? PropulsionFor(long hullEntityId, int unfurledSails)
         {
@@ -1553,18 +1776,9 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             int engines = CountEngines(hullEntityId);
-            int mountedParts = 0;
-            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry
-                in Crafting.MountedParts.OnHull(hullEntityId))
-            {
-                mountedParts++;
-            }
-
             bool enginesPowered = WorldsAdriftRebornGameServer.ShipFuel.EnginesPowered(hullEntityId);
             return new ShipPropulsion(
-                Multiplayer.Materials.ShipTotalMass.TotalFlightMassKg(
-                    DerivedHullMassKgFor(hullEntityId), mountedParts,
-                    Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS")),
+                ShipMassSnapshots.For(hullEntityId).TotalFlightMassKg,
                 enginesPowered ? engines * _tuning.EngineThrustNewtons : 0.0,
                 unfurledSails);
         }
@@ -1633,6 +1847,10 @@ namespace WorldsAdriftRebornGameServer.Game
 
             Multiplayer.ShipFlightShadowStat shadow = ShadowStatFor(
                 hullEntityId, domain, hull, evaluation, ship);
+            // The identity of the snapshot the mass came from, so the inspector
+            // can prove every consumer read the same (Revision, Fingerprint,
+            // TotalFlightMassKg) - and see the retired flat model's number beside it.
+            Multiplayer.Materials.ShipMassSnapshot massSnapshot = ShipMassSnapshots.For(hullEntityId);
             return new Multiplayer.ShipFlightStat(
                 evaluation.MassKg, mountedSails, evaluation.UnfurledSails,
                 evaluation.SampledAtSeconds,
@@ -1641,7 +1859,9 @@ namespace WorldsAdriftRebornGameServer.Game
                 evaluation.SailForceNewtons, evaluation.EngineForceNewtons,
                 evaluation.PropulsionAccelerationMps2,
                 evaluation.WindAlongHeadingMps,
-                evaluation.PredictedSettledSpeedMps, shadow);
+                evaluation.PredictedSettledSpeedMps, shadow,
+                massSnapshot.Revision, massSnapshot.Fingerprint,
+                massSnapshot.LegacyFlatTotalMassKg);
         }
 
         private Multiplayer.ShipFlightShadowStat ShadowStatFor(long hullEntityId,
@@ -1660,40 +1880,18 @@ namespace WorldsAdriftRebornGameServer.Game
                     ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
                     0, 0, false, default, false);
 
-            var parts = new List<ShadowPropulsor>();
-            int propulsorCount = 0;
-            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry in
-                Crafting.MountedParts.OnHull(hullEntityId).OrderBy(x => x.Key))
-            {
-                Crafting.MountedParts.Mount mount = entry.Value;
-                var kind = Multiplayer.Ship.ShipPartKinds.Classify(
-                    mount.ItemType, mount.PrefabName, mount.AttachmentType);
-                if (kind != Multiplayer.Ship.ShipPartKinds.Engine
-                    && kind != Multiplayer.Ship.ShipPartKinds.Sail) continue;
-                (float w, float x, float y, float z) =
-                    Multiplayer.Placement.Quaternion32Packing.Decode(mount.PackedRotation);
-                if (!ShadowQuaternion.TryNormalized(w, x, y, z, out ShadowQuaternion rotation))
-                    continue;
-                bool isEngine = kind == Multiplayer.Ship.ShipPartKinds.Engine;
-                bool sailUnfurled = !isEngine
-                    && WorldsAdriftRebornGameServer.Sails.IsUnfurled(entry.Key);
-                double power = isEngine
-                    ? (WorldsAdriftRebornGameServer.ShipFuel.EnginesPowered(hullEntityId)
-                        ? _tuning.EngineThrustNewtons : 0.0)
-                    : (sailUnfurled
-                        ? _tuning.SailPowerNewtons : 0.0);
-                parts.Add(new ShadowPropulsor(isEngine ? ShadowPartKind.Engine : ShadowPartKind.Sail,
-                    new ShadowVector3(mount.LocalOffset.MetresX, mount.LocalOffset.MetresY,
-                        mount.LocalOffset.MetresZ), rotation, power, 50.0,
-                    torqueless: false));
-                propulsorCount++;
-            }
+            // The ONE mass snapshot: each propulsor carries its own typed mass and
+            // the hull term is the snapshot total minus exactly those propulsors,
+            // so vector shadow, scalar flight and the 1121/1257 writers agree.
+            Multiplayer.Materials.ShipMassSnapshot massSnapshot = ShipMassSnapshots.For(hullEntityId);
+            List<ShadowPropulsor> parts = BuildShadowPropulsors(
+                hullEntityId, massSnapshot, out double propulsorMassKg);
 
             Multiplayer.Ship.ShipHullMetrics metrics = hull.Silhouette.Metrics;
             ShadowVector3 half = new(Math.Max(0.25, metrics.BeamMetres * 0.5),
                 Math.Max(0.25, metrics.DeckPlaneMetres * 0.5),
                 Math.Max(0.25, metrics.KeelMetres * 0.5));
-            double hullAndNonPropulsorMass = Math.Max(1.0, ship.MassKg - propulsorCount * 50.0);
+            double hullAndNonPropulsorMass = Math.Max(1.0, ship.MassKg - propulsorMassKg);
             double yaw = domain.Flight.State.YawRadians;
             double sin = Math.Sin(yaw), cos = Math.Cos(yaw);
             ShadowVector3 localWind = new(
@@ -1708,14 +1906,42 @@ namespace WorldsAdriftRebornGameServer.Game
                     ShadowVector3.Zero, ShadowVector3.Zero, ShadowVector3.Zero,
                     0, parts.Count, true, default, false);
 
-            FlightState state = domain.Flight.State;
-            CollisionProxy subject = new(domain.Id.ToString(), CollisionProxyKind.ShipHull,
-                CollisionAabb.FromCentreHalfExtents(new ShadowVector3(state.X, state.Y, state.Z), half),
-                new ShadowVector3(state.VxMps, state.VyMps, state.VzMps));
-            CollisionShadowResult collision = CollisionShadowEvaluator.Evaluate(
-                new[] { subject }, Array.Empty<CollisionProxy>(), FixedFlightClock.StepSeconds);
+            CollisionShadowResult collision;
+            string collisionSource;
+            if (RuntimeFlags.CollisionObserveEnabled
+                && _dockingDriver.ObservationFor(hullEntityId) is HullCollisionObservation inTick)
+            {
+                // Rule: the admin path publishes the last COMMITTED stamped
+                // observation from the tick loop; it never re-evaluates collision
+                // from a later clock while the in-tick observer is live.
+                collision = inTick.Result.Observation;
+                collisionSource = "collision-in-tick-step-" + inTick.Stamp.FixedStep;
+            }
+            else
+            {
+                FlightState state = domain.Flight.State;
+                long fixedStep = _fixedClockTelemetry.TryGetValue(hullEntityId,
+                    out FixedFlightStepBatch clockBatch) ? clockBatch.CompletedSteps : 0;
+                long authorityGeneration = domain.Generation.Value;
+                CollisionRuntimeProxy subject = new(new CollisionProxy(domain.Id.ToString(),
+                        CollisionProxyKind.ShipHull,
+                        CollisionAabb.FromCentreHalfExtents(
+                            new ShadowVector3(state.X, state.Y, state.Z), half),
+                        new ShadowVector3(state.VxMps, state.VyMps, state.VzMps)),
+                    fixedStep, authorityGeneration, Math.Max(1.0, ship.MassKg),
+                    CollisionGeometryConfidence.ConservativeEnvelope);
+                IslandCollisionProxyBatch terrain = IslandCollisionProxyAdapter.Nearby(
+                    new ShadowVector3(state.X, state.Y, state.Z), fixedStep,
+                    authorityGeneration);
+                CollisionRuntimeResult collisionRuntime = CollisionRuntime.Evaluate(fixedStep,
+                    authorityGeneration, new[] { subject }, terrain.Proxies,
+                    FixedFlightClock.StepSeconds,
+                    new CollisionRuntimeOptions { ObserveEnabled = terrain.EvaluationComplete });
+                collision = collisionRuntime.Observation;
+                collisionSource = "collision-nearby-island-aabb-observe-only";
+            }
             return new Multiplayer.ShipFlightShadowStat(true, true,
-                "vector-equilibrium-trim-shadow; dynamic-sail-yaw-unavailable; collision-hull-only; terrain-proxies-unwired",
+                "vector-equilibrium-trim-shadow; dynamic-sail-yaw-unavailable; " + collisionSource,
                 scalar.EngineForceNewtons + scalar.SailForceNewtons,
                 vector.ForceNewtons, vector.RawTorqueNewtonMetres,
                 vector.RetailTorqueNewtonMetres, vector.AcceptedParts,
@@ -1747,6 +1973,314 @@ namespace WorldsAdriftRebornGameServer.Game
                 FixedFlightClock.DefaultMaxCatchUpSteps,
                 batch.CompletedSteps, batch.TotalDroppedSteps,
                 batch.PressureEvents, batch.RemainderSeconds);
+        }
+
+        // ------------------------------------------------------------------
+        // Vector authority (Steps 2-3): thin glue only - every decision lives
+        // in the Multiplayer assembly where it is unit-tested.
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// The hull's authority adapter, created lazily and ONLY while the
+        /// vector master flag is on. The adapter (not this glue) decides
+        /// scalar-vs-vector from the hull's persistent index, and consumes any
+        /// parked durable vector state exactly once.
+        /// </summary>
+        private FlightAuthorityAdapter AdapterFor(long hullEntityId, ShipDomain domain,
+            FlightSession session)
+        {
+            if (_authorityAdapters.TryGetValue(hullEntityId, out FlightAuthorityAdapter? existing))
+            {
+                return existing;
+            }
+            VectorFlightState? restored = null;
+            if (_pendingVectorRestore.Remove(hullEntityId,
+                out Multiplayer.Persistence.DurableVectorFlightState? durableVector))
+            {
+                if (durableVector.TryRead(session.State, out VectorFlightState restoredState))
+                {
+                    restored = restoredState;
+                }
+                else
+                {
+                    Console.WriteLine("[warning] flight: ignored invalid durable vector state "
+                        + "for hull " + hullEntityId + "; seeding from the restored scalar pose.");
+                }
+            }
+            FlightAuthorityAdapter adapter = FlightAuthorityAdapter.For(
+                RuntimeFlags, domain.PersistentIndex, session.State, restored);
+            _authorityAdapters[hullEntityId] = adapter;
+            return adapter;
+        }
+
+        /// <summary>
+        /// One publication slice of a PROMOTED hull: the vector runtime consumes
+        /// the slice's accepted 20 ms steps, the adapter mints one stamp per step
+        /// and commits the pose, and the session adopts the projection so
+        /// docking, persistence and the 1130 cadence keep reading the one pose.
+        /// </summary>
+        private FlightEmit AdvanceVectorAuthoritySlice(long hullEntityId, ShipDomain domain,
+            FlightSession session, FixedFlightPublicationSlice slice, long nowMs,
+            int unfurledSails, double sliceFirstStepTime)
+        {
+            FlightAuthorityAdapter adapter = AdapterFor(hullEntityId, domain, session);
+            VectorFlightRuntime? runtime = adapter.Vector;
+            if (runtime == null)
+            {
+                // Unreachable while IsPromoted implies vector mode; keep flying
+                // scalar rather than freezing if it ever is not.
+                return session.AdvanceFixed(nowMs, ShipMotionPolicy.SendIntervalSeconds,
+                    slice.Steps, sliceFirstStepTime, _tuning, unfurledSails,
+                    AgilityScaleFor(hullEntityId), PropulsionFor(hullEntityId, unfurledSails),
+                    _wallFlightInfluence.Segments, _worldBounds,
+                    emitDue: slice.PublishAfter, phaseLockedEmit: true);
+            }
+            if (_vectorReseedRequested.Remove(hullEntityId))
+            {
+                runtime.Reset(VectorFlightRuntime.FromFlightState(session.State));
+            }
+
+            Multiplayer.Materials.ShipMassSnapshot massSnapshot = ShipMassSnapshots.For(hullEntityId);
+            // GRANDFATHER-ALL SEAM: no durable build-epoch exists yet, so every
+            // hull passes existedBeforeLiftActivation=true. The pure policy and
+            // its future-build-blocking branch are fully tested; feeding it a
+            // truthful per-hull bit needs a persisted build epoch (deferred,
+            // reported, not hidden).
+            LiftCapacityPlan plan = LiftGravityRuntime.PlanFor(massSnapshot, Gravity,
+                RuntimeFlags.LiftRuntimeAppliesTo(domain.PersistentIndex),
+                existedBeforeLiftActivation: true);
+            StepVectorRuntime(hullEntityId, domain, session, runtime, adapter, slice,
+                massSnapshot, plan, sliceFirstStepTime);
+
+            FlightState projected = VectorFlightRuntime.Project(runtime.State);
+            return session.AdvanceAdopted(nowMs, ShipMotionPolicy.SendIntervalSeconds,
+                slice.Steps, projected, _tuning,
+                emitDue: slice.PublishAfter, phaseLockedEmit: true);
+        }
+
+        /// <summary>
+        /// One publication slice of an UNPROMOTED hull while the master flag is
+        /// on: commit the scalar pose+stamp through the adapter (publication and
+        /// downstream consumers read stamped committed state), then run the
+        /// vector runtime as a re-anchored per-slice shadow and record the
+        /// divergence sample the observer rollout is judged by.
+        /// </summary>
+        private void ObserveScalarSliceAuthority(long hullEntityId, ShipDomain domain,
+            FlightSession session, FixedFlightPublicationSlice slice,
+            FlightState preSliceState, int unfurledSails, double sliceFirstStepTime)
+        {
+            if (slice.Steps <= 0) return;
+            FlightAuthorityAdapter adapter = AdapterFor(hullEntityId, domain, session);
+            adapter.TryCommitScalar(slice.FirstStep + slice.Steps - 1,
+                domain.Generation.Value, session.State);
+
+            if (preSliceState.IsAtRest && session.State.IsAtRest) return;
+            Multiplayer.Materials.ShipMassSnapshot massSnapshot = ShipMassSnapshots.For(hullEntityId);
+            LiftCapacityPlan plan = LiftGravityRuntime.PlanFor(massSnapshot, Gravity,
+                RuntimeFlags.LiftRuntimeAppliesTo(domain.PersistentIndex),
+                existedBeforeLiftActivation: true);
+            var shadow = new VectorFlightRuntime(
+                VectorFlightRuntime.FromFlightState(preSliceState));
+            StepVectorRuntime(hullEntityId, domain, session, shadow, adapter: null,
+                slice, massSnapshot, plan, sliceFirstStepTime);
+
+            FlightState vector = VectorFlightRuntime.Project(shadow.State);
+            FlightState scalar = session.State;
+            double dx = vector.X - scalar.X;
+            double dy = vector.Y - scalar.Y;
+            double dz = vector.Z - scalar.Z;
+            double dvx = vector.VxMps - scalar.VxMps;
+            double dvy = vector.VyMps - scalar.VyMps;
+            double dvz = vector.VzMps - scalar.VzMps;
+            double yawDelta = Math.IEEERemainder(
+                vector.YawRadians - scalar.YawRadians, 2.0 * Math.PI);
+            _vectorShadowComparison[hullEntityId] = new Multiplayer.VectorShadowComparison(
+                slice.FirstStep + slice.Steps - 1, domain.Generation.Value,
+                Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz)),
+                Math.Sqrt((dvx * dvx) + (dvy * dvy) + (dvz * dvz)),
+                yawDelta);
+        }
+
+        /// <summary>
+        /// Steps one runtime over one slice's accepted 20 ms steps with the
+        /// production inputs: the ONE mass snapshot's mass properties, propulsors
+        /// and wings from the mount ledger in stable ascending entity-id order,
+        /// the production wind field sampled at each step's simulation time, and
+        /// the lift policy from the capacity plan. Commits per step through the
+        /// adapter when one is supplied (authority), silently when not (shadow).
+        /// </summary>
+        private void StepVectorRuntime(long hullEntityId, ShipDomain domain,
+            FlightSession session, VectorFlightRuntime runtime,
+            FlightAuthorityAdapter? adapter, FixedFlightPublicationSlice slice,
+            Multiplayer.Materials.ShipMassSnapshot massSnapshot, LiftCapacityPlan plan,
+            double sliceFirstStepTime)
+        {
+            var mass = new ShadowMassProperties(massSnapshot.TotalFlightMassKg,
+                massSnapshot.CentreOfMassApprox, massSnapshot.DiagonalInertiaApproxKgM2,
+                massSnapshot.InertiaIsApproximation);
+            List<ShadowPropulsor> propulsors = BuildShadowPropulsors(
+                hullEntityId, massSnapshot, out _);
+            List<VectorWingSurface> wings = BuildWingSurfaces(hullEntityId);
+            ShadowVector3 half = HullHalfExtentsFor(hullEntityId);
+            // ABANDONED-SINK SEAM: retail armed sinking through a 24 h
+            // CoreDampenTime accumulator the server does not track yet, so the
+            // runtime's tested IsAbandoned path stays fed with false (deferred,
+            // reported, not hidden).
+            var lift = new LiftRuntimeStepPolicy(plan.EffectiveCapacityKg, Gravity,
+                IsAbandoned: false);
+            double spin = Math.Clamp(session.Input.Throttle, -1.0, 1.0);
+            if (spin < 0.0) spin *= _tuning.ReverseFactor;
+            string stableKey = domain.Id.ToString();
+
+            for (int i = 0; i < slice.Steps; i++)
+            {
+                double stepTime = sliceFirstStepTime + (i * FixedFlightClock.StepSeconds);
+                WindSample wind = WindField.SampleAt(
+                    runtime.State.Position.X, runtime.State.Position.Z, stepTime,
+                    _tuning.WindSpeedMps, _tuning.WindVariation,
+                    _wallFlightInfluence.Segments);
+                var stepInput = new VectorFlightStepInput(stableKey,
+                    FixedFlightClock.StepSeconds, mass, half, propulsors, wings, spin,
+                    wind, session.Input, lift, _tuning);
+                VectorFlightStepResult result = runtime.Step(stepInput);
+                adapter?.TryCommitVector(slice.FirstStep + i, domain.Generation.Value,
+                    result, plan);
+            }
+        }
+
+        /// <summary>
+        /// Engine/sail propulsors from the mount ledger in stable ascending
+        /// entity-id order, each carrying its typed snapshot mass. Shared by the
+        /// admin shadow observer and the vector runtime so the two can never
+        /// build different geometry for one hull.
+        /// </summary>
+        private List<ShadowPropulsor> BuildShadowPropulsors(long hullEntityId,
+            Multiplayer.Materials.ShipMassSnapshot massSnapshot, out double propulsorMassKg)
+        {
+            var parts = new List<ShadowPropulsor>();
+            propulsorMassKg = 0.0;
+            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry in
+                Crafting.MountedParts.OnHull(hullEntityId).OrderBy(x => x.Key))
+            {
+                Crafting.MountedParts.Mount mount = entry.Value;
+                var kind = Multiplayer.Ship.ShipPartKinds.Classify(
+                    mount.ItemType, mount.PrefabName, mount.AttachmentType);
+                if (kind != Multiplayer.Ship.ShipPartKinds.Engine
+                    && kind != Multiplayer.Ship.ShipPartKinds.Sail) continue;
+                (float w, float x, float y, float z) =
+                    Multiplayer.Placement.Quaternion32Packing.Decode(mount.PackedRotation);
+                if (!ShadowQuaternion.TryNormalized(w, x, y, z, out ShadowQuaternion rotation))
+                    continue;
+                bool isEngine = kind == Multiplayer.Ship.ShipPartKinds.Engine;
+                bool sailUnfurled = !isEngine
+                    && WorldsAdriftRebornGameServer.Sails.IsUnfurled(entry.Key);
+                double power = isEngine
+                    ? (WorldsAdriftRebornGameServer.ShipFuel.EnginesPowered(hullEntityId)
+                        ? _tuning.EngineThrustNewtons : 0.0)
+                    : (sailUnfurled
+                        ? _tuning.SailPowerNewtons : 0.0);
+                if (!massSnapshot.TryPartMassKg(entry.Key, out double partMassKg))
+                {
+                    partMassKg = Multiplayer.Materials.ShipMassEvaluator.PartMass(
+                        mount.ItemType, mount.PrefabName, mount.AttachmentType).MassKg;
+                }
+                parts.Add(new ShadowPropulsor(isEngine ? ShadowPartKind.Engine : ShadowPartKind.Sail,
+                    new ShadowVector3(mount.LocalOffset.MetresX, mount.LocalOffset.MetresY,
+                        mount.LocalOffset.MetresZ), rotation, power, partMassKg,
+                    torqueless: false));
+                propulsorMassKg += partMassKg;
+            }
+            return parts;
+        }
+
+        /// <summary>
+        /// Recovered wing steering surfaces from the mount ledger. The up vector
+        /// decodes from the PACKED MOUNT ROTATION - the visible joint-state seam
+        /// (<see cref="VectorFlightRuntime.SailYawSeam"/>) - and power is the
+        /// labelled WAREBORN tuning constant because retail WingState.Power is lost.
+        /// </summary>
+        private static List<VectorWingSurface> BuildWingSurfaces(long hullEntityId)
+        {
+            var wings = new List<VectorWingSurface>();
+            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry in
+                Crafting.MountedParts.OnHull(hullEntityId).OrderBy(x => x.Key))
+            {
+                Crafting.MountedParts.Mount mount = entry.Value;
+                if (Multiplayer.Ship.ShipPartKinds.Classify(
+                        mount.ItemType, mount.PrefabName, mount.AttachmentType)
+                    != Multiplayer.Ship.ShipPartKinds.Wing) continue;
+                (float w, float x, float y, float z) =
+                    Multiplayer.Placement.Quaternion32Packing.Decode(mount.PackedRotation);
+                if (!ShadowQuaternion.TryNormalized(w, x, y, z, out ShadowQuaternion rotation))
+                    continue;
+                wings.Add(new VectorWingSurface(
+                    rotation.Rotate(ShadowVector3.Up).NormalizedOrZero(),
+                    VectorFlightRuntime.DefaultWingTorquePowerNewtonMetres));
+            }
+            return wings;
+        }
+
+        /// <summary>Hull half extents are build-time geometry; cached until retire.</summary>
+        private ShadowVector3 HullHalfExtentsFor(long hullEntityId)
+        {
+            if (_hullHalfExtents.TryGetValue(hullEntityId, out ShadowVector3 cached))
+            {
+                return cached;
+            }
+            // Conservative reference envelope when the plan will not decode.
+            var half = new ShadowVector3(2.0, 1.5, 6.0);
+            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
+            if (hullBytes != null
+                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes,
+                    out Multiplayer.Ship.ShipPlanModel? plan, out _)
+                && plan != null)
+            {
+                Multiplayer.Ship.ShipHullMetrics metrics =
+                    Multiplayer.Ship.ShipHullMetrics.Measure(plan);
+                half = new ShadowVector3(
+                    Math.Max(0.25, metrics.BeamMetres * 0.5),
+                    Math.Max(0.25, metrics.DeckPlaneMetres * 0.5),
+                    Math.Max(0.25, metrics.KeelMetres * 0.5));
+            }
+            _hullHalfExtents[hullEntityId] = half;
+            return half;
+        }
+
+        /// <summary>
+        /// The vector-authority evidence for the admin snapshot: live flag
+        /// values, the last committed stamp, the last observer divergence sample
+        /// and the last committed capacity plan. Published from committed state
+        /// only - nothing here re-evaluates.
+        /// </summary>
+        internal Multiplayer.VectorAuthorityStat VectorAuthorityStatFor(long hullEntityId)
+        {
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            bool promoted = RuntimeFlags.IsPromoted(domain?.PersistentIndex);
+            _authorityAdapters.TryGetValue(hullEntityId, out FlightAuthorityAdapter? adapter);
+            _vectorShadowComparison.TryGetValue(hullEntityId,
+                out Multiplayer.VectorShadowComparison comparison);
+            LiftCapacityPlan plan = adapter?.LastCapacityPlan ?? default;
+            bool planPresent = adapter != null
+                && adapter.Mode == FlightAuthorityMode.VectorAuthority
+                && adapter.LastStamp.IsValid;
+            return new Multiplayer.VectorAuthorityStat(
+                RuntimeFlags.VectorAuthorityEnabled,
+                RuntimeFlags.LiftRuntimeEnabled,
+                promoted,
+                adapter != null ? adapter.Mode.ToString() : "None",
+                adapter?.LastStamp.FixedStep ?? -1,
+                adapter?.LastStamp.AuthorityGeneration ?? 0,
+                comparison,
+                planPresent,
+                plan.AuthenticCapacityKg,
+                plan.EffectiveCapacityKg,
+                plan.EffectiveDivergesFromAuthentic,
+                plan.Disposition.ToString(),
+                plan.CapacityProvenance ?? string.Empty,
+                plan.MassSnapshotRevision,
+                plan.MassSnapshotFingerprint ?? string.Empty,
+                adapter?.LastVectorStep.Disposition ?? string.Empty,
+                adapter?.LastVectorStep.Lift.Overloaded ?? false);
         }
 
         /// <summary>
@@ -1799,38 +2333,6 @@ namespace WorldsAdriftRebornGameServer.Game
                 + " substeps=" + telemetry.ReferenceSubsteps + ".");
         }
 
-        /// <summary>
-        /// This hull's mass in kilograms, from its real materials and real cell and
-        /// deck counts. Cached on the same reasoning as the agility cache: a built
-        /// hull's materials and geometry never change. A hull whose plan will not
-        /// decode falls back to the reference mass rather than to zero, because the
-        /// force model divides by this.
-        /// </summary>
-        private double DerivedHullMassKgFor(long hullEntityId)
-        {
-            if (_hullMassByHull.TryGetValue(hullEntityId, out double cached))
-            {
-                return cached;
-            }
-
-            double massKg = Multiplayer.Materials.HullMassCalculator.ReferenceHullMassKg;
-            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
-            if (hullBytes != null
-                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
-                && plan != null)
-            {
-                Multiplayer.Ship.ShipHullMetrics metrics = Multiplayer.Ship.ShipHullMetrics.Measure(plan);
-                massKg = Multiplayer.Materials.HullMassCalculator.HullMassKg(
-                    Crafting.BuiltShips.MaterialsFor(hullEntityId), metrics.CellCount, metrics.DeckCount);
-            }
-
-            _hullMassByHull[hullEntityId] = massKg;
-            return massKg;
-        }
-
-        /// <summary>Per-hull mass cache; see <see cref="HullMassKgFor"/>.</summary>
-        private readonly Dictionary<long, double> _hullMassByHull = new Dictionary<long, double>();
-
         private void PersistPoseWhenDue(long hullEntityId, ShipDomain domain)
         {
             if (_nextPoseSaveAt.TryGetValue(hullEntityId, out TimeSpan due) && _clock.Elapsed < due) return;
@@ -1863,6 +2365,14 @@ namespace WorldsAdriftRebornGameServer.Game
                     state, domain.Flight.Input, domain.Generation.Value, domain.Flight.IsManned,
                     domain.AboardPeerIds.Count, Crafting.BuiltShips.IsHullDocked(hullEntityId),
                     WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId));
+                if (_authorityAdapters.TryGetValue(hullEntityId,
+                        out FlightAuthorityAdapter? adapter))
+                {
+                    // Additive: null for scalar hulls, the vector + lift-smoothing
+                    // extension for promoted ones, so restart resumes without a
+                    // one-frame fall or a stale pilot.
+                    durable.Vector = adapter.CaptureVector();
+                }
                 WorldStatePersistence.UpdateBuiltShipFlight(index.Value,
                     position, state.YawRadians, durable);
             }
@@ -1908,6 +2418,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 double yaw = Multiplayer.Ship.ShipyardDockingPolicy.YawFromPacked(
                     WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(yardEntityId));
                 session.DockAt(target.MetresX, target.MetresY, target.MetresZ, yaw);
+                _vectorReseedRequested.Add(hullEntityId);
                 Crafting.BuiltShips.SetDocked(yardEntityId, hullEntityId);
 
                 int? persistentIndex = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
@@ -1939,8 +2450,123 @@ namespace WorldsAdriftRebornGameServer.Game
             }
         }
 
+        /// <summary>
+        /// Publication-paced docking decision. With WAREBORN_FLIGHT_DOCKING_TXN=1
+        /// the transactional runtime owns capture, convergence and departure and the
+        /// legacy radius-snap writers below are unreachable for its hulls (kill-list
+        /// item 8); with the flag OFF the legacy path runs byte-identically.
+        /// </summary>
+        private void RunDockingScan(long hullEntityId, ShipDomain domain, FlightSession session)
+        {
+            if (!RuntimeFlags.DockingTxnEnabled)
+            {
+                TryCaptureAtEmptyShipyard(hullEntityId, session);
+                return;
+            }
+            Multiplayer.Ship.DockingRuntimeResult? result =
+                _dockingDriver.Scan(hullEntityId, domain, session);
+            if (result.HasValue && result.Value.FreezeVelocity)
+            {
+                // The transactional freeze reset the session pose OUTSIDE the
+                // vector runtime (session.DockAt inside the driver) - exactly
+                // like legacy DockAt and EmergencyStop, the vector runtime must
+                // re-seed from the session state on its next slice instead of
+                // flying on from a pre-freeze pose.
+                _vectorReseedRequested.Add(hullEntityId);
+                // Mirror the legacy capture's pilot handling: a frozen hull's held
+                // stick must not keep pushing the dead session input.
+                PilotSeats.Seat? pilot = _seats.PilotOf(hullEntityId);
+                if (pilot.HasValue)
+                    _inputs[pilot.Value.PlayerEntityId] = FlightControlInput.Neutral;
+                // The transaction already made this commit's pose durable in its
+                // one atomic document write; only the in-memory late-join seed
+                // follows here. A PersistPoseNow would be a SECOND world-state
+                // Save for the same commit.
+                WorldsAdriftRebornGameServer.WorldEntities.Relocate(hullEntityId,
+                    FixedPointPosition.FromMetres(
+                        session.State.X, session.State.Y, session.State.Z),
+                    FlightIntegrator.PackedRotation(session.State));
+            }
+        }
+
+        /// <summary>
+        /// Steps 4: the in-tick collision observation for one committed slice. The
+        /// stamp and pose come from the hull's ONE authority adapter - the vector
+        /// path and the master-on scalar observer have already committed this
+        /// slice's end step through it; a pure-scalar hull (master off) commits
+        /// its committed session state here, through the same minter. The driver
+        /// never constructs a stamp of its own.
+        /// </summary>
+        private void ObserveCollisionAfterSlice(long hullEntityId, ShipDomain domain,
+            FlightSession session, FixedFlightPublicationSlice slice)
+        {
+            if (!RuntimeFlags.CollisionObserveEnabled || slice.Steps <= 0) return;
+            FlightAuthorityAdapter adapter = AdapterFor(hullEntityId, domain, session);
+            long sliceEndStep = slice.FirstStep + slice.Steps - 1;
+            if (adapter.LastStamp.FixedStep != sliceEndStep
+                || adapter.LastStamp.AuthorityGeneration != domain.Generation.Value)
+            {
+                adapter.TryCommitScalar(sliceEndStep, domain.Generation.Value, session.State);
+            }
+            FlightAuthorityStamp stamp = adapter.LastStamp;
+            if (!stamp.IsValid || stamp.FixedStep != sliceEndStep
+                || stamp.AuthorityGeneration != domain.Generation.Value)
+            {
+                // No honestly committed frame for this slice -> no observation,
+                // never a clearance (fail closed).
+                return;
+            }
+            // The ONE mass truth (contract §5): the same cached snapshot the
+            // propulsion build read this slice - never a second evaluation and
+            // never a placeholder fallback.
+            double proxyMassKg = ShipMassSnapshots.For(hullEntityId).TotalFlightMassKg;
+            _dockingDriver.ObserveAfterSlice(hullEntityId, stamp, adapter.CurrentPose,
+                proxyMassKg);
+        }
+
+        internal Multiplayer.FlightCollisionDockingStat CollisionDockingStatFor(long hullEntityId)
+        {
+            HullCollisionObservation? observation = _dockingDriver.ObservationFor(hullEntityId);
+            Multiplayer.Ship.DockingPhase? phase = _dockingDriver.PhaseFor(hullEntityId);
+            return new Multiplayer.FlightCollisionDockingStat(
+                RuntimeFlags.CollisionObserveEnabled,
+                RuntimeFlags.CollisionResponseEnabled,
+                RuntimeFlags.DockingTxnEnabled,
+                observation?.Stamp.FixedStep ?? -1,
+                observation?.Stamp.AuthorityGeneration ?? 0,
+                observation.HasValue ? observation.Value.Result.Disposition.ToString() : "none",
+                observation.HasValue ? observation.Value.Result.Observation.Contacts.Count : 0,
+                observation?.Terrain.EvaluationComplete ?? false,
+                phase.HasValue ? phase.Value.ToString() : "unmanaged",
+                perStepEvaluation: FlightRuntimeFlags.PerStepCollisionPathExists);
+        }
+
+        /// <summary>
+        /// The committed docking truth for a runtime-managed hull, or null for any
+        /// hull the transactional runtime does not manage. The 1114 checkout serve
+        /// path answers from this so a late joiner - or a peer that missed a live
+        /// push - converges on the runtime's truth instead of the legacy ledger.
+        /// </summary>
+        internal Multiplayer.Ship.DockingComponentProjection? DockingProjectionFor(
+            long hullEntityId) => _dockingDriver.ProjectionFor(hullEntityId);
+
+        /// <summary>
+        /// The yard side of the same committed truth: which hull (if any) the
+        /// transactional runtime has docked at this shipyard, for the 1205
+        /// ShipyardState checkout. That component's DockedShipId is what raises the
+        /// client's influence dome - the bubble - so a late joiner (or a peer whose
+        /// live push was lost) must read it from the runtime, not the legacy ledger
+        /// the transaction deliberately stops writing. Null for every yard the
+        /// runtime does not manage, which is every yard with the docking gate off.
+        /// </summary>
+        internal long? RuntimeDockedShipAt(long yardEntityId) =>
+            _dockingDriver.RuntimeDockedShipFor(yardEntityId);
+
         private void CompleteDepartureIfOutside(long hullEntityId, FlightState state)
         {
+            // A runtime-managed hull departs through the stamped transactional
+            // lifecycle; the legacy undock writer must not race it.
+            if (_dockingDriver.Manages(hullEntityId)) return;
             if (!_departingYardByHull.TryGetValue(hullEntityId, out long yardEntityId)) return;
             FixedPointPosition hullPosition = FixedPointPosition.FromMetres(state.X, state.Y, state.Z);
             FixedPointPosition yardPosition = WorldsAdriftRebornGameServer.WorldEntities

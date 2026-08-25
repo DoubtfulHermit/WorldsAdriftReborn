@@ -10,6 +10,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
     {
         private static readonly DockingPose Target = new DockingPose(100, 20, -50, Math.PI - 0.1);
 
+        /// <summary>
+        /// The yard itself, <see cref="BuiltShipPlacement.HoverHeightMetres"/> below
+        /// its dock pose - the bubble is centred on the YARD, not on where the hull
+        /// ends up parked.
+        /// </summary>
+        private static readonly ShadowVector3 Yard = new ShadowVector3(100,
+            20 - BuiltShipPlacement.HoverHeightMetres, -50);
+
+        private static readonly DockingTuning Tuning = new DockingTuning();
+        private static readonly ShipyardBubble Bubble = Tuning.BubbleAt(Yard);
+
+        /// <summary>Beyond the bubble AND its exit margin: departure is complete here.</summary>
+        private static readonly DockingPose FarOutsideBubble =
+            new DockingPose(100 + 45, 20, -50, 0);
+
         [Theory]
         [InlineData(-3.0)]
         [InlineData(-1.5)]
@@ -191,7 +206,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal(200, claims.DockedShipFor(100));
 
             DockingStepResult outside = machine.Step(Frame(0.02,
-                new DockingPose(120, 20, -50, 0), new DockingMotion(1, 0, 0, 0),
+                FarOutsideBubble, new DockingMotion(1, 0, 0, 0),
                 outsideRelease: true, propulsion: propulsion), claims);
             Assert.Equal(DockingPhase.Undocked, outside.Phase);
             Assert.True(outside.LinkReleased);
@@ -221,7 +236,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
             DockingStepResult revoked = machine.Step(new DockingFrame(0.02,
                 yardExists: true, permissionValid: false, propulsion: DockingPropulsion.None,
-                collisionClearance: Clearance(true, 1), outsideReleaseEnvelope: false,
+                collisionClearance: Clearance(true, 1), bubble: Bubble,
                 observedPose: machine.Pose, observedMotion: default), claims);
 
             Assert.Equal(DockingPhase.Undocked, revoked.Phase);
@@ -260,6 +275,190 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal(200, claims.DockedShipFor(100));
         }
 
+        /// <summary>
+        /// THE PLAYER'S RULE 1, first half: a ship the pilot is still flying never
+        /// snaps, however deep inside the bubble they park it. Manning is not a
+        /// docking decision - leaving the helm is.
+        /// </summary>
+        [Fact]
+        public void A_manned_ship_parked_inside_the_bubble_only_ever_approaches()
+        {
+            var claims = new ShipDockRegistry();
+            var machine = new AuthenticDockingLifecycle(200);
+            var parked = new DockingPose(102, 20, -50, 0);
+            Assert.True(machine.TryBeginApproach(Request(parked, helmManned: true),
+                claims, out _));
+
+            for (int i = 0; i < 50; i++)
+            {
+                DockingStepResult held = machine.Step(
+                    Frame(0.02, parked, default, helmManned: true), claims);
+                Assert.Equal(DockingPhase.Approaching, held.Phase);
+                Assert.False(held.FreezeVelocity);
+            }
+            // The reservation is held the whole time - the yard is theirs to park in.
+            Assert.Equal(200, claims.DockedShipFor(100));
+        }
+
+        /// <summary>
+        /// THE PLAYER'S RULE 1, second half: they let go of the wheel inside the
+        /// bubble and above the yard, and the ship snaps into the dock pose with its
+        /// velocity frozen. The snap happens from anywhere in the dome - the bubble
+        /// IS the capture volume, not a tighter invisible one inside it.
+        /// </summary>
+        [Theory]
+        [InlineData(2.0)]
+        [InlineData(15.0)]
+        [InlineData(30.0)]
+        public void Leaving_the_helm_inside_the_bubble_snaps_the_ship_into_the_dock(
+            double metresFromTheYard)
+        {
+            var claims = new ShipDockRegistry();
+            var machine = new AuthenticDockingLifecycle(200);
+            var parked = new DockingPose(100 + metresFromTheYard, 20, -50, 0);
+            Assert.True(Bubble.ContainsDock(parked.Position));
+            Assert.True(machine.TryBeginApproach(Request(parked, helmManned: true),
+                claims, out _));
+            Assert.Equal(DockingPhase.Approaching,
+                machine.Step(Frame(0.02, parked, default, helmManned: true), claims).Phase);
+
+            DockingStepResult released = machine.Step(
+                Frame(0.02, parked, new DockingMotion(0.4, 0, 0, 0)), claims);
+
+            Assert.Equal(DockingPhase.Captured, released.Phase);
+            Assert.True(released.FreezeVelocity);
+            Assert.Equal(0, released.Motion.LinearSpeed);
+            for (int i = 0; i < 200 && machine.Phase != DockingPhase.Docked; i++)
+                machine.Step(Frame(0.02, machine.Pose, default), claims);
+            Assert.Equal(DockingPhase.Docked, machine.Phase);
+            Assert.Equal(Target, machine.Pose);
+        }
+
+        /// <summary>
+        /// THE PLAYER'S RULE 2: getting back on the helm of a docked ship leaves it
+        /// docked and in position. Only propulsion is a departure.
+        /// </summary>
+        [Fact]
+        public void Taking_the_helm_back_while_docked_is_not_a_departure()
+        {
+            var claims = new ShipDockRegistry();
+            AuthenticDockingLifecycle machine = Docked(claims);
+
+            for (int i = 0; i < 50; i++)
+            {
+                DockingStepResult manned = machine.Step(
+                    Frame(0.02, Target, default, helmManned: true), claims);
+                Assert.Equal(DockingPhase.Docked, manned.Phase);
+                Assert.True(manned.FreezeVelocity);
+                Assert.False(manned.LinkReleased);
+                Assert.Equal(Target, manned.Pose);
+            }
+            Assert.Equal(200, claims.DockedShipFor(100));
+        }
+
+        /// <summary>
+        /// "Inside it and ABOVE the shipyard": the recovered ImpactRadius is a
+        /// sphere, but a hull flying UNDER an island-mounted yard is not parked on
+        /// it. The vertical band is the WAReborn half of the rule.
+        /// </summary>
+        [Fact]
+        public void A_hull_under_the_yard_is_inside_the_sphere_but_not_inside_the_dome()
+        {
+            var below = new DockingPose(100, 20 - BuiltShipPlacement.HoverHeightMetres - 1,
+                -50, 0);
+            Assert.True(Bubble.IsWithinRange(below.Position));
+            Assert.False(Bubble.ContainsDock(below.Position));
+            AssertRejected(Request(below), DockingRejectReason.BelowShipyard);
+
+            // And a hull that sinks below the yard mid-approach cannot capture there.
+            var claims = new ShipDockRegistry();
+            AuthenticDockingLifecycle machine = Begin(claims, Target, default);
+            Assert.Equal(DockingPhase.Approaching,
+                machine.Step(Frame(0.02, below, default), claims).Phase);
+        }
+
+        /// <summary>
+        /// THE PLAYER'S RULE 3: propulsion begins the departure, but the link (and
+        /// with it the bubble) only drops once the hull is FULLY outside the bubble.
+        /// The 18 m release radius this path used to carry was invisible to the
+        /// player; the dome is not.
+        /// </summary>
+        [Fact]
+        public void Departure_completes_only_once_the_hull_is_fully_outside_the_bubble()
+        {
+            var claims = new ShipDockRegistry();
+            AuthenticDockingLifecycle machine = Docked(claims);
+            var moving = new DockingMotion(4, 0, 0, 0);
+
+            // Well outside the OLD 18 m release radius, still inside the bubble.
+            DockingStepResult leaving = machine.Step(Frame(0.02,
+                new DockingPose(120, 14, -50, 0), moving,
+                propulsion: DockingPropulsion.Sail), claims);
+            Assert.Equal(DockingPhase.Departing, leaving.Phase);
+            Assert.False(leaving.LinkReleased);
+            Assert.Equal(200, claims.DockedShipFor(100));
+
+            // On the visible edge, and inside the hysteresis band past it.
+            foreach (double distance in new[] { 34.9, 35.0, 36.9 })
+            {
+                DockingStepResult edge = machine.Step(Frame(0.02,
+                    new DockingPose(100 + distance, 14, -50, 0), moving,
+                    propulsion: DockingPropulsion.Sail), claims);
+                Assert.Equal(DockingPhase.Departing, edge.Phase);
+                Assert.Equal(200, claims.DockedShipFor(100));
+            }
+
+            DockingStepResult cleared = machine.Step(Frame(0.02,
+                new DockingPose(137.1, 14, -50, 0), moving,
+                propulsion: DockingPropulsion.Sail), claims);
+            Assert.Equal(DockingPhase.Undocked, cleared.Phase);
+            Assert.True(cleared.LinkReleased);
+            Assert.False(claims.IsShipyardOccupied(100));
+        }
+
+        /// <summary>
+        /// "FULLY out" is literal: the hull's own extent counts, so a big hull whose
+        /// centre is past the margin but whose flank still overlaps the dome has not
+        /// cleared it.
+        /// </summary>
+        [Fact]
+        public void Fully_outside_the_bubble_counts_the_hulls_own_extent()
+        {
+            var claims = new ShipDockRegistry();
+            AuthenticDockingLifecycle machine = Docked(claims);
+            var centreJustOutside = new DockingPose(137.5, 14, -50, 0);
+            Assert.True(Bubble.HasFullyCleared(centreJustOutside.Position));
+
+            DockingStepResult wide = machine.Step(new DockingFrame(0.02, true, true,
+                DockingPropulsion.Engine, Clearance(true, 1), Bubble,
+                centreJustOutside, new DockingMotion(4, 0, 0, 0),
+                helmManned: false, hullClearanceRadiusMetres: 6.0), claims);
+
+            Assert.Equal(DockingPhase.Departing, wide.Phase);
+            Assert.False(wide.LinkReleased);
+            Assert.Equal(200, claims.DockedShipFor(100));
+        }
+
+        /// <summary>
+        /// A reservation is not a lease: a hull that leaves the bubble while merely
+        /// approaching hands the yard back instead of holding it forever.
+        /// </summary>
+        [Fact]
+        public void An_approach_that_leaves_the_bubble_gives_the_yard_back()
+        {
+            var claims = new ShipDockRegistry();
+            AuthenticDockingLifecycle machine = Begin(claims,
+                new DockingPose(110, 20, -50, 0), default);
+
+            DockingStepResult gone = machine.Step(
+                Frame(0.02, FarOutsideBubble, default, helmManned: true), claims);
+
+            Assert.Equal(DockingPhase.Undocked, gone.Phase);
+            Assert.Equal(DockingRejectReason.OutsideApproachRadius, gone.Reason);
+            Assert.True(gone.LinkReleased);
+            Assert.False(claims.IsShipyardOccupied(100));
+        }
+
         private static AuthenticDockingLifecycle Docked(ShipDockRegistry claims)
         {
             AuthenticDockingLifecycle machine = Begin(claims, Target, default);
@@ -291,14 +490,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
         private static DockingApproachRequest Request(DockingPose pose,
             DockingMotion motion = default, bool propulsionNeutral = true,
-            bool collisionClear = true, long hullId = 200) => new DockingApproachRequest(
+            bool collisionClear = true, long hullId = 200,
+            bool helmManned = false) => new DockingApproachRequest(
                 hullId, 100, "ship:stable", "yard:stable", "owner", "owner", false, false, true,
-                propulsionNeutral, Clearance(collisionClear, 0), pose, Target, motion);
+                propulsionNeutral, Clearance(collisionClear, 0), pose, Target, motion,
+                Bubble, helmManned);
 
+        /// <summary>
+        /// <paramref name="outsideRelease"/> substitutes a pose genuinely beyond the
+        /// bubble: the lifecycle derives departure clearance from the geometry now,
+        /// so a test cannot assert it by handing over a bare flag.
+        /// </summary>
         private static DockingFrame Frame(double delta, DockingPose pose, DockingMotion motion,
             bool yardExists = true, bool collisionClear = true, bool outsideRelease = false,
-            DockingPropulsion propulsion = DockingPropulsion.None) => new DockingFrame(delta,
-                yardExists, true, propulsion, Clearance(collisionClear, 1), outsideRelease, pose, motion);
+            DockingPropulsion propulsion = DockingPropulsion.None,
+            bool helmManned = false) => new DockingFrame(delta,
+                yardExists, true, propulsion, Clearance(collisionClear, 1), Bubble,
+                outsideRelease ? FarOutsideBubble : pose, motion, helmManned);
 
         private static CollisionClearanceRecord Clearance(bool clear, long fixedStep) =>
             new CollisionClearanceRecord("ship:stable", "yard:stable", fixedStep,

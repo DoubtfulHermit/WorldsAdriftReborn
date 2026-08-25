@@ -1,0 +1,284 @@
+using System.Linq;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
+using Xunit;
+
+namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
+{
+    public sealed class FlightRuntimeFlagsTests
+    {
+        [Fact]
+        public void Everything_defaults_off_with_no_warnings()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.False(flags.VectorAuthorityEnabled);
+            Assert.False(flags.LiftRuntimeEnabled);
+            Assert.Empty(flags.PromotedHullPersistentIndices);
+            Assert.Empty(flags.StartupWarnings);
+        }
+
+        [Fact]
+        public void Only_the_literal_one_opts_in()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse("true", null, "yes",
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.False(flags.VectorAuthorityEnabled);
+            Assert.False(flags.LiftRuntimeEnabled);
+        }
+
+        [Fact]
+        public void Master_without_fixed_step_stays_off_with_one_warning()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse("1", null, null,
+                fixedStepEnabled: false, forceModelEnabled: true);
+
+            Assert.False(flags.VectorAuthorityEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("WAREBORN_FLIGHT_FIXED_STEP", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Master_without_force_model_stays_off_with_one_warning()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse("1", null, null,
+                fixedStepEnabled: true, forceModelEnabled: false);
+
+            Assert.False(flags.VectorAuthorityEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("WAREBORN_FLIGHT_FORCES", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Master_with_prerequisites_enables_observer_phase_with_no_promoted_hull()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse("1", null, null,
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.True(flags.VectorAuthorityEnabled);
+            Assert.Empty(flags.PromotedHullPersistentIndices);
+            Assert.False(flags.IsPromoted(3));
+            Assert.Empty(flags.StartupWarnings);
+        }
+
+        [Fact]
+        public void Hull_list_parses_persistent_indices()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse("1", " 3, 17,3 ", null,
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.True(flags.IsPromoted(3));
+            Assert.True(flags.IsPromoted(17));
+            Assert.False(flags.IsPromoted(4));
+            Assert.False(flags.IsPromoted(null));
+            Assert.Equal(2, flags.PromotedHullPersistentIndices.Count);
+        }
+
+        [Fact]
+        public void Invalid_hull_tokens_are_ignored_with_a_warning_each()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse("1", "3,ship-9,-2", null,
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.True(flags.IsPromoted(3));
+            Assert.Single(flags.PromotedHullPersistentIndices);
+            Assert.Equal(2, flags.StartupWarnings.Count);
+            Assert.All(flags.StartupWarnings, w => Assert.Contains("ignored", w));
+        }
+
+        [Fact]
+        public void Hull_list_without_master_promotes_nothing_and_warns()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, "3", null,
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.False(flags.VectorAuthorityEnabled);
+            Assert.Empty(flags.PromotedHullPersistentIndices);
+            Assert.Single(flags.StartupWarnings);
+        }
+
+        [Fact]
+        public void Lift_without_master_stays_off_and_warns()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, "1",
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.False(flags.LiftRuntimeEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("WAREBORN_FLIGHT_VECTOR_AUTHORITY", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Lift_with_master_missing_prerequisites_stays_off()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse("1", "3", "1",
+                fixedStepEnabled: false, forceModelEnabled: true);
+
+            Assert.False(flags.VectorAuthorityEnabled);
+            Assert.False(flags.LiftRuntimeEnabled);
+            Assert.Empty(flags.PromotedHullPersistentIndices);
+        }
+
+        [Fact]
+        public void Lift_applies_per_hull_and_only_where_vector_authority_does()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse("1", "3", "1",
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.True(flags.LiftRuntimeEnabled);
+            Assert.True(flags.LiftRuntimeAppliesTo(3));
+            Assert.False(flags.LiftRuntimeAppliesTo(4));
+            Assert.False(flags.LiftRuntimeAppliesTo(null));
+        }
+
+        [Fact]
+        public void Removing_a_hull_index_rolls_that_hull_back_to_scalar()
+        {
+            FlightRuntimeFlags before = FlightRuntimeFlags.Parse("1", "3,17", null,
+                fixedStepEnabled: true, forceModelEnabled: true);
+            FlightRuntimeFlags after = FlightRuntimeFlags.Parse("1", "17", null,
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.True(before.IsPromoted(3));
+            Assert.False(after.IsPromoted(3));
+            Assert.True(after.IsPromoted(17));
+        }
+
+        [Fact]
+        public void Collision_and_docking_gates_default_off_with_no_warnings()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: true);
+
+            Assert.False(flags.CollisionObserveEnabled);
+            Assert.False(flags.CollisionResponseEnabled);
+            Assert.False(flags.DockingTxnEnabled);
+            Assert.Empty(flags.StartupWarnings);
+        }
+
+        [Fact]
+        public void Collision_observe_requires_the_fixed_step()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: false, forceModelEnabled: true,
+                collisionObserveRaw: "1");
+
+            Assert.False(flags.CollisionObserveEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("WAREBORN_FLIGHT_FIXED_STEP", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Collision_response_requires_observe()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: true,
+                collisionResponseRaw: "1");
+
+            Assert.False(flags.CollisionResponseEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("WAREBORN_FLIGHT_COLLISION_OBSERVE", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Docking_txn_requires_observe()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: true,
+                dockingTxnRaw: "1");
+
+            Assert.False(flags.DockingTxnEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("WAREBORN_FLIGHT_COLLISION_OBSERVE", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Response_and_txn_never_half_enable_when_observe_loses_its_prerequisite()
+        {
+            // TXN => OBSERVE => FIXED_STEP: dropping the root prerequisite turns
+            // the whole dependent chain off, one warning per requested gate.
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: false, forceModelEnabled: true,
+                collisionObserveRaw: "1", collisionResponseRaw: "1", dockingTxnRaw: "1");
+
+            Assert.False(flags.CollisionObserveEnabled);
+            Assert.False(flags.CollisionResponseEnabled);
+            Assert.False(flags.DockingTxnEnabled);
+            Assert.Equal(3, flags.StartupWarnings.Count);
+        }
+
+        [Fact]
+        public void Full_chain_enables_with_the_fixed_step_present()
+        {
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: false,
+                collisionObserveRaw: "1", collisionResponseRaw: "1", dockingTxnRaw: "1");
+
+            Assert.True(flags.CollisionObserveEnabled);
+            Assert.True(flags.CollisionResponseEnabled);
+            Assert.True(flags.DockingTxnEnabled);
+            // The only warning is the per-step prerequisite note below.
+            Assert.Single(flags.StartupWarnings);
+        }
+
+        [Fact]
+        public void Response_without_the_per_step_path_warns_that_it_stays_observe_graded()
+        {
+            // Contract section 6 wants collision to see proposed motion per
+            // accepted step; today it sees committed slice-end state. Enabling
+            // response over that gap must never be silent.
+            Assert.False(FlightRuntimeFlags.PerStepCollisionPathExists);
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: true,
+                collisionObserveRaw: "1", collisionResponseRaw: "1");
+
+            Assert.True(flags.CollisionResponseEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("per-step", flags.StartupWarnings[0]);
+            Assert.Contains("HARD PREREQUISITE", flags.StartupWarnings[0]);
+        }
+
+        [Fact]
+        public void Disabled_instance_promotes_nothing()
+        {
+            Assert.False(FlightRuntimeFlags.Disabled.VectorAuthorityEnabled);
+            Assert.False(FlightRuntimeFlags.Disabled.LiftRuntimeEnabled);
+            Assert.False(FlightRuntimeFlags.Disabled.CollisionObserveEnabled);
+            Assert.False(FlightRuntimeFlags.Disabled.CollisionResponseEnabled);
+            Assert.False(FlightRuntimeFlags.Disabled.DockingTxnEnabled);
+            Assert.False(FlightRuntimeFlags.Disabled.IsPromoted(0));
+            Assert.Empty(FlightRuntimeFlags.Disabled.StartupWarnings.ToList());
+        }
+
+        [Fact]
+        public void Mode_flips_require_a_restart_because_the_parsed_flags_are_immutable()
+        {
+            // THE GUARANTEE, pinned: the service holds the parsed flags in a
+            // static readonly field, so a scalar/vector mode flip requires a
+            // process restart - and the restart is what advances every hull's
+            // AuthorityGeneration, which stamp monotonicity across the flip
+            // depends on. This fact makes the instance side of that guarantee
+            // fail loudly: giving FlightRuntimeFlags a public setter, a mutable
+            // field, or a re-parse mutator is the first step toward hot-reload,
+            // and hot-reloaded flags would let two authority models mint stamps
+            // under ONE generation.
+            System.Type type = typeof(FlightRuntimeFlags);
+            Assert.True(type.IsSealed);
+            foreach (System.Reflection.PropertyInfo property in type.GetProperties())
+            {
+                Assert.False(property.CanWrite,
+                    "FlightRuntimeFlags." + property.Name + " grew a setter; the "
+                    + "parsed flags must stay immutable so a mode flip can only "
+                    + "happen through a restart (which advances AuthorityGeneration).");
+            }
+            foreach (System.Reflection.FieldInfo field in type.GetFields(
+                System.Reflection.BindingFlags.Public
+                | System.Reflection.BindingFlags.Instance))
+            {
+                Assert.True(field.IsInitOnly,
+                    "FlightRuntimeFlags." + field.Name + " is a mutable public field.");
+            }
+        }
+    }
+}

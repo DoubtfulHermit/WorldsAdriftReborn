@@ -28,6 +28,7 @@ namespace WorldsAdriftReborn.Config
         public static ConfigEntry<string> gameServerPort { get; set; }
         public static ConfigEntry<int> perfSpikeThresholdMs { get; set; }
         public static ConfigEntry<string> stationPickupKey { get; set; }
+        public static ConfigEntry<bool> smoothShipRotation { get; set; }
         public static ConfigEntry<string> appliedConfigMigrations { get; set; }
 
         /// <summary>The social/alliances host to call, with the blank-means-REST default applied.</summary>
@@ -252,6 +253,27 @@ namespace WorldsAdriftReborn.Config
                                                     "Interact_StationPickupKey",
                                                     "X",
                                                     "UnityEngine.KeyCode name of the key held (0.5s) while looking at a placed Shipyard or Assembly Station to pack it back into your inventory. The normal E/Craft interaction is untouched.");
+
+            // The turn-vibration correction. A 1130 control point carries LINEAR
+            // velocity only, so the stock client hermite-interpolates position
+            // with real tangents (C1) but bare-slerps attitude across every
+            // 240 ms gap (C0). The angular-rate kink that leaves is ~0 at the
+            // hull origin and is multiplied by each mounted part's lever arm,
+            // which is the helm/wing/engine/sail shake during a turn.
+            //
+            // ON by default because it IS the fix and it is the identity on a
+            // steady turn - see ShipRotationSpline_Patch. It stays a setting
+            // because this must be A/B-able against the exact symptom, and
+            // because the previous client motion trial (2026.08.24-1) proved that
+            // a client change which tests green can still fail live acceptance.
+            //
+            // Read live: WAConfig_Patch reloads this file every 5 s, so this can
+            // be flipped WHILE FLYING and takes effect on the next control-point
+            // segment. No relaunch, no server restart.
+            smoothShipRotation = modConfig.Bind<bool>("Flight",
+                                                    "Flight_SmoothShipRotation",
+                                                    true,
+                                                    "Smooths replayed SHIP ATTITUDE between server control points with a quaternion spline instead of the stock straight slerp, removing the angular-rate step at every 240ms point that mounted parts amplify into visible shake during a turn. Purely local presentation: the server, the wire and every pose the server sent are unchanged. Set to false for stock client behaviour; re-read live every 5 seconds.");
         }
     }
 }

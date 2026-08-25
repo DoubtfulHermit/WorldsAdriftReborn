@@ -125,6 +125,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             ShadowVector3 twiceCross = 2.0 * ShadowVector3.Cross(qv, vector);
             return vector + W * twiceCross + ShadowVector3.Cross(qv, twiceCross);
         }
+
+        /// <summary>The inverse rotation of a unit quaternion (its conjugate).</summary>
+        public ShadowQuaternion Conjugated() => new ShadowQuaternion(W, -X, -Y, -Z);
+
+        /// <summary>Rotates a WORLD vector into this orientation's local frame.</summary>
+        public ShadowVector3 InverseRotate(ShadowVector3 vector) => Conjugated().Rotate(vector);
+
+        /// <summary>
+        /// Hamilton product a*b: applying b first, then a - the same composition
+        /// order Unity's Quaternion operator* uses. The result is renormalised so
+        /// long integration chains cannot drift off the unit sphere.
+        /// </summary>
+        public static bool TryMultiply(ShadowQuaternion a, ShadowQuaternion b, out ShadowQuaternion value)
+        {
+            double w = a.W * b.W - a.X * b.X - a.Y * b.Y - a.Z * b.Z;
+            double x = a.W * b.X + a.X * b.W + a.Y * b.Z - a.Z * b.Y;
+            double y = a.W * b.Y - a.X * b.Z + a.Y * b.W + a.Z * b.X;
+            double z = a.W * b.Z + a.X * b.Y - a.Y * b.X + a.Z * b.W;
+            return TryNormalized(w, x, y, z, out value);
+        }
     }
 
     /// <summary>Hard safety bounds for untrusted or corrupted mounted-part geometry.</summary>

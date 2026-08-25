@@ -222,7 +222,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             ProductionHullLiftAuditRow row = ProductionHullLiftAudit.Audit(snapshot, 9.81).Single();
             double hullMass = HullMassCalculator.HullMassKg(HullMaterials.Legacy, 1, 1);
             Assert.True(row.Valid);
-            Assert.Equal(hullMass + 4 * ShipTotalMass.MountedPartMassKg, row.MassKg, 6);
+            Assert.Equal(hullMass + 4 * ShipMassEvaluator.DefaultPartMassKg, row.MassKg, 6);
             Assert.Equal(1800, row.KnownMinimumCapacityKg);
             Assert.Equal(1, row.CoreCount);
             Assert.Equal(2, row.RecoveredMinimumUpgradeCount);
@@ -304,7 +304,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 snapshot.MountedParts.Add(Part(0, "sail"));
             }
             ProductionHullLiftAuditRow after = ProductionHullLiftAudit.Audit(snapshot, 9.81).Single();
-            Assert.Equal(before.MassKg + 20 * ShipTotalMass.MountedPartMassKg, after.MassKg, 6);
+            Assert.Equal(before.MassKg + 20 * ShipMassEvaluator.DefaultPartMassKg, after.MassKg, 6);
             Assert.NotEqual(before.Migration.Disposition, after.Migration.Disposition);
         }
 

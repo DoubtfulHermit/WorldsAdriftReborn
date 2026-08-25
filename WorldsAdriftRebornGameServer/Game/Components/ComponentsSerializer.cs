@@ -91,33 +91,6 @@ namespace WorldsAdriftRebornGameServer.Game.Components
         }
 
         /// <summary>
-        /// A built hull's mass in kilograms, from its recorded materials and its
-        /// actual geometry. The hull blob is decoded to count cells and decks, so a
-        /// six-cell ship is heavier than a one-cell one in the same timber. A hull
-        /// whose blob will not decode falls back to the calculator's minimum rather
-        /// than reporting a weightless ship - the client writes this number straight
-        /// into Rigidbody.mass and divides by it.
-        /// </summary>
-        private static double ShipMassKgFor(long entityId)
-        {
-            Multiplayer.Materials.HullMaterials materials = Crafting.BuiltShips.MaterialsFor(entityId);
-
-            int cells = 1;
-            int decks = 1;
-            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(entityId);
-            if (hullBytes != null
-                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
-                && plan != null)
-            {
-                Multiplayer.Ship.ShipHullMetrics metrics = Multiplayer.Ship.ShipHullMetrics.Measure(plan);
-                cells = metrics.CellCount;
-                decks = metrics.DeckCount;
-            }
-
-            return Multiplayer.Materials.HullMassCalculator.HullMassKg(materials, cells, decks);
-        }
-
-        /// <summary>
         /// Whether an entity is the REQUESTING peer's OWN player avatar - the only
         /// thing the loading barrier ever holds. The barrier seeds (190000 Requested,
         /// 190002 IsActive=false) must land on the joining peer's own player and
@@ -635,7 +608,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // stays consistent with what the client sees. A live 1205 update
                         // is also pushed at spawn/undock (BuiltShipSpawner / the undock
                         // trigger) for clients already holding the shipyard in interest.
-                        long dockedShipId = Crafting.BuiltShips.DockedShipFor(entityId);
+                        //
+                        // This field IS the bubble: ShipyardVisualizer drives the
+                        // influence dome from OnDockedShipChanged, and the yard counts
+                        // as active only while Shipyard.DockedShip != null. A yard under
+                        // the transactional docking runtime therefore answers with the
+                        // runtime's COMMITTED truth - the same truth its 1205 push
+                        // publishes - so a late joiner sees the dome exactly when the
+                        // players already there do. Null (hence the legacy ledger, and a
+                        // byte-identical serve) for every unmanaged yard, which is every
+                        // yard with the docking gate off.
+                        long dockedShipId =
+                            WorldsAdriftRebornGameServer.Flight.RuntimeDockedShipAt(entityId)
+                            ?? Crafting.BuiltShips.DockedShipFor(entityId);
 
                         obj = new ShipyardState.Data(
                             shipyardSeed.Active,
@@ -667,17 +652,43 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // back here (BuiltShipSpawner.PushDockedShipId + the 1205 branch), so
                         // the two directions agree. Gated on IsBuiltHull so no other entity's
                         // 1114 request is answered here (it falls through to the normal path).
-                        long dockShipyardId = Game.Crafting.BuiltShips.ShipyardForHull(entityId);
-                        var hullPos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Position;
-                        Coordinates dockLocation = hullPos.HasValue
-                            ? new Coordinates(hullPos.Value.MetresX, hullPos.Value.MetresY, hullPos.Value.MetresZ)
-                            : new Coordinates(0, 0, 0);
+                        // A hull under the transactional docking runtime answers with the
+                        // runtime's COMMITTED projection - the same truth the live 1114
+                        // push publishes - so any peer that missed a push (or joined
+                        // late) converges here on checkout. Read-only: the decision
+                        // logic stays in the Multiplayer assembly's lifecycle. Null for
+                        // every unmanaged hull (and always with the docking flag OFF),
+                        // which keeps the legacy ledger serve below byte-identical.
+                        Game.ShipFlightService flight = WorldsAdriftRebornGameServer.Flight;
+                        if (flight.DockingProjectionFor(entityId) is
+                            Multiplayer.Ship.DockingComponentProjection dockingProjection)
+                        {
+                            obj = new DockableState.Data(
+                                new EntityId(dockingProjection.YardEntityId),
+                                new Coordinates(dockingProjection.DockLocation.X,
+                                    dockingProjection.DockLocation.Y,
+                                    dockingProjection.DockLocation.Z),
+                                dockingProjection.Docked,
+                                dockingProjection.ApproachingDock);
+                            Console.WriteLine("[info] serving runtime 1114 DockableState for built hull entity "
+                                + entityId + " (docked=" + dockingProjection.Docked
+                                + ", approaching=" + dockingProjection.ApproachingDock
+                                + ", dockShipyard=" + dockingProjection.YardEntityId + ").");
+                        }
+                        else
+                        {
+                            long dockShipyardId = Game.Crafting.BuiltShips.ShipyardForHull(entityId);
+                            var hullPos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Position;
+                            Coordinates dockLocation = hullPos.HasValue
+                                ? new Coordinates(hullPos.Value.MetresX, hullPos.Value.MetresY, hullPos.Value.MetresZ)
+                                : new Coordinates(0, 0, 0);
 
-                        bool isDocked = dockShipyardId != 0;
-                        obj = new DockableState.Data(new EntityId(dockShipyardId), dockLocation, isDocked, false);
+                            bool isDocked = dockShipyardId != 0;
+                            obj = new DockableState.Data(new EntityId(dockShipyardId), dockLocation, isDocked, false);
 
-                        Console.WriteLine("[info] seeding 1114 DockableState for built hull entity " + entityId
-                            + " (docked=" + isDocked + ", dockShipyard=" + dockShipyardId + ").");
+                            Console.WriteLine("[info] seeding 1114 DockableState for built hull entity " + entityId
+                                + " (docked=" + isDocked + ", dockShipyard=" + dockShipyardId + ").");
+                        }
                     }
                     else if(componentId == 1258 && Game.Crafting.BuiltShips.IsBuiltHull(entityId))
                     {
@@ -700,8 +711,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // "no server mass model exists (1257 is known-absent)". That is
                         // STALE and was misleading in a load-bearing way. We DO serve
                         // 1257 ParentingMassAdderState, fully per-material, ~2600 lines
-                        // below at the `componentId == 1257` branch, via ShipMassKgFor ->
-                        // HullMassCalculator.HullMassKg. Nor is AtlasMultiplier zero on
+                        // below at the `componentId == 1257` branch, off the one cached
+                        // ShipMassSnapshot. Nor is AtlasMultiplier zero on
                         // our client: EndOfTheWorld_Patch.cs pins it to 1f (a44aebb).
                         // So climb works because TotalLift really is 1e6 against hull
                         // masses of 500-1700 kg - not because either side is absent.
@@ -717,12 +728,26 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // passed all 5,422 tests in silence. ShipLiftPolicyTests now
                         // holds the seed against the heaviest buildable hull, so that
                         // edit fails a test. Do not re-inline this value.
+                        //
+                        // STEP 3 (lift runtime): the value now flows through
+                        // Game.ShipLiftPlans -> Multiplayer LiftGravityRuntime.
+                        // With WAREBORN_FLIGHT_LIFT_RUNTIME off for this hull
+                        // (the default) that path returns EXACTLY the seed above
+                        // - the pure test `Component_1258_serving_does_not_change_
+                        // while_the_flag_is_off` holds the equality - and with it
+                        // on, the client reads the SAME effective capacity the
+                        // server's lift runtime enforces, so OSD/overload display
+                        // and physics cannot disagree.
+                        double servedLiftKg = Game.ShipLiftPlans.Served1258LiftKg(entityId);
                         obj = new ShipLiftState.Data(new ShipLiftStateData(
-                            (float)Multiplayer.Materials.ShipLiftPolicy.SeededTotalLiftKg,
+                            (float)servedLiftKg,
                             new Improbable.Math.Vector3f(0f, 0f, 0f), true));
 
+                        // Journal-grep acceptance gates key on this exact string:
+                        // with the lift gate OFF servedLiftKg IS the seed, so the
+                        // line below is byte-identical to the pre-vector wording.
                         Console.WriteLine("[info] seeding 1258 ShipLiftState for built hull entity " + entityId
-                            + " (totalLift=" + Multiplayer.Materials.ShipLiftPolicy.SeededTotalLiftKg.ToString("0")
+                            + " (totalLift=" + servedLiftKg.ToString("0")
                             + " kg, margin " + Multiplayer.Materials.ShipLiftPolicy.LiftMargin().ToString("0")
                             + "x over the heaviest buildable hull): the sky core lifts, "
                             + "vertical input stays unblocked.");
@@ -3449,19 +3474,20 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // whisker of the 800 f this always served - so existing ships
                         // do not change, while a cedar skiff is genuinely light and a
                         // gold barge genuinely is not. WAREBORN_SHIP_MASS still wins
-                        // when set, as a live override.
-                        float shipMass = (float)Multiplayer.Materials.ShipTotalMass.HullMassWithOverride(
-                            ShipMassKgFor(entityId),
-                            Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS"));
+                        // when set, as a live override. All of it comes off the ONE
+                        // cached ShipMassSnapshot flight also flies with, so this
+                        // number can never drift from the mass the server steers.
+                        float shipMass = (float)ShipMassSnapshots.For(entityId).HullStructuralMassKg;
                         obj = new Bossa.Travellers.Ship.ParentingMassAdderState.Data(shipMass, false);
                     }
                     else if (componentId == 1121)
                     {
                         // 1121 OriginalMassState - {float mass} (VERIFIED ctor gencode
                         // Bossa.Travellers.Ship/OriginalMassState.cs:309). A part's own
-                        // authored mass; served modest so parented parts add sane weight.
+                        // authored mass, typed and provenance-labelled by the mass
+                        // snapshot/evaluator - a wing is no longer as heavy as an engine.
                         obj = new Bossa.Travellers.Ship.OriginalMassState.Data(
-                            (float)Multiplayer.Materials.ShipTotalMass.MountedPartMassKg);
+                            (float)ShipMassSnapshots.PartMassKgFor(entityId));
                     }
                     else if (componentId == 1294)
                     {

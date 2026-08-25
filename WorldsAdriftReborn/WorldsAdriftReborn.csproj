@@ -116,6 +116,8 @@
              Link="Patching\Multiplayer\Islands\IslandBundleLoadPolicy.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\Flight\HelmYawResponsePolicy.cs"
              Link="Patching\Flight\HelmYawResponsePolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\Flight\ShipRotationSplinePolicy.cs"
+             Link="Patching\Flight\ShipRotationSplinePolicy.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Config\RestUrlPolicy.cs"
              Link="Config\RestUrlPolicy.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Config\ConfigMigrationLedger.cs"

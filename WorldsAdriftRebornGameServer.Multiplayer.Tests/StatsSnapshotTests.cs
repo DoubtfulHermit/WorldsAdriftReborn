@@ -296,6 +296,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void A_ship_domain_exposes_the_mass_snapshot_identity_and_the_flat_model_delta()
+        {
+            ShipFlightStat flight = new ShipFlightStat(
+                massKg: 3960.3, mountedSails: 2, unfurledSails: 0,
+                sampledAtSeconds: 1, windX: 0, windZ: 0,
+                wallIntensity: 0, windAngleDegrees: 0,
+                sailForceNewtons: 0, engineForceNewtons: 0,
+                propulsionAccelerationMps2: 0, windAlongHeadingMps: 0,
+                predictedTerminalSpeedMps: 0, shadow: default,
+                massRevision: 3, massFingerprint: "1f2e3d4c5b6a7988",
+                legacyFlatMassKg: 4044);
+            ShipDomainStat domain = new ShipDomainStat(
+                "ship:83", 83, 4, 91, 240, 35,
+                0, 0, 0, active: true, piloted: false, liveCadenceExpected: true,
+                pilotPlayerEntityId: null, aboardPlayerEntityIds: Array.Empty<long>(),
+                deckCount: 1, mountedPartCount: 19, subscriberCount: 1,
+                flight: flight);
+            StatsSnapshot snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), shipDomains: new[] { domain });
+
+            JObject f = (JObject)((JObject)((JArray)((JObject)JObject.Parse(snapshot.ToJson())
+                ["runtime"]!)["shipDomains"]!)[0])["flight"]!;
+            Assert.Equal(3960.3, (double)f["massKg"]!);
+            Assert.Equal(3, (int)f["massRevision"]!);
+            Assert.Equal("1f2e3d4c5b6a7988", (string?)f["massFingerprint"]);
+            Assert.Equal(4044, (double)f["legacyFlatMassKg"]!);
+        }
+
+        [Fact]
         public void A_ship_domain_serializes_world_bounds_configuration_and_exact_step_result()
         {
             var telemetry = new RetailWorldBoundsTelemetry(

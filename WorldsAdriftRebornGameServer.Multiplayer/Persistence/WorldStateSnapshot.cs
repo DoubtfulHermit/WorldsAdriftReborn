@@ -82,6 +82,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// </summary>
         public DurableShipFlightSnapshot? FlightSnapshot { get; set; }
 
+        /// <summary>
+        /// Additive authentic-docking checkpoint. Runtime entity ids are never
+        /// stored in it; boot restore resolves this record's stable shipyard
+        /// position before reacquiring the one-to-one dock claim.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Ship.DockingSnapshotV1? DockingSnapshot { get; set; }
+
         /// <summary>The hull geometry blob the 1209 CustomShipHullState serves (base64 in JSON).</summary>
         public byte[] HullBytes { get; set; } = System.Array.Empty<byte>();
 
@@ -227,6 +235,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         public float AxisYaw { get; set; }
         public float AxisRoll { get; set; }
 
+        /// <summary>
+        /// ADDITIVE, versioned, nullable: the vector-authority extension. Null for
+        /// every scalar hull and for every pre-vector snapshot on disk, so the base
+        /// <see cref="Version"/> and <see cref="TryRead"/> semantics are untouched
+        /// - a v1 file restores exactly as before this field existed. Omitted from
+        /// the JSON when null, so a world-state file written with every vector
+        /// gate OFF is byte-identical to one written before this field existed.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore(
+            Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public DurableVectorFlightState? Vector { get; set; }
+
         public bool TryRead(out FlightState state, out FlightControlInput input)
         {
             state = default;
@@ -271,6 +291,74 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         };
 
         private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+    }
+
+    /// <summary>
+    /// The durable vector-authority state a promoted hull needs to resume
+    /// deterministically: the full attitude quaternion, the body angular
+    /// velocity, and the lift COMMAND SMOOTHING pair - the invisible per-life
+    /// state whose loss would make a restored hull open with a one-frame fall.
+    /// Position and linear velocity deliberately live ONLY in the base
+    /// <see cref="DurableShipFlightSnapshot"/> so there is one pose truth, not
+    /// two. Restore never revives a pilot or an authority token: the base
+    /// restore path already abandons the session and advances the generation.
+    /// </summary>
+    public sealed class DurableVectorFlightState
+    {
+        public const int CurrentVersion = 1;
+        public int Version { get; set; } = CurrentVersion;
+        public double QW { get; set; } = 1.0;
+        public double QX { get; set; }
+        public double QY { get; set; }
+        public double QZ { get; set; }
+        public double AngVxRadPerSec { get; set; }
+        public double AngVyRadPerSec { get; set; }
+        public double AngVzRadPerSec { get; set; }
+        public double CommandLiftForceNewtons { get; set; }
+        public double CommandLiftSmoothingVelocity { get; set; }
+
+        /// <summary>
+        /// Rebuilds the vector state on top of the base snapshot's restored pose.
+        /// False = unsupported version or non-finite data; the caller falls back
+        /// to seeding from the restored scalar state (a visible, safe reset).
+        /// </summary>
+        public bool TryRead(Ship.Flight.FlightState restoredBase,
+            out Ship.Flight.VectorFlightState state)
+        {
+            state = default;
+            if (Version != CurrentVersion) return false;
+            if (!Ship.Flight.ShadowQuaternion.TryNormalized(QW, QX, QY, QZ,
+                    out Ship.Flight.ShadowQuaternion orientation))
+            {
+                return false;
+            }
+            var candidate = new Ship.Flight.VectorFlightState(
+                new Ship.Flight.ShadowVector3(restoredBase.X, restoredBase.Y, restoredBase.Z),
+                orientation,
+                new Ship.Flight.ShadowVector3(
+                    restoredBase.VxMps, restoredBase.VyMps, restoredBase.VzMps),
+                new Ship.Flight.ShadowVector3(
+                    AngVxRadPerSec, AngVyRadPerSec, AngVzRadPerSec),
+                CommandLiftForceNewtons,
+                CommandLiftSmoothingVelocity);
+            if (!candidate.IsFinite) return false;
+            state = candidate;
+            return true;
+        }
+
+        public static DurableVectorFlightState Capture(Ship.Flight.VectorFlightState state) =>
+            new DurableVectorFlightState
+            {
+                QW = state.Orientation.W,
+                QX = state.Orientation.X,
+                QY = state.Orientation.Y,
+                QZ = state.Orientation.Z,
+                AngVxRadPerSec = state.AngularVelocityRadPerSec.X,
+                AngVyRadPerSec = state.AngularVelocityRadPerSec.Y,
+                AngVzRadPerSec = state.AngularVelocityRadPerSec.Z,
+                CommandLiftForceNewtons = state.CommandLiftForceNewtons,
+                CommandLiftSmoothingVelocity = state.CommandLiftSmoothingVelocity,
+            };
     }
 
     /// <summary>

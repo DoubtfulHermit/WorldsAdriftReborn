@@ -223,7 +223,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             double wallIntensity, double windAngleDegrees,
             double sailForceNewtons, double engineForceNewtons,
             double propulsionAccelerationMps2, double windAlongHeadingMps,
-            double predictedTerminalSpeedMps, ShipFlightShadowStat shadow = default)
+            double predictedTerminalSpeedMps, ShipFlightShadowStat shadow = default,
+            int massRevision = 0, string? massFingerprint = null,
+            double legacyFlatMassKg = 0.0)
         {
             Present = true;
             MassKg = massKg;
@@ -240,10 +242,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             WindAlongHeadingMps = windAlongHeadingMps;
             PredictedTerminalSpeedMps = predictedTerminalSpeedMps;
             Shadow = shadow;
+            MassRevision = massRevision;
+            MassFingerprint = massFingerprint ?? string.Empty;
+            LegacyFlatMassKg = legacyFlatMassKg;
         }
 
         public bool Present { get; }
         public double MassKg { get; }
+
+        /// <summary>Identity of the ShipMassSnapshot the mass came from.</summary>
+        public int MassRevision { get; }
+        public string MassFingerprint { get; }
+
+        /// <summary>What the retired flat hull+N*50 model would have said - the visible delta.</summary>
+        public double LegacyFlatMassKg { get; }
         public int MountedSails { get; }
         public int UnfurledSails { get; }
         public double SampledAtSeconds { get; }
@@ -398,6 +410,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public ShipWorldBoundsStat WorldBounds { get; }
         public FixedFlightClockStat FixedClock { get; }
 
+        /// <summary>The vector-authority / lift-runtime gates and last committed evidence.</summary>
+        public VectorAuthorityStat VectorAuthority { get; }
+
+        /// <summary>The Steps 4-5 collision/docking runtime gates and last stamped facts.</summary>
+        public FlightCollisionDockingStat CollisionDocking { get; }
+
         /// <summary>
         /// The character uid this hull belongs to, or "" when the owner is not
         /// known to this boot. The operator surface answers "the ship this player
@@ -424,7 +442,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             double vxMps = 0, double vyMps = 0, double vzMps = 0,
             ShipHullStat hull = default, ShipFlightStat flight = default,
             ShipWorldBoundsStat worldBounds = default,
-            FixedFlightClockStat fixedClock = default)
+            FixedFlightClockStat fixedClock = default,
+            VectorAuthorityStat vectorAuthority = default,
+            FlightCollisionDockingStat collisionDocking = default)
         {
             YawRadians = yawRadians;
             YawRateRadPerSec = yawRateRadPerSec;
@@ -435,6 +455,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Flight = flight;
             WorldBounds = worldBounds;
             FixedClock = fixedClock;
+            VectorAuthority = vectorAuthority;
+            CollisionDocking = collisionDocking;
             DomainId = domainId ?? string.Empty;
             HullEntityId = hullEntityId;
             AuthorityGeneration = authorityGeneration;
@@ -482,6 +504,134 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public long DroppedSteps { get; }
         public long PressureEvents { get; }
         public double RemainderSeconds { get; }
+    }
+
+    /// <summary>
+    /// One publication slice's scalar-vs-vector divergence, measured by
+    /// re-anchoring the vector shadow on the pre-slice scalar state and stepping
+    /// both over the SAME accepted steps. Published from the last committed
+    /// sample; the admin surface never re-evaluates.
+    /// </summary>
+    public readonly struct VectorShadowComparison
+    {
+        public VectorShadowComparison(long fixedStep, long authorityGeneration,
+            double positionDeltaMetres, double velocityDeltaMps, double yawDeltaRadians)
+        {
+            Present = true;
+            FixedStep = fixedStep;
+            AuthorityGeneration = authorityGeneration;
+            PositionDeltaMetres = positionDeltaMetres;
+            VelocityDeltaMps = velocityDeltaMps;
+            YawDeltaRadians = yawDeltaRadians;
+        }
+        public bool Present { get; }
+        public long FixedStep { get; }
+        public long AuthorityGeneration { get; }
+        public double PositionDeltaMetres { get; }
+        public double VelocityDeltaMps { get; }
+        public double YawDeltaRadians { get; }
+    }
+
+    /// <summary>
+    /// The vector-authority and lift-runtime evidence for one hull: the live
+    /// flag values (handover rule: every gate's value is visible here), the
+    /// last committed stamp, the observer-phase divergence sample, and the last
+    /// committed lift-capacity plan - effective and authentic side by side so a
+    /// divergence between them is always operator-visible data.
+    /// </summary>
+    public readonly struct VectorAuthorityStat
+    {
+        public VectorAuthorityStat(bool masterEnabled, bool liftRuntimeEnabled,
+            bool promoted, string mode, long lastFixedStep, long lastAuthorityGeneration,
+            VectorShadowComparison comparison, bool liftPlanPresent,
+            double authenticCapacityKg, double effectiveCapacityKg,
+            bool capacityDiverges, string migrationDisposition, string capacityProvenance,
+            int massRevision, string massFingerprint, string lastStepDisposition,
+            bool overloaded)
+        {
+            Present = true;
+            MasterEnabled = masterEnabled;
+            LiftRuntimeEnabled = liftRuntimeEnabled;
+            Promoted = promoted;
+            Mode = mode ?? string.Empty;
+            LastFixedStep = lastFixedStep;
+            LastAuthorityGeneration = lastAuthorityGeneration;
+            Comparison = comparison;
+            LiftPlanPresent = liftPlanPresent;
+            AuthenticCapacityKg = authenticCapacityKg;
+            EffectiveCapacityKg = effectiveCapacityKg;
+            CapacityDiverges = capacityDiverges;
+            MigrationDisposition = migrationDisposition ?? string.Empty;
+            CapacityProvenance = capacityProvenance ?? string.Empty;
+            MassRevision = massRevision;
+            MassFingerprint = massFingerprint ?? string.Empty;
+            LastStepDisposition = lastStepDisposition ?? string.Empty;
+            Overloaded = overloaded;
+        }
+
+        public bool Present { get; }
+        public bool MasterEnabled { get; }
+        public bool LiftRuntimeEnabled { get; }
+        public bool Promoted { get; }
+        public string Mode { get; }
+        public long LastFixedStep { get; }
+        public long LastAuthorityGeneration { get; }
+        public VectorShadowComparison Comparison { get; }
+        public bool LiftPlanPresent { get; }
+        public double AuthenticCapacityKg { get; }
+        public double EffectiveCapacityKg { get; }
+        public bool CapacityDiverges { get; }
+        public string MigrationDisposition { get; }
+        public string CapacityProvenance { get; }
+        public int MassRevision { get; }
+        public string MassFingerprint { get; }
+        public string LastStepDisposition { get; }
+        public bool Overloaded { get; }
+    }
+
+    /// <summary>
+    /// The Steps 4-5 runtime gates and per-hull last stamped collision/docking
+    /// facts. Values are the last COMMITTED in-tick observation - the admin path
+    /// never re-evaluates from a later clock.
+    /// </summary>
+    public readonly struct FlightCollisionDockingStat
+    {
+        public FlightCollisionDockingStat(bool observeEnabled, bool responseEnabled,
+            bool dockingTxnEnabled, long lastObservedFixedStep,
+            long lastObservedGeneration, string lastCollisionDisposition,
+            int lastContactCount, bool lastTerrainComplete, string dockingPhase,
+            bool perStepEvaluation = false)
+        {
+            Present = true;
+            ObserveEnabled = observeEnabled;
+            ResponseEnabled = responseEnabled;
+            DockingTxnEnabled = dockingTxnEnabled;
+            PerStepEvaluation = perStepEvaluation;
+            LastObservedFixedStep = lastObservedFixedStep;
+            LastObservedGeneration = lastObservedGeneration;
+            LastCollisionDisposition = lastCollisionDisposition ?? string.Empty;
+            LastContactCount = lastContactCount;
+            LastTerrainComplete = lastTerrainComplete;
+            DockingPhase = dockingPhase ?? string.Empty;
+        }
+
+        public bool Present { get; }
+        public bool ObserveEnabled { get; }
+        public bool ResponseEnabled { get; }
+        public bool DockingTxnEnabled { get; }
+
+        /// <summary>
+        /// False until collision evaluates proposed motion per accepted step -
+        /// the operator-visible half of the response prerequisite
+        /// (<see cref="Ship.Flight.FlightRuntimeFlags.PerStepCollisionPathExists"/>).
+        /// </summary>
+        public bool PerStepEvaluation { get; }
+        public long LastObservedFixedStep { get; }
+        public long LastObservedGeneration { get; }
+        public string LastCollisionDisposition { get; }
+        public int LastContactCount { get; }
+        public bool LastTerrainComplete { get; }
+        public string DockingPhase { get; }
     }
 
     /// <summary>
@@ -1588,7 +1738,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             AppendHull(b, d.Hull); b.Append(',');
             AppendShipFlight(b, d.Flight); b.Append(',');
             AppendWorldBounds(b, d.WorldBounds); b.Append(',');
-            AppendFixedClock(b, d.FixedClock);
+            AppendFixedClock(b, d.FixedClock); b.Append(',');
+            AppendCollisionDocking(b, d.CollisionDocking);
+            b.Append('}');
+        }
+
+        private static void AppendCollisionDocking(StringBuilder b, FlightCollisionDockingStat c)
+        {
+            Key(b, "collisionDocking"); b.Append('{');
+            Bool(b, "present", c.Present); b.Append(',');
+            Bool(b, "observeEnabled", c.ObserveEnabled); b.Append(',');
+            Bool(b, "responseEnabled", c.ResponseEnabled); b.Append(',');
+            Bool(b, "dockingTxnEnabled", c.DockingTxnEnabled); b.Append(',');
+            Num(b, "lastObservedFixedStep", c.LastObservedFixedStep); b.Append(',');
+            Num(b, "lastObservedGeneration", c.LastObservedGeneration); b.Append(',');
+            Str(b, "lastCollisionDisposition", c.LastCollisionDisposition); b.Append(',');
+            Num(b, "lastContactCount", c.LastContactCount); b.Append(',');
+            Bool(b, "lastTerrainComplete", c.LastTerrainComplete); b.Append(',');
+            Str(b, "dockingPhase", c.DockingPhase);
             b.Append('}');
         }
 
@@ -1631,6 +1798,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Key(b, "flight"); b.Append('{');
             Bool(b, "present", f.Present); b.Append(',');
             Num(b, "massKg", Trim(f.MassKg)); b.Append(',');
+            Num(b, "massRevision", f.MassRevision); b.Append(',');
+            Str(b, "massFingerprint", f.MassFingerprint); b.Append(',');
+            Num(b, "legacyFlatMassKg", Trim(f.LegacyFlatMassKg)); b.Append(',');
             Num(b, "mountedSails", f.MountedSails); b.Append(',');
             Num(b, "unfurledSails", f.UnfurledSails); b.Append(',');
             Num(b, "sampledAtSeconds", Trim(f.SampledAtSeconds)); b.Append(',');

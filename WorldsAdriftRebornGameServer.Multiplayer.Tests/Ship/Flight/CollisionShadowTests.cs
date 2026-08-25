@@ -126,6 +126,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Dropped_subject_proxy_never_yields_a_clear_clearance()
+        {
+            // The evaluator's Validate silently drops the SUBJECT itself (speed
+            // above the 250 m/s cap), so the sweep runs with zero dynamics and
+            // zero contacts - a clean sweep for the wrong reason. The clearance
+            // must refuse to call that complete, let alone clear.
+            CollisionProxy droppedSubject = Hull("ship:subject",
+                Centre(0, 0, 0, 1, 1, 1), new(300, 0, 0));
+            CollisionProxy wall = Terrain("island", Centre(10, 0, 0, 0.25, 10, 10));
+
+            CollisionShadowResult result = CollisionShadowEvaluator.Evaluate(
+                new[] { droppedSubject }, new[] { wall }, 0.02);
+            Assert.Empty(result.Contacts);
+            Assert.Equal(1, result.Telemetry.RejectedProxyCount);
+            Assert.False(result.Telemetry.HardInputRejected);
+            Assert.False(result.Telemetry.DynamicCapReached);
+
+            CollisionClearanceRecord clearance = CollisionClearanceRecord.From(
+                result, "ship:subject", "yard:1:2:3", 42);
+            Assert.False(clearance.EvaluationComplete);
+            Assert.False(clearance.IsClear);
+        }
+
+        [Fact]
         public void Moving_terrain_and_cross_kind_duplicate_ids_are_rejected()
         {
             CollisionProxy hull = Hull("same", Centre(0, 0, 0, 1, 1, 1), ShadowVector3.Zero);
