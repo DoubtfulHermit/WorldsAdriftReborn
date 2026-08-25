@@ -334,14 +334,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         }
 
         private static bool IsCore(MountedPartRecord part) =>
-            string.Equals(part.ItemType, "atlasSkyCore", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(part.PrefabName, "CoreMain", StringComparison.OrdinalIgnoreCase);
+            IsCoreIdentity(part.ItemType, part.PrefabName);
 
         private static bool IsRecoveredMinimumUpgrade(MountedPartRecord part) =>
-            string.Equals(part.ItemType, "skyCoreAtlasEnhancer", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(part.ItemType, "skyCoreGenerator", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(part.PrefabName, "CoreAtlasEnhancer", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(part.PrefabName, "CoreGenerator", StringComparison.OrdinalIgnoreCase);
+            IsRecoveredMinimumUpgradeIdentity(part.ItemType, part.PrefabName);
+
+        /// <summary>
+        /// THE main-core identity test - the audit and the live capacity plan
+        /// (<see cref="LiftGravityRuntime.PlanFor"/>) both come here, so "does
+        /// this ship have a core" cannot fork into two answers.
+        /// </summary>
+        public static bool IsCoreIdentity(string? itemType, string? prefabName) =>
+            string.Equals(itemType, "atlasSkyCore", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(prefabName, "CoreMain", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>The recovered-minimum lift-upgrade identity test; same sharing rule.</summary>
+        public static bool IsRecoveredMinimumUpgradeIdentity(string? itemType, string? prefabName) =>
+            string.Equals(itemType, "skyCoreAtlasEnhancer", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(itemType, "skyCoreGenerator", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(prefabName, "CoreAtlasEnhancer", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(prefabName, "CoreGenerator", StringComparison.OrdinalIgnoreCase);
     }
 
     public readonly struct ProductionHullLiftAuditRow
