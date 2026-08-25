@@ -232,21 +232,41 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// the additive stable-key docking snapshot (null when the hull is unlinked),
         /// the legacy shipyard-position dock link while docked, and the link's
         /// removal on release - all in one atomic document replacement. Called only
-        /// from inside <see cref="ShipDockingTransaction.TryCommit"/>.
+        /// from inside <see cref="ShipDockingTransaction.TryCommit"/>. Returning
+        /// false means NEITHER disk nor memory changed: on a failed Save the
+        /// record's exact prior field values are restored, so a later unrelated
+        /// Save can never flush a rolled-back docking commit to disk.
         /// </summary>
-        internal static void UpdateBuiltShipDockingSnapshot(int persistentIndex,
+        internal static bool UpdateBuiltShipDockingSnapshot(int persistentIndex,
             FixedPointPosition hullPosition, double yawRadians,
             Multiplayer.Ship.DockingSnapshotV1? dockingSnapshot,
             FixedPointPosition? shipyardPosition, bool clearDockLink)
         {
             WorldStateSnapshot snapshot = Snapshot();
-            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count) return;
+            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count) return false;
             BuiltShipRecord record = snapshot.BuiltShips[persistentIndex];
+            long priorHullX = record.HullX;
+            long priorHullY = record.HullY;
+            long priorHullZ = record.HullZ;
+            double priorYawRadians = record.HullYawRadians;
+            Multiplayer.Ship.DockingSnapshotV1? priorDockingSnapshot = record.DockingSnapshot;
+            long priorShipyardX = record.ShipyardX;
+            long priorShipyardY = record.ShipyardY;
+            long priorShipyardZ = record.ShipyardZ;
             record.UpdatePose(hullPosition, yawRadians);
             record.DockingSnapshot = dockingSnapshot;
             if (shipyardPosition.HasValue) record.DockTo(shipyardPosition.Value);
             else if (clearDockLink) record.ClearShipyardDock();
-            Save();
+            if (Save()) return true;
+            record.HullX = priorHullX;
+            record.HullY = priorHullY;
+            record.HullZ = priorHullZ;
+            record.HullYawRadians = priorYawRadians;
+            record.DockingSnapshot = priorDockingSnapshot;
+            record.ShipyardX = priorShipyardX;
+            record.ShipyardY = priorShipyardY;
+            record.ShipyardZ = priorShipyardZ;
+            return false;
         }
 
         /// <summary>Atomically persists a captured pose and its empty-yard dock link.</summary>

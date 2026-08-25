@@ -640,17 +640,43 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // back here (BuiltShipSpawner.PushDockedShipId + the 1205 branch), so
                         // the two directions agree. Gated on IsBuiltHull so no other entity's
                         // 1114 request is answered here (it falls through to the normal path).
-                        long dockShipyardId = Game.Crafting.BuiltShips.ShipyardForHull(entityId);
-                        var hullPos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Position;
-                        Coordinates dockLocation = hullPos.HasValue
-                            ? new Coordinates(hullPos.Value.MetresX, hullPos.Value.MetresY, hullPos.Value.MetresZ)
-                            : new Coordinates(0, 0, 0);
+                        // A hull under the transactional docking runtime answers with the
+                        // runtime's COMMITTED projection - the same truth the live 1114
+                        // push publishes - so any peer that missed a push (or joined
+                        // late) converges here on checkout. Read-only: the decision
+                        // logic stays in the Multiplayer assembly's lifecycle. Null for
+                        // every unmanaged hull (and always with the docking flag OFF),
+                        // which keeps the legacy ledger serve below byte-identical.
+                        Game.ShipFlightService flight = WorldsAdriftRebornGameServer.Flight;
+                        if (flight.DockingProjectionFor(entityId) is
+                            Multiplayer.Ship.DockingComponentProjection dockingProjection)
+                        {
+                            obj = new DockableState.Data(
+                                new EntityId(dockingProjection.YardEntityId),
+                                new Coordinates(dockingProjection.DockLocation.X,
+                                    dockingProjection.DockLocation.Y,
+                                    dockingProjection.DockLocation.Z),
+                                dockingProjection.Docked,
+                                dockingProjection.ApproachingDock);
+                            Console.WriteLine("[info] serving runtime 1114 DockableState for built hull entity "
+                                + entityId + " (docked=" + dockingProjection.Docked
+                                + ", approaching=" + dockingProjection.ApproachingDock
+                                + ", dockShipyard=" + dockingProjection.YardEntityId + ").");
+                        }
+                        else
+                        {
+                            long dockShipyardId = Game.Crafting.BuiltShips.ShipyardForHull(entityId);
+                            var hullPos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Position;
+                            Coordinates dockLocation = hullPos.HasValue
+                                ? new Coordinates(hullPos.Value.MetresX, hullPos.Value.MetresY, hullPos.Value.MetresZ)
+                                : new Coordinates(0, 0, 0);
 
-                        bool isDocked = dockShipyardId != 0;
-                        obj = new DockableState.Data(new EntityId(dockShipyardId), dockLocation, isDocked, false);
+                            bool isDocked = dockShipyardId != 0;
+                            obj = new DockableState.Data(new EntityId(dockShipyardId), dockLocation, isDocked, false);
 
-                        Console.WriteLine("[info] seeding 1114 DockableState for built hull entity " + entityId
-                            + " (docked=" + isDocked + ", dockShipyard=" + dockShipyardId + ").");
+                            Console.WriteLine("[info] seeding 1114 DockableState for built hull entity " + entityId
+                                + " (docked=" + isDocked + ", dockShipyard=" + dockShipyardId + ").");
+                        }
                     }
                     else if(componentId == 1258 && Game.Crafting.BuiltShips.IsBuiltHull(entityId))
                     {

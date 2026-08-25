@@ -52,6 +52,18 @@ namespace WorldsAdriftRebornGameServer.Game
             && runtime.Lifecycle.Phase != DockingPhase.Undocked;
 
         /// <summary>
+        /// The committed 1114/1205 truth for a runtime-managed hull, or null when
+        /// the hull is not under the transactional runtime. This is what the
+        /// read-only checkout serve path answers with, so a peer that missed a
+        /// live push converges on its next component checkout.
+        /// </summary>
+        internal DockingComponentProjection? ProjectionFor(long hullEntityId) =>
+            _runtimes.TryGetValue(hullEntityId, out DockingRuntime? runtime)
+            && runtime.Lifecycle.Phase != DockingPhase.Undocked
+                ? DockingComponentProjection.From(runtime.Lifecycle)
+                : (DockingComponentProjection?)null;
+
+        /// <summary>
         /// In-tick collision observation for one committed fixed-step slice. The
         /// subject proxy is built ONLY from the session's committed state (the
         /// canonical pose today); the stamp is the slice's last completed step.
@@ -97,6 +109,13 @@ namespace WorldsAdriftRebornGameServer.Game
         internal DockingRuntimeResult? Scan(long hullEntityId, ShipDomain domain,
             FlightSession session)
         {
+            // A durably committed publication some peer missed is re-pushed every
+            // scan until it lands, regardless of what (if anything) is decided
+            // below - so the steady-docked suppression can never fossilize a
+            // diverged peer, and an unlink whose broadcast was cut short still
+            // converges even though an undocked hull decides nothing.
+            _transaction.RepublishIfNeeded(hullEntityId);
+
             if (!_lastObservation.TryGetValue(hullEntityId,
                     out HullCollisionObservation observation)) return null;
             // Old-generation evidence is dead; wait for a fresh observation.
@@ -128,10 +147,11 @@ namespace WorldsAdriftRebornGameServer.Game
             bool outside = observedPose.DistanceTo(runtime.Lifecycle.TargetPose)
                 > Tuning.ReleaseRadiusMetres;
 
-            // Steady docked state: nothing to decide, so nothing is committed,
-            // persisted or republished (event-on-change, like the rest of the
-            // publisher). Any propulsion, permission, yard or claim change falls
-            // through to a real stamped lifecycle step.
+            // Steady docked state: nothing to decide, so nothing NEW is committed
+            // or persisted (event-on-change, like the rest of the publisher);
+            // outstanding republish debt was already flushed above. Any
+            // propulsion, permission, yard or claim change falls through to a
+            // real stamped lifecycle step.
             if (runtime.Lifecycle.Phase == DockingPhase.Docked
                 && propulsion == DockingPropulsion.None
                 && yardExists && permissionValid
@@ -171,15 +191,22 @@ namespace WorldsAdriftRebornGameServer.Game
             return restored;
         }
 
-        /// <summary>Transactionally unlinks and forgets a retired/salvaged hull.</summary>
-        internal void Retire(long hullEntityId)
+        /// <summary>
+        /// Transactionally unlinks and forgets a retired/salvaged hull. The caller
+        /// passes the hull's real domain generation; with no observation held the
+        /// deletion is stamped with an explicitly INVALID stamp (step -1) carrying
+        /// that generation - a stamp is never invented here, and Delete already
+        /// treats an invalid stamp as unlink-and-publish without recording it.
+        /// </summary>
+        internal void Retire(long hullEntityId, long authorityGeneration)
         {
             if (_runtimes.TryGetValue(hullEntityId, out DockingRuntime? runtime)
                 && runtime.Lifecycle.Phase != DockingPhase.Undocked)
             {
                 FlightAuthorityStamp stamp = _lastObservation.TryGetValue(hullEntityId,
                         out HullCollisionObservation observation)
-                    ? observation.Stamp : new FlightAuthorityStamp(0, 1);
+                    ? observation.Stamp
+                    : new FlightAuthorityStamp(-1, authorityGeneration);
                 runtime.Delete(stamp);
             }
             _runtimes.Remove(hullEntityId);

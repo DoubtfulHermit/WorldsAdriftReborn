@@ -49,7 +49,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         public void Failed_transaction_rolls_back_exact_claim_and_lifecycle()
         {
             var claims = new ShipDockRegistry();
-            var port = new RecordingPort { Accept = false };
+            var port = new RecordingPort { PersistSucceeds = false };
             var runtime = Enabled(claims, port);
 
             DockingRuntimeResult result = runtime.TryBeginApproach(Request(1), Clear(1));
@@ -57,6 +57,62 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal(DockingRuntimeDisposition.TransactionRolledBack, result.Disposition);
             Assert.Equal(DockingPhase.Undocked, runtime.Lifecycle.Phase);
             Assert.False(claims.IsShipyardOccupied(100));
+            Assert.Equal(DockingCommitResult.RolledBack, Assert.Single(port.Results));
+        }
+
+        [Fact]
+        public void Publish_failure_after_durable_persist_still_commits_with_republish_flagged()
+        {
+            var claims = new ShipDockRegistry();
+            var port = new RecordingPort { PublishSucceeds = false };
+            var runtime = Enabled(claims, port);
+
+            DockingRuntimeResult result = runtime.TryBeginApproach(Request(1), Clear(1));
+
+            // A per-peer publication failure after the durable write is peer
+            // desync, not commit failure: the lifecycle advances, the claim is
+            // held, and the port reports the republish debt.
+            Assert.Equal(DockingRuntimeDisposition.Committed, result.Disposition);
+            Assert.Equal(DockingPhase.Approaching, runtime.Lifecycle.Phase);
+            Assert.Equal(200, claims.DockedShipFor(100));
+            DockingCommitResult committed = Assert.Single(port.Results);
+            Assert.True(committed.Durable);
+            Assert.True(committed.RepublishNeeded);
+
+            // The commit consumed its stamp: the next frame must supersede it,
+            // exactly as after a fully published commit.
+            Assert.Equal(DockingRuntimeDisposition.RejectedStampMismatch,
+                runtime.Step(Frame(1, runtime.Lifecycle.Pose), Clear(1)).Disposition);
+            Assert.Equal(DockingRuntimeDisposition.Committed,
+                runtime.Step(Frame(2, runtime.Lifecycle.Pose), Clear(2)).Disposition);
+        }
+
+        [Fact]
+        public void Persist_failure_then_publish_failure_interleavings_stay_distinguishable()
+        {
+            var claims = new ShipDockRegistry();
+            var port = new RecordingPort { PersistSucceeds = false };
+            var runtime = Enabled(claims, port);
+
+            // Durable failure: rolled back, nothing visible, no claim survives.
+            Assert.Equal(DockingRuntimeDisposition.TransactionRolledBack,
+                runtime.TryBeginApproach(Request(1), Clear(1)).Disposition);
+            Assert.False(claims.IsShipyardOccupied(100));
+
+            // Same runtime, durable now succeeds but publication does not: the
+            // approach commits anyway and only the republish flag differs.
+            port.PersistSucceeds = true;
+            port.PublishSucceeds = false;
+            Assert.Equal(DockingRuntimeDisposition.Committed,
+                runtime.TryBeginApproach(Request(2), Clear(2)).Disposition);
+            Assert.Equal(200, claims.DockedShipFor(100));
+            Assert.Equal(
+                new[]
+                {
+                    DockingCommitResult.RolledBack,
+                    DockingCommitResult.CommittedRepublishNeeded,
+                },
+                port.Results);
         }
 
         [Fact]
@@ -156,7 +212,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
             var claims = new ShipDockRegistry();
             var failed = new DockingRuntime(900, claims,
-                new RecordingPort { Accept = false },
+                new RecordingPort { PersistSucceeds = false },
                 new DockingRuntimeOptions { Enabled = true });
             Assert.False(failed.TryRestore(snapshot, 700, new FlightAuthorityStamp(1, 1)));
             Assert.False(claims.IsShipyardOccupied(700));
@@ -348,7 +404,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // fail the transaction: the exact prior state cannot be restored.
             Assert.True(claims.Release(100, 200));
             Assert.Equal(ShipDockClaimResult.Claimed, claims.TryClaim(100, 999));
-            port.Accept = false;
+            port.PersistSucceeds = false;
 
             DockingRuntimeResult result = runtime.Step(Frame(3, Target), Clear(3));
 
@@ -364,7 +420,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             var claims = new ShipDockRegistry();
             Assert.Equal(ShipDockClaimResult.Claimed, claims.TryClaim(700, 900));
             var runtime = new DockingRuntime(900, claims,
-                new RecordingPort { Accept = false },
+                new RecordingPort { PersistSucceeds = false },
                 new DockingRuntimeOptions { Enabled = true });
 
             Assert.False(runtime.TryRestore(snapshot, 700, new FlightAuthorityStamp(1, 1)));
@@ -400,14 +456,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             return runtime.Lifecycle.CaptureSnapshot();
         }
 
+        /// <summary>
+        /// Exercises the port's three commit interleavings: durable write fails
+        /// (rolled back, nothing visible), durable write succeeds and every peer
+        /// publication lands (committed), and durable write succeeds but a peer
+        /// publication fails (committed with the republish flag set).
+        /// </summary>
         private sealed class RecordingPort : IDockingRuntimeTransaction
         {
-            public bool Accept { get; set; } = true;
+            public bool PersistSucceeds { get; set; } = true;
+            public bool PublishSucceeds { get; set; } = true;
             public List<DockingRuntimeCommit> Commits { get; } = new();
-            public bool TryCommit(DockingRuntimeCommit commit)
+            public List<DockingCommitResult> Results { get; } = new();
+            public DockingCommitResult TryCommit(DockingRuntimeCommit commit)
             {
                 Commits.Add(commit);
-                return Accept;
+                DockingCommitResult result = !PersistSucceeds
+                    ? DockingCommitResult.RolledBack
+                    : PublishSucceeds
+                        ? DockingCommitResult.Committed
+                        : DockingCommitResult.CommittedRepublishNeeded;
+                Results.Add(result);
+                return result;
             }
         }
     }

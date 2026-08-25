@@ -41,13 +41,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         bool LinkReleased);
 
     /// <summary>
-    /// The game adapter implements this as one transaction: persist the stable
-    /// docking snapshot and authoritative flight pose, then publish 1114 and 1205.
-    /// Returning false means nothing became visible or durable.
+    /// Outcome of one docking transaction commit. <see cref="Durable"/> is the ONLY
+    /// commit/rollback signal the runtime acts on: false means nothing became visible
+    /// or durable (the adapter restored its exact prior in-memory state before
+    /// returning) and the lifecycle and claim are rolled back.
+    /// <see cref="RepublishNeeded"/> never fails a commit; it reports that the
+    /// durable write succeeded but at least one peer missed the publication - peer
+    /// desync, not commit failure - and the adapter owns re-pushing the committed
+    /// truth until every peer converges.
+    /// </summary>
+    public readonly record struct DockingCommitResult(bool Durable, bool RepublishNeeded)
+    {
+        public static DockingCommitResult RolledBack { get; } = new(false, false);
+        public static DockingCommitResult Committed { get; } = new(true, false);
+        public static DockingCommitResult CommittedRepublishNeeded { get; } = new(true, true);
+    }
+
+    /// <summary>
+    /// The game adapter implements this as one transaction, DURABLE FIRST: persist
+    /// the stable docking snapshot and authoritative flight pose, and only after the
+    /// durable write succeeded publish 1114 and 1205. A result with Durable=false
+    /// means nothing became visible or durable; a per-peer publication failure after
+    /// the durable write commits anyway and is reported via RepublishNeeded.
     /// </summary>
     public interface IDockingRuntimeTransaction
     {
-        bool TryCommit(DockingRuntimeCommit commit);
+        DockingCommitResult TryCommit(DockingRuntimeCommit commit);
     }
 
     public sealed class DockingRuntimeOptions
@@ -74,8 +93,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
     /// <summary>
     /// Default-off transactional adapter for the recovered docking lifecycle.
-    /// Every mutation is stamped. On publication/persistence failure the exact old
-    /// aggregate and claim are restored before returning.
+    /// Every mutation is stamped. On a durable (persistence) failure the exact old
+    /// aggregate and claim are restored before returning; a peer publication
+    /// failure after the durable write never rolls back - it is republish debt
+    /// the transaction adapter owns.
     /// </summary>
     public sealed class DockingRuntime
     {
@@ -204,10 +225,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             && (!_lastStamp.HasValue
                 || stamped.Stamp.SupersedesWithinGeneration(_lastStamp.Value));
 
+        // Only Durable decides commit versus rollback: an incomplete peer
+        // publication after a durable write is the adapter's republish debt,
+        // never a reason to roll a durably committed lifecycle back.
         private bool Commit(FlightAuthorityStamp stamp, bool freeze, bool released) =>
             _transaction.TryCommit(new DockingRuntimeCommit(stamp,
                 _lifecycle.CaptureSnapshot(),
-                DockingComponentProjection.From(_lifecycle), freeze, released));
+                DockingComponentProjection.From(_lifecycle), freeze, released)).Durable;
 
         private void Rollback(DockingSnapshotV1 before, long beforeYard)
         {
