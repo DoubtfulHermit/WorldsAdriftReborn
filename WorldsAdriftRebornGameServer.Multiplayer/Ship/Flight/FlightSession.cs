@@ -289,6 +289,51 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                         boundsHardClamped, boundsInvalid, boundsSubsteps);
                 }
 
+                return DecideEmission(nowMs, emitStepSeconds, tuning, live: true,
+                    emitDue, phaseLockedEmit);
+            }
+
+            return DecideEmission(nowMs, emitStepSeconds, tuning, live: false,
+                emitDue, phaseLockedEmit);
+        }
+
+        /// <summary>
+        /// The VECTOR-AUTHORITY seam: adopt a pose the authority adapter already
+        /// committed for this cadence call and run ONLY the shared emission state
+        /// machine - no scalar integration. This keeps exactly one flown pose per
+        /// hull (this session's), one emission machine, and one wire cadence,
+        /// whichever integrator produced the motion. <paramref name="fixedStepCount"/>
+        /// mirrors AdvanceFixed's role: zero steps adopt nothing and consume no
+        /// canvas-wake edge.
+        /// </summary>
+        public FlightEmit AdvanceAdopted(long nowMs, double emitStepSeconds,
+            int fixedStepCount, FlightState adopted, FlightTuning tuning,
+            bool emitDue = true, bool phaseLockedEmit = false)
+        {
+            if (fixedStepCount < 0 || fixedStepCount > FixedFlightClock.DefaultMaxCatchUpSteps)
+                throw new ArgumentOutOfRangeException(nameof(fixedStepCount));
+
+            bool live = _manned || !_state.IsAtRest || _input.Throttle != 0f
+                || _canvasWakeRequested || (fixedStepCount > 0 && !adopted.IsAtRest);
+            if (fixedStepCount > 0)
+            {
+                if (live) _canvasWakeRequested = false;
+                _state = adopted;
+            }
+            return DecideEmission(nowMs, emitStepSeconds, tuning, live, emitDue,
+                phaseLockedEmit);
+        }
+
+        /// <summary>
+        /// The ONE emission decision, shared by the scalar integrator path and
+        /// the vector adoption path so the two can never grow different cadence
+        /// or rest behavior.
+        /// </summary>
+        private FlightEmit DecideEmission(long nowMs, double emitStepSeconds,
+            FlightTuning tuning, bool live, bool emitDue, bool phaseLockedEmit)
+        {
+            if (live)
+            {
                 // Intermediate 20 ms calls advance authoritative state without
                 // manufacturing a point or consuming the rest-repeat budget. The
                 // service phase-locks fixed mode at exactly twelve such calls per
