@@ -65,22 +65,24 @@ namespace WorldsAdriftRebornGameServer.Game
 
         /// <summary>
         /// In-tick collision observation for one committed fixed-step slice. The
-        /// subject proxy is built ONLY from the session's committed state (the
-        /// canonical pose today); the stamp is the slice's last completed step.
+        /// stamp and pose arrive together from the hull's ONE authority adapter
+        /// (<see cref="FlightAuthorityAdapter.LastStamp"/> /
+        /// <see cref="FlightAuthorityAdapter.CurrentPose"/>); this driver never
+        /// mints a stamp or integrates a pose of its own.
         /// </summary>
-        internal void ObserveAfterSlice(long hullEntityId, ShipDomain domain,
-            FlightState state, long lastCompletedStep, double massKg)
+        internal void ObserveAfterSlice(long hullEntityId, FlightAuthorityStamp stamp,
+            AuthoritativeFlightPose pose, double massKg)
         {
-            var stamp = new FlightAuthorityStamp(lastCompletedStep, domain.Generation.Value);
+            if (!stamp.IsValid || !pose.IsValid) return; // no honest frame -> no observation
             ShadowVector3? half = HalfExtentsFor(hullEntityId);
             if (!half.HasValue) return; // no honest geometry -> no observation, never a clearance
 
-            ShadowVector3 position = new ShadowVector3(state.X, state.Y, state.Z);
+            ShadowVector3 position = new ShadowVector3(pose.X, pose.Y, pose.Z);
             IslandCollisionProxyBatch terrain = IslandCollisionProxyAdapter.Nearby(
                 position, stamp.FixedStep, stamp.AuthorityGeneration);
             HullCollisionObservation observation = HullCollisionObserver.Observe(stamp,
                 HullKey(hullEntityId), position,
-                new ShadowVector3(state.VxMps, state.VyMps, state.VzMps),
+                new ShadowVector3(pose.VxMps, pose.VyMps, pose.VzMps),
                 half.Value, Math.Max(1.0, massKg), FixedFlightClock.StepSeconds, terrain,
                 new CollisionRuntimeOptions
                 {

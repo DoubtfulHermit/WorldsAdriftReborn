@@ -1119,7 +1119,7 @@ namespace WorldsAdriftRebornGameServer.Game
                             session.LastWorldBoundsTelemetry);
                         CompleteDepartureIfOutside(hullEntityId, session.State);
                         ObserveCollisionAfterSlice(hullEntityId, domain, session,
-                            slice, unfurledSails);
+                            slice);
                         PersistPoseWhenDue(hullEntityId, domain);
                         if (emit.Emit)
                         {
@@ -2383,17 +2383,38 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
-        /// Steps 4: the in-tick collision observation for one committed slice, built
-        /// from the session's committed state and the slice's last completed step.
+        /// Steps 4: the in-tick collision observation for one committed slice. The
+        /// stamp and pose come from the hull's ONE authority adapter - the vector
+        /// path and the master-on scalar observer have already committed this
+        /// slice's end step through it; a pure-scalar hull (master off) commits
+        /// its committed session state here, through the same minter. The driver
+        /// never constructs a stamp of its own.
         /// </summary>
         private void ObserveCollisionAfterSlice(long hullEntityId, ShipDomain domain,
-            FlightSession session, FixedFlightPublicationSlice slice, int unfurledSails)
+            FlightSession session, FixedFlightPublicationSlice slice)
         {
             if (!RuntimeFlags.CollisionObserveEnabled || slice.Steps <= 0) return;
-            ShipPropulsion? ship = PropulsionFor(hullEntityId, unfurledSails);
-            _dockingDriver.ObserveAfterSlice(hullEntityId, domain, session.State,
-                slice.FirstStep + slice.Steps - 1,
-                ship.HasValue ? ship.Value.MassKg : 1.0);
+            FlightAuthorityAdapter adapter = AdapterFor(hullEntityId, domain, session);
+            long sliceEndStep = slice.FirstStep + slice.Steps - 1;
+            if (adapter.LastStamp.FixedStep != sliceEndStep
+                || adapter.LastStamp.AuthorityGeneration != domain.Generation.Value)
+            {
+                adapter.TryCommitScalar(sliceEndStep, domain.Generation.Value, session.State);
+            }
+            FlightAuthorityStamp stamp = adapter.LastStamp;
+            if (!stamp.IsValid || stamp.FixedStep != sliceEndStep
+                || stamp.AuthorityGeneration != domain.Generation.Value)
+            {
+                // No honestly committed frame for this slice -> no observation,
+                // never a clearance (fail closed).
+                return;
+            }
+            // The ONE mass truth (contract §5): the same cached snapshot the
+            // propulsion build read this slice - never a second evaluation and
+            // never a placeholder fallback.
+            double proxyMassKg = ShipMassSnapshots.For(hullEntityId).TotalFlightMassKg;
+            _dockingDriver.ObserveAfterSlice(hullEntityId, stamp, adapter.CurrentPose,
+                proxyMassKg);
         }
 
         internal Multiplayer.FlightCollisionDockingStat CollisionDockingStatFor(long hullEntityId)
