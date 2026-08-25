@@ -154,6 +154,61 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void The_observer_shadow_measures_divergence_without_perturbing_the_scalar_path()
+        {
+            // The observer rollout's contract: over IDENTICAL inputs the scalar
+            // production path runs bit-identically whether or not the vector
+            // shadow is measured beside it, and the divergence between the two
+            // models is a finite, recorded number - not a behavior change.
+            var input = new FlightControlInput(1f, 0f, 0f, 0.4f, 0f);
+            FlightSession Scalar()
+            {
+                var s = new FlightSession(FlightState.AtRestAt(0, 300, 0));
+                s.Man();
+                s.SetInput(input);
+                return s;
+            }
+            FlightSession alone = Scalar();
+            FlightSession observed = Scalar();
+            var propulsion = new ShipPropulsion(1000.0, 1400.0, 0);
+
+            long nowMs = 1000;
+            double baseTime = 100.0;
+            for (int slice = 0; slice < 8; slice++)
+            {
+                FlightState preSlice = observed.State;
+                alone.AdvanceFixed(nowMs, ShipMotionPolicy.SendIntervalSeconds, 12,
+                    baseTime, Tuning, 0, 1.0, propulsion, null, null,
+                    emitDue: true, phaseLockedEmit: true);
+                observed.AdvanceFixed(nowMs, ShipMotionPolicy.SendIntervalSeconds, 12,
+                    baseTime, Tuning, 0, 1.0, propulsion, null, null,
+                    emitDue: true, phaseLockedEmit: true);
+
+                // The re-anchored shadow, exactly as the glue runs it.
+                var shadow = new VectorFlightRuntime(
+                    VectorFlightRuntime.FromFlightState(preSlice));
+                for (int i = 0; i < 12; i++) shadow.Step(StepInput());
+                FlightState vector = VectorFlightRuntime.Project(shadow.State);
+                double positionDelta = Math.Sqrt(
+                    Math.Pow(vector.X - observed.State.X, 2)
+                    + Math.Pow(vector.Y - observed.State.Y, 2)
+                    + Math.Pow(vector.Z - observed.State.Z, 2));
+                Assert.True(double.IsFinite(positionDelta));
+                // Re-anchored per slice, the two models cannot drift far in 240 ms.
+                Assert.True(positionDelta < 5.0,
+                    "one-slice scalar-vs-vector divergence exploded: " + positionDelta);
+
+                nowMs += 240;
+                baseTime += 0.24;
+            }
+
+            Assert.Equal(alone.State.X, observed.State.X);
+            Assert.Equal(alone.State.Z, observed.State.Z);
+            Assert.Equal(alone.State.YawRadians, observed.State.YawRadians);
+            Assert.Equal(alone.State.VzMps, observed.State.VzMps);
+        }
+
+        [Fact]
         public void Rollback_to_scalar_keeps_flying_the_same_pose_under_a_fresh_epoch()
         {
             // The vector epoch flew the hull somewhere.
