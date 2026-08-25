@@ -8,95 +8,110 @@ namespace WorldsAdriftRebornGameServer.Game
     /// THE per-hull mass snapshot cache - thin glue only. It gathers what the
     /// built-ship and mount ledgers know and hands it to
     /// <see cref="ShipMassEvaluator.Build"/>, where every mass decision lives
-    /// (and is unit-tested). Every consumer of ship mass - the 1121/1257
-    /// component writers, scalar flight, the vector shadow, agility and admin
-    /// telemetry - reads the ONE snapshot cached here; nothing recomputes mass.
+    /// (and is unit-tested); every CACHE decision - serve-or-rebuild, override
+    /// change detection, invalidation semantics, revision continuity, the
+    /// part-mass fallback - is <see cref="ShipMassSnapshotCachePolicy"/>'s (also
+    /// unit-tested). Every consumer of ship mass - the 1121/1257 component
+    /// writers, scalar flight, the vector shadow, agility and admin telemetry -
+    /// reads the ONE snapshot cached here; nothing recomputes mass.
     ///
     /// Invalidation rides the hooks that already fire on mount, detach and
     /// salvage (<see cref="ShipFlightService.RefreshDomainOwnership"/> /
     /// <see cref="ShipFlightService.RetireHull"/>). A change of the
     /// WAREBORN_SHIP_MASS override is caught by comparing the raw value the
     /// cached snapshot was built with, so the knob stays live without a restart.
-    /// Revision continuity is the evaluator's: a rebuild over unchanged inputs
-    /// keeps the revision; a real change bumps it.
     /// </summary>
     internal static class ShipMassSnapshots
     {
-        private static readonly Dictionary<long, (string? OverrideRaw, ShipMassSnapshot Snapshot)>
-            ByHull = new Dictionary<long, (string?, ShipMassSnapshot)>();
+        // Guards ByHull. Nearly every caller sits on the main ENet loop, but
+        // ShipBuildTimerService completes builds on a THREADPOOL timer and that
+        // path runs ComponentsSerializer.InitAndSerialize - one seed-list edit
+        // (1257/1121 on a hull seed) away from reaching For/PartMassKgFor off
+        // the loop, so the cache must not rely on single-threaded access. The
+        // lock spans the ledger reads and the rebuild; both are cheap and rare.
+        private static readonly object Gate = new object();
+
+        private static readonly Dictionary<long, ShipMassCacheSlot> ByHull =
+            new Dictionary<long, ShipMassCacheSlot>();
 
         /// <summary>The current mass truth for one hull, built on first demand.</summary>
         internal static ShipMassSnapshot For(long hullEntityId)
         {
             string? overrideRaw = Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS");
-            if (ByHull.TryGetValue(hullEntityId, out (string? OverrideRaw, ShipMassSnapshot Snapshot) cached)
-                && cached.OverrideRaw == overrideRaw)
+            lock (Gate)
             {
-                return cached.Snapshot;
-            }
+                ByHull.TryGetValue(hullEntityId, out ShipMassCacheSlot slot);
+                if (ShipMassSnapshotCachePolicy.TryServe(slot, overrideRaw,
+                    out ShipMassSnapshot cached))
+                {
+                    return cached;
+                }
 
-            ShipMassSnapshot snapshot = ShipMassEvaluator.Build(
-                InputFor(hullEntityId, overrideRaw), cached.Snapshot);
-            ByHull[hullEntityId] = (overrideRaw, snapshot);
-            if (cached.Snapshot == null || cached.Snapshot.Revision != snapshot.Revision)
-            {
-                Console.WriteLine("[mass] hull " + hullEntityId
-                    + " revision " + snapshot.Revision
-                    + " fingerprint " + snapshot.Fingerprint
-                    + " hull " + Kg(snapshot.HullStructuralMassKg)
-                    + " kg + " + snapshot.MountedParts.Count + " part(s) "
-                    + Kg(snapshot.TotalMountedMassKg)
-                    + " kg -> total " + Kg(snapshot.TotalFlightMassKg)
-                    + " kg (flat model would say " + Kg(snapshot.LegacyFlatTotalMassKg) + " kg).");
+                ShipMassSnapshot snapshot = ShipMassEvaluator.Build(
+                    InputFor(hullEntityId, overrideRaw),
+                    ShipMassSnapshotCachePolicy.ContinuityPrevious(slot));
+                ByHull[hullEntityId] = ShipMassSnapshotCachePolicy.Stored(overrideRaw, snapshot);
+                if (ShipMassSnapshotCachePolicy.RevisionIsNews(slot, snapshot))
+                {
+                    Console.WriteLine("[mass] hull " + hullEntityId
+                        + " revision " + snapshot.Revision
+                        + " fingerprint " + snapshot.Fingerprint
+                        + " hull " + Kg(snapshot.HullStructuralMassKg)
+                        + " kg + " + snapshot.MountedParts.Count + " part(s) "
+                        + Kg(snapshot.TotalMountedMassKg)
+                        + " kg -> total " + Kg(snapshot.TotalFlightMassKg)
+                        + " kg (flat model would say " + Kg(snapshot.LegacyFlatTotalMassKg) + " kg).");
+                }
+                return snapshot;
             }
-            return snapshot;
         }
 
         /// <summary>
         /// This session's mass for one PART entity - what the 1121 writer serves.
-        /// A mounted part answers from its hull's snapshot; a loose or unknown
-        /// entity gets the evaluator's typed table directly, so the same trunk
-        /// weighs the same before and after it is bolted down.
+        /// The glue only looks the entity up in the ledgers; which mass answers
+        /// (hull snapshot vs the typed table) is the policy's fallback decision.
         /// </summary>
         internal static double PartMassKgFor(long partEntityId)
         {
             Crafting.MountedParts.Mount? mount = Crafting.MountedParts.MountFor(partEntityId);
             if (mount.HasValue)
             {
-                if (For(mount.Value.HullEntityId).TryPartMassKg(partEntityId, out double massKg))
-                {
-                    return massKg;
-                }
-                return ShipMassEvaluator.PartMass(mount.Value.ItemType,
-                    mount.Value.PrefabName, mount.Value.AttachmentType).MassKg;
+                return ShipMassSnapshotCachePolicy.PartMassKg(
+                    For(mount.Value.HullEntityId), partEntityId,
+                    mount.Value.ItemType, mount.Value.PrefabName, mount.Value.AttachmentType);
             }
 
             Multiplayer.Ship.LoosePartDefinition? loose = Crafting.LooseParts.DefFor(partEntityId);
             if (loose != null)
             {
-                return ShipMassEvaluator.PartMass(loose.ItemType,
-                    loose.PrefabName, loose.AttachmentType).MassKg;
+                return ShipMassSnapshotCachePolicy.PartMassKg(null, partEntityId,
+                    loose.ItemType, loose.PrefabName, loose.AttachmentType);
             }
-            return ShipMassEvaluator.PartMass(null, null, null).MassKg;
+            return ShipMassSnapshotCachePolicy.PartMassKg(null, partEntityId, null, null, null);
         }
 
         /// <summary>Forgets one hull's snapshot; the next read rebuilds from the ledgers.</summary>
         internal static void Invalidate(long hullEntityId)
         {
-            // Keep the entry so revision continuity survives: For() passes the
-            // stale snapshot as `previous` and the evaluator decides whether the
-            // rebuild is a real change. Marking the override slot dirty forces
-            // that rebuild without discarding the revision chain.
-            if (ByHull.TryGetValue(hullEntityId, out (string? OverrideRaw, ShipMassSnapshot Snapshot) cached))
+            lock (Gate)
             {
-                ByHull[hullEntityId] = ("\0invalidated", cached.Snapshot);
+                // The policy keeps the stale snapshot so revision continuity
+                // survives: For() feeds it to the evaluator as `previous` and the
+                // evaluator decides whether the rebuild is a real change.
+                if (ByHull.TryGetValue(hullEntityId, out ShipMassCacheSlot slot))
+                {
+                    ByHull[hullEntityId] = ShipMassSnapshotCachePolicy.Invalidated(slot);
+                }
             }
         }
 
         /// <summary>Forgets a hull entirely (authoritative salvage/retire).</summary>
         internal static void Retire(long hullEntityId)
         {
-            ByHull.Remove(hullEntityId);
+            lock (Gate)
+            {
+                ByHull.Remove(hullEntityId);
+            }
         }
 
         private static ShipMassInput InputFor(long hullEntityId, string? overrideRaw)
@@ -113,9 +128,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 planDecoded = true;
                 cells = metrics.CellCount;
                 decks = metrics.DeckCount;
-                halfX = Math.Max(0.25, metrics.BeamMetres * 0.5);
-                halfY = Math.Max(0.25, metrics.DeckPlaneMetres * 0.5);
-                halfZ = Math.Max(0.25, metrics.KeelMetres * 0.5);
+                (halfX, halfY, halfZ) = ShipMassSnapshotCachePolicy.HullHalfExtents(
+                    metrics.BeamMetres, metrics.DeckPlaneMetres, metrics.KeelMetres);
             }
 
             var parts = new List<ShipMassPartInput>();

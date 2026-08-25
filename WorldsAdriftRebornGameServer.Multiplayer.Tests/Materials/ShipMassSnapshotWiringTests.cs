@@ -74,6 +74,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Materials
         }
 
         [Fact]
+        public void The_snapshot_glue_defers_every_cache_decision_to_the_tested_policy_and_locks_the_cache()
+        {
+            string glue = SnapshotGlue();
+            Contains(glue, "ShipMassSnapshotCachePolicy.TryServe",
+                "serve-or-rebuild (including override-change detection) is the policy's "
+                + "decision, mirrored by ShipMassSnapshotCachePolicyTests.");
+            Contains(glue, "ShipMassSnapshotCachePolicy.ContinuityPrevious",
+                "revision continuity across invalidation must come from the policy, "
+                + "not an ad-hoc previous.");
+            Contains(glue, "ShipMassSnapshotCachePolicy.Invalidated",
+                "the invalidation sentinel semantics live in the policy.");
+            Contains(glue, "ShipMassSnapshotCachePolicy.PartMassKg",
+                "the mounted-vs-loose-vs-unknown part-mass fallback is the policy's.");
+            Contains(glue, "lock (Gate)",
+                "ShipBuildTimerService completes builds on a threadpool timer, so the "
+                + "shared cache dictionary must not rely on single-threaded access.");
+        }
+
+        [Fact]
         public void Scalar_flight_agility_and_the_vector_shadow_read_the_one_snapshot()
         {
             string service = FlightService();
