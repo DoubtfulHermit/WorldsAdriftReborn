@@ -74,6 +74,15 @@ namespace WorldsAdriftRebornGameServer.Game
         /// NOTE: ForceModelEnabled is declared further down this file; C# runs
         /// static field initialisers in declaration order, so this one reads the
         /// environment directly for the prerequisite instead of the field.
+        ///
+        /// STATIC READONLY IS LOAD-BEARING, not a style choice: a scalar/vector
+        /// mode flip therefore requires a process restart, and the restart is
+        /// what advances every hull's AuthorityGeneration
+        /// (ShipDomain.RestoreAfterProcessRestart). Stamp monotonicity across
+        /// scalar/vector flips depends on this - hot-reloading these flags would
+        /// let two authority models mint stamps under one generation. See the
+        /// guarantee pinned on <see cref="FlightRuntimeFlags"/> before touching
+        /// the lifetime of this field.
         /// </summary>
         internal static readonly FlightRuntimeFlags RuntimeFlags = FlightRuntimeFlags.Parse(
             Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_VECTOR_AUTHORITY"),

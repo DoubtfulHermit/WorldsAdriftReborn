@@ -153,5 +153,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.False(FlightRuntimeFlags.Disabled.IsPromoted(0));
             Assert.Empty(FlightRuntimeFlags.Disabled.StartupWarnings.ToList());
         }
+
+        [Fact]
+        public void Mode_flips_require_a_restart_because_the_parsed_flags_are_immutable()
+        {
+            // THE GUARANTEE, pinned: the service holds the parsed flags in a
+            // static readonly field, so a scalar/vector mode flip requires a
+            // process restart - and the restart is what advances every hull's
+            // AuthorityGeneration, which stamp monotonicity across the flip
+            // depends on. This fact makes the instance side of that guarantee
+            // fail loudly: giving FlightRuntimeFlags a public setter, a mutable
+            // field, or a re-parse mutator is the first step toward hot-reload,
+            // and hot-reloaded flags would let two authority models mint stamps
+            // under ONE generation.
+            System.Type type = typeof(FlightRuntimeFlags);
+            Assert.True(type.IsSealed);
+            foreach (System.Reflection.PropertyInfo property in type.GetProperties())
+            {
+                Assert.False(property.CanWrite,
+                    "FlightRuntimeFlags." + property.Name + " grew a setter; the "
+                    + "parsed flags must stay immutable so a mode flip can only "
+                    + "happen through a restart (which advances AuthorityGeneration).");
+            }
+            foreach (System.Reflection.FieldInfo field in type.GetFields(
+                System.Reflection.BindingFlags.Public
+                | System.Reflection.BindingFlags.Instance))
+            {
+                Assert.True(field.IsInitOnly,
+                    "FlightRuntimeFlags." + field.Name + " is a mutable public field.");
+            }
+        }
     }
 }

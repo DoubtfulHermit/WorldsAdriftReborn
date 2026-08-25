@@ -28,6 +28,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     ///
     /// A dependent flag whose prerequisite is OFF stays OFF and contributes one
     /// startup warning - it never half-enables.
+    ///
+    /// LOAD-BEARING LIFETIME GUARANTEE - do not hot-reload these flags. The
+    /// service holds the parsed result in a <c>static readonly</c> field
+    /// (<c>ShipFlightService.RuntimeFlags</c>), so flipping a hull between the
+    /// scalar and vector paths REQUIRES a process restart - and the restart is
+    /// exactly what advances every hull's <c>AuthorityGeneration</c>
+    /// (<c>ShipDomain.RestoreAfterProcessRestart</c>). Stamp monotonicity across
+    /// a scalar/vector flip depends on this: the new path's first
+    /// <c>FlightAuthorityStamp</c> is minted under a strictly newer generation,
+    /// so no consumer can ever accept old-path evidence as fresher. Making this
+    /// type reloadable at runtime (a mutable field, a re-Parse on SIGHUP, an
+    /// admin toggle) would let two authority models mint stamps under ONE
+    /// generation - that change must trip a review, not slip in.
+    /// This instance is immutable by construction (all properties get-only,
+    /// pinned by <c>Mode_flips_require_a_restart_because_the_parsed_flags_are_immutable</c>).
     /// </summary>
     public sealed class FlightRuntimeFlags
     {
