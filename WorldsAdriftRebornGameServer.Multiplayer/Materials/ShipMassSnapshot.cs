@@ -115,8 +115,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
         /// <summary>
         /// Deterministic invariant-culture hash over the hull-id-independent
         /// content (hull mass + provenance, each entry's stable key, evidence,
-        /// mass and provenance, in stored order). Two builds over the same ship
-        /// agree; every consumer of one frame can prove it read the same truth.
+        /// mass and provenance, in a canonical sorted order - NOT the stored
+        /// EntityId order, which is session state a restart re-mints). Two runs
+        /// over the same ship agree, restarts included; every consumer of one
+        /// frame can prove it read the same truth.
         /// </summary>
         public string Fingerprint { get; }
 

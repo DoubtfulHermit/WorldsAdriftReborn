@@ -336,5 +336,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Materials
             Assert.Equal(58.5, engine);
             Assert.False(after.TryPartMassKg(3719, out _));
         }
+
+        [Fact]
+        public void Reminted_ids_in_a_permuted_mount_order_keep_the_fingerprint_for_identical_content()
+        {
+            // Boot restore re-mints runtime ids in persisted LAST-MOUNT order,
+            // which need not match craft order: the ascending-EntityId entry
+            // sequence after a restart is a PERMUTATION of the original, not a
+            // uniform shift. Reversing the id assignment models that - the
+            // sorted entry sequence comes out exactly backwards.
+            ShipMassSnapshot before = Hull3639();
+            ShipMassPartInput[] reminted = Hull3639Parts()
+                .Select(p => p with { EntityId = 20_000 - p.EntityId }).ToArray();
+            ShipMassSnapshot after = ShipMassEvaluator.Build(
+                Input(parts: reminted), previous: before);
+            Assert.Equal(before.Fingerprint, after.Fingerprint);
+            Assert.Equal(1, after.Revision);
+            // The new ids are still served: the engine (was 3719) now answers at 16281.
+            Assert.True(after.TryPartMassKg(16_281, out double engine));
+            Assert.Equal(58.5, engine);
+        }
+
+        [Fact]
+        public void A_genuinely_different_composition_changes_the_fingerprint_despite_canonical_ordering()
+        {
+            // Same part count, same ids - one lamp becomes a second engine. The
+            // canonical sort must not flatten a real content change.
+            ShipMassSnapshot before = Hull3639();
+            ShipMassPartInput[] parts = Hull3639Parts();
+            parts[0] = Part(3701, "engine", "proceduralEngineDefault", "engine");
+            ShipMassSnapshot after = ShipMassEvaluator.Build(
+                Input(parts: parts), previous: before);
+            Assert.NotEqual(before.Fingerprint, after.Fingerprint);
+            Assert.Equal(2, after.Revision);
+        }
     }
 }

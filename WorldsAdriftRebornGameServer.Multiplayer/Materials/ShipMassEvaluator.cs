@@ -268,23 +268,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
         /// <summary>
         /// Deterministic across processes and runs: invariant-culture round-trip
         /// formatting in a fixed field order, hashed with SHA-256. Runtime entity
-        /// ids are deliberately excluded - a restart that re-mints ids for the
-        /// same ship must not read as a mass change.
+        /// ids are deliberately excluded AND the entries are hashed in a canonical
+        /// sorted order, not the snapshot's ascending-EntityId order - a restart
+        /// re-mints ids in persisted last-mount order, so id order is session
+        /// state too, and a byte-identical ship must not fingerprint differently
+        /// after a reboot. Sorting the canonical strings themselves (ordinal)
+        /// orders by (StablePartKey, MaterialEvidence, MassKg, Provenance).
         /// </summary>
         private static string FingerprintOf(double hullMassKg, MassProvenance hullProvenance,
             IReadOnlyList<MountedPartMassEntry> entries)
         {
+            var parts = new string[entries.Count];
+            for (int i = 0; i < entries.Count; i++)
+            {
+                MountedPartMassEntry entry = entries[i];
+                parts[i] = "part:" + entry.StablePartKey
+                    + ':' + entry.MaterialEvidence
+                    + ':' + entry.MassKg.ToString("R", CultureInfo.InvariantCulture)
+                    + ':' + (int)entry.Provenance;
+            }
+            Array.Sort(parts, StringComparer.Ordinal);
+
             var canonical = new StringBuilder();
             canonical.Append("hull:")
                 .Append(hullMassKg.ToString("R", CultureInfo.InvariantCulture))
                 .Append(':').Append((int)hullProvenance);
-            for (int i = 0; i < entries.Count; i++)
+            for (int i = 0; i < parts.Length; i++)
             {
-                MountedPartMassEntry entry = entries[i];
-                canonical.Append("|part:").Append(entry.StablePartKey)
-                    .Append(':').Append(entry.MaterialEvidence)
-                    .Append(':').Append(entry.MassKg.ToString("R", CultureInfo.InvariantCulture))
-                    .Append(':').Append((int)entry.Provenance);
+                canonical.Append('|').Append(parts[i]);
             }
 
             byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonical.ToString()));
