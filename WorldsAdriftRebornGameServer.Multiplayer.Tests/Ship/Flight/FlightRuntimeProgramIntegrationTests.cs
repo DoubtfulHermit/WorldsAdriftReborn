@@ -151,10 +151,81 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.False(claims.IsShipyardOccupied(YardEntityId));
         }
 
+        /// <summary>
+        /// THE ONE-STAMP CHAIN, end to end through production types: the adapter
+        /// mints the frame's stamp and pose; the collision observer consumes them
+        /// and builds the clearance; the docking runtime accepts ONLY that exact
+        /// stamped clearance and carries the same stamp into its durable commit.
+        /// A replay of the same step - the same minter's own stamp - fails closed.
+        /// </summary>
+        [Fact]
+        public void One_minted_stamp_flows_from_committed_pose_through_clearance_to_the_docking_commit()
+        {
+            // The adapter is the single minter (scalar mode: nothing promoted).
+            FlightAuthorityAdapter adapter = FlightAuthorityAdapter.For(
+                FlightRuntimeFlags.Disabled, persistentIndex: 3,
+                FlightState.AtRestAt(0, 100, -6, 0));
+            Assert.True(adapter.TryCommitScalar(12, 1,
+                new FlightState(0, 100, -6, 0, 0, 0, 0, 0, 0, 0, 1.0)));
+            FlightAuthorityStamp stamp = adapter.LastStamp;
+            AuthoritativeFlightPose pose = adapter.CurrentPose;
+
+            // The observer consumes the minted stamp+pose - it mints nothing.
+            HullCollisionObservation observation = HullCollisionObserver.Observe(
+                stamp, HullKey,
+                new ShadowVector3(pose.X, pose.Y, pose.Z),
+                new ShadowVector3(pose.VxMps, pose.VyMps, pose.VzMps),
+                new ShadowVector3(2.0, 1.5, 6.0), massKg: 1000.0,
+                FixedFlightClock.StepSeconds,
+                new IslandCollisionProxyBatch(
+                    Array.Empty<CollisionRuntimeProxy>(), true, 0),
+                new CollisionRuntimeOptions { ObserveEnabled = true });
+            CollisionClearanceRecord clearance = observation.ClearanceFor(YardKey);
+            Assert.True(clearance.IsClear);
+            Assert.Equal(stamp.FixedStep, clearance.FixedStep);
+
+            // Docking accepts exactly that stamped clearance and commits the SAME
+            // stamp into its durable record.
+            var claims = new ShipDockRegistry();
+            var port = new CapturingPort();
+            var docking = new DockingRuntime(HullEntityId, claims, port,
+                new DockingRuntimeOptions { Enabled = true }, Docking);
+            DockingPose observedPose = new(pose.X, pose.Y, pose.Z, 0);
+            DockingRuntimeResult approach = docking.TryBeginApproach(
+                new DockingApproachRequest(HullEntityId, YardEntityId, HullKey, YardKey,
+                    "owner", "owner", false, false, true, true,
+                    clearance, observedPose, Target,
+                    new DockingMotion(pose.VxMps, pose.VyMps, pose.VzMps, 0)),
+                new StampedCollisionClearance(clearance, observation.Stamp));
+            Assert.Equal(DockingRuntimeDisposition.Committed, approach.Disposition);
+            DockingRuntimeCommit commit = Assert.Single(port.Commits);
+            Assert.Equal(stamp, commit.Stamp);
+
+            // A replay of the SAME step - even the minter's own stamp - is stale.
+            DockingRuntimeResult replay = docking.Step(
+                new DockingFrame(FixedFlightClock.StepSeconds, true, true,
+                    DockingPropulsion.None, clearance, false, observedPose,
+                    DockingMotion.Frozen),
+                new StampedCollisionClearance(clearance, observation.Stamp));
+            Assert.Equal(DockingRuntimeDisposition.RejectedStampMismatch,
+                replay.Disposition);
+        }
+
         private sealed class RecordingPort : IDockingRuntimeTransaction
         {
             public DockingCommitResult TryCommit(DockingRuntimeCommit commit) =>
                 DockingCommitResult.Committed;
+        }
+
+        private sealed class CapturingPort : IDockingRuntimeTransaction
+        {
+            public System.Collections.Generic.List<DockingRuntimeCommit> Commits { get; }
+                = new();
+            public DockingCommitResult TryCommit(DockingRuntimeCommit commit)
+            {
+                Commits.Add(commit);
+                return DockingCommitResult.Committed;
+            }
         }
     }
 }
