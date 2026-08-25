@@ -690,15 +690,25 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // passed all 5,422 tests in silence. ShipLiftPolicyTests now
                         // holds the seed against the heaviest buildable hull, so that
                         // edit fails a test. Do not re-inline this value.
+                        //
+                        // STEP 3 (lift runtime): the value now flows through
+                        // Game.ShipLiftPlans -> Multiplayer LiftGravityRuntime.
+                        // With WAREBORN_FLIGHT_LIFT_RUNTIME off for this hull
+                        // (the default) that path returns EXACTLY the seed above
+                        // - the pure test `Component_1258_serving_does_not_change_
+                        // while_the_flag_is_off` holds the equality - and with it
+                        // on, the client reads the SAME effective capacity the
+                        // server's lift runtime enforces, so OSD/overload display
+                        // and physics cannot disagree.
+                        double servedLiftKg = Game.ShipLiftPlans.Served1258LiftKg(entityId);
                         obj = new ShipLiftState.Data(new ShipLiftStateData(
-                            (float)Multiplayer.Materials.ShipLiftPolicy.SeededTotalLiftKg,
+                            (float)servedLiftKg,
                             new Improbable.Math.Vector3f(0f, 0f, 0f), true));
 
                         Console.WriteLine("[info] seeding 1258 ShipLiftState for built hull entity " + entityId
-                            + " (totalLift=" + Multiplayer.Materials.ShipLiftPolicy.SeededTotalLiftKg.ToString("0")
-                            + " kg, margin " + Multiplayer.Materials.ShipLiftPolicy.LiftMargin().ToString("0")
-                            + "x over the heaviest buildable hull): the sky core lifts, "
-                            + "vertical input stays unblocked.");
+                            + " (totalLift=" + servedLiftKg.ToString("0")
+                            + " kg, seed margin " + Multiplayer.Materials.ShipLiftPolicy.LiftMargin().ToString("0")
+                            + "x over the heaviest buildable hull): the sky core lifts.");
                     }
                     else if(componentId == 190601)
                     {
