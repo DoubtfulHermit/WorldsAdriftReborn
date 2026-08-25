@@ -23,7 +23,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         double MassKg,
         CollisionGeometryConfidence GeometryConfidence)
     {
-        public bool IsValid => FixedStep >= 0 && AuthorityGeneration > 0
+        /// <summary>The raw fields as the shared authority stamp; all validation goes through it.</summary>
+        public FlightAuthorityStamp Stamp => new(FixedStep, AuthorityGeneration);
+
+        public bool IsValid => Stamp.IsValid
             && double.IsFinite(MassKg) && MassKg > 0.0
             && Enum.IsDefined(typeof(CollisionGeometryConfidence), GeometryConfidence);
     }
@@ -106,7 +109,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 Array.Empty<CollisionProxy>(), Array.Empty<CollisionProxy>(),
                 ValidStepOrDefault(stepSeconds));
 
-            if (!options.IsValid || fixedStep < 0 || authorityGeneration <= 0
+            FlightAuthorityStamp frameStamp = new(fixedStep, authorityGeneration);
+            if (!options.IsValid || !frameStamp.IsValid
                 || !double.IsFinite(stepSeconds) || stepSeconds <= 0.0
                 || stepSeconds > CollisionShadowLimits.MaxStepSeconds
                 || dynamicProxies.Any(x => !x.IsValid)
@@ -116,10 +120,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             if (!options.ObserveEnabled)
                 return Result(fixedStep, authorityGeneration, empty, CollisionResponseDisposition.Off);
 
-            if (dynamicProxies.Any(x => x.FixedStep != fixedStep
-                    || x.AuthorityGeneration != authorityGeneration)
-                || terrainProxies.Any(x => x.FixedStep != fixedStep
-                    || x.AuthorityGeneration != authorityGeneration))
+            if (dynamicProxies.Any(x => x.Stamp != frameStamp)
+                || terrainProxies.Any(x => x.Stamp != frameStamp))
                 return Result(fixedStep, authorityGeneration, empty, CollisionResponseDisposition.RejectedStampMismatch);
 
             CollisionShadowResult observation = CollisionShadowEvaluator.Evaluate(

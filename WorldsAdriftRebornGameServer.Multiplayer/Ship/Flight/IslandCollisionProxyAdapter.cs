@@ -23,7 +23,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             long fixedStep, long authorityGeneration,
             double interestRadiusMetres = DefaultInterestRadiusMetres)
         {
-            if (!worldPosition.IsFinite || fixedStep < 0 || authorityGeneration <= 0
+            if (!worldPosition.IsFinite || !new FlightAuthorityStamp(fixedStep, authorityGeneration).IsValid
                 || !double.IsFinite(interestRadiusMetres) || interestRadiusMetres <= 0.0)
                 return new IslandCollisionProxyBatch(Array.Empty<CollisionRuntimeProxy>(), false, 0);
 

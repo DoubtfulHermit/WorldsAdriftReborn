@@ -3,14 +3,9 @@ using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 {
-    public readonly record struct DockingRuntimeStamp(long FixedStep, long AuthorityGeneration)
-    {
-        public bool IsValid => FixedStep >= 0 && AuthorityGeneration > 0;
-    }
-
     public readonly record struct StampedCollisionClearance(
         CollisionClearanceRecord Clearance,
-        DockingRuntimeStamp Stamp)
+        FlightAuthorityStamp Stamp)
     {
         public bool IsValid => Stamp.IsValid && Clearance.IsValid
             && Clearance.FixedStep == Stamp.FixedStep;
@@ -39,7 +34,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     }
 
     public readonly record struct DockingRuntimeCommit(
-        DockingRuntimeStamp Stamp,
+        FlightAuthorityStamp Stamp,
         DockingSnapshotV1 Snapshot,
         DockingComponentProjection Components,
         bool FreezeVelocity,
@@ -88,7 +83,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         private readonly IDockingRuntimeTransaction _transaction;
         private readonly DockingRuntimeOptions _options;
         private AuthenticDockingLifecycle _lifecycle;
-        private DockingRuntimeStamp? _lastStamp;
+        private FlightAuthorityStamp? _lastStamp;
 
         public DockingRuntime(long hullEntityId, ShipDockRegistry claims,
             IDockingRuntimeTransaction transaction,
@@ -144,7 +139,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         }
 
         public bool TryRestore(DockingSnapshotV1 snapshot, long restoredYardEntityId,
-            DockingRuntimeStamp stamp)
+            FlightAuthorityStamp stamp)
         {
             if (!_options.Enabled || !stamp.IsValid) return false;
             // A legacy boot path may already hold this exact pair (SetDocked on
@@ -172,10 +167,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
         private bool StampAcceptable(StampedCollisionClearance stamped) => stamped.IsValid
             && (!_lastStamp.HasValue
-                || (stamped.Stamp.AuthorityGeneration == _lastStamp.Value.AuthorityGeneration
-                    && stamped.Stamp.FixedStep > _lastStamp.Value.FixedStep));
+                || stamped.Stamp.SupersedesWithinGeneration(_lastStamp.Value));
 
-        private bool Commit(DockingRuntimeStamp stamp, bool freeze, bool released) =>
+        private bool Commit(FlightAuthorityStamp stamp, bool freeze, bool released) =>
             _transaction.TryCommit(new DockingRuntimeCommit(stamp,
                 _lifecycle.CaptureSnapshot(),
                 DockingComponentProjection.From(_lifecycle), freeze, released));

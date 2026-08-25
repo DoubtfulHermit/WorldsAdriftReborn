@@ -137,7 +137,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             var restored = new DockingRuntime(900, freshClaims, port,
                 new DockingRuntimeOptions { Enabled = true });
             Assert.True(restored.TryRestore(restoredRecord.DockingSnapshot!, 700,
-                new DockingRuntimeStamp(50, 10)));
+                new FlightAuthorityStamp(50, 10)));
             Assert.Equal(900, freshClaims.DockedShipFor(700));
             Assert.Equal(700, restored.Lifecycle.YardEntityId);
             Assert.DoesNotContain("\"HullEntityId\"", JsonSerializer.Serialize(durable));
@@ -151,14 +151,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             occupied.TryClaim(700, 901);
             var conflict = new DockingRuntime(900, occupied, new RecordingPort(),
                 new DockingRuntimeOptions { Enabled = true });
-            Assert.False(conflict.TryRestore(snapshot, 700, new DockingRuntimeStamp(1, 1)));
+            Assert.False(conflict.TryRestore(snapshot, 700, new FlightAuthorityStamp(1, 1)));
             Assert.Equal(901, occupied.DockedShipFor(700));
 
             var claims = new ShipDockRegistry();
             var failed = new DockingRuntime(900, claims,
                 new RecordingPort { Accept = false },
                 new DockingRuntimeOptions { Enabled = true });
-            Assert.False(failed.TryRestore(snapshot, 700, new DockingRuntimeStamp(1, 1)));
+            Assert.False(failed.TryRestore(snapshot, 700, new FlightAuthorityStamp(1, 1)));
             Assert.False(claims.IsShipyardOccupied(700));
         }
 
@@ -195,7 +195,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                 new RecordingPort { Accept = false },
                 new DockingRuntimeOptions { Enabled = true });
 
-            Assert.False(runtime.TryRestore(snapshot, 700, new DockingRuntimeStamp(1, 1)));
+            Assert.False(runtime.TryRestore(snapshot, 700, new FlightAuthorityStamp(1, 1)));
             Assert.Equal(900, claims.DockedShipFor(700));
         }
 
@@ -210,7 +210,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
         private static StampedCollisionClearance Clear(long step, long generation = 9) =>
             new(new CollisionClearanceRecord("ship:stable", "yard:stable", step, 0, true),
-                new DockingRuntimeStamp(step, generation));
+                new FlightAuthorityStamp(step, generation));
 
         private static DockingFrame Frame(long step, DockingPose pose,
             DockingPropulsion propulsion = DockingPropulsion.None, bool outside = false) =>
