@@ -1772,13 +1772,26 @@ namespace WorldsAdriftRebornGameServer.Game
                     0, parts.Count, true, default, false);
 
             FlightState state = domain.Flight.State;
-            CollisionProxy subject = new(domain.Id.ToString(), CollisionProxyKind.ShipHull,
-                CollisionAabb.FromCentreHalfExtents(new ShadowVector3(state.X, state.Y, state.Z), half),
-                new ShadowVector3(state.VxMps, state.VyMps, state.VzMps));
-            CollisionShadowResult collision = CollisionShadowEvaluator.Evaluate(
-                new[] { subject }, Array.Empty<CollisionProxy>(), FixedFlightClock.StepSeconds);
+            long fixedStep = _fixedClockTelemetry.TryGetValue(hullEntityId,
+                out FixedFlightStepBatch clockBatch) ? clockBatch.CompletedSteps : 0;
+            long authorityGeneration = domain.Generation.Value;
+            CollisionRuntimeProxy subject = new(new CollisionProxy(domain.Id.ToString(),
+                    CollisionProxyKind.ShipHull,
+                    CollisionAabb.FromCentreHalfExtents(
+                        new ShadowVector3(state.X, state.Y, state.Z), half),
+                    new ShadowVector3(state.VxMps, state.VyMps, state.VzMps)),
+                fixedStep, authorityGeneration, Math.Max(1.0, ship.MassKg),
+                CollisionGeometryConfidence.ConservativeEnvelope);
+            IslandCollisionProxyBatch terrain = IslandCollisionProxyAdapter.Nearby(
+                new ShadowVector3(state.X, state.Y, state.Z), fixedStep,
+                authorityGeneration);
+            CollisionRuntimeResult collisionRuntime = CollisionRuntime.Evaluate(fixedStep,
+                authorityGeneration, new[] { subject }, terrain.Proxies,
+                FixedFlightClock.StepSeconds,
+                new CollisionRuntimeOptions { ObserveEnabled = terrain.EvaluationComplete });
+            CollisionShadowResult collision = collisionRuntime.Observation;
             return new Multiplayer.ShipFlightShadowStat(true, true,
-                "vector-equilibrium-trim-shadow; dynamic-sail-yaw-unavailable; collision-hull-only; terrain-proxies-unwired",
+                "vector-equilibrium-trim-shadow; dynamic-sail-yaw-unavailable; collision-nearby-island-aabb-observe-only",
                 scalar.EngineForceNewtons + scalar.SailForceNewtons,
                 vector.ForceNewtons, vector.RawTorqueNewtonMetres,
                 vector.RetailTorqueNewtonMetres, vector.AcceptedParts,

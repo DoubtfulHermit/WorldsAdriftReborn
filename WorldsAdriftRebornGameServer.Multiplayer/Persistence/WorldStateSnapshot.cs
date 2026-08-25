@@ -82,6 +82,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// </summary>
         public DurableShipFlightSnapshot? FlightSnapshot { get; set; }
 
+        /// <summary>
+        /// Additive authentic-docking checkpoint. Runtime entity ids are never
+        /// stored in it; boot restore resolves this record's stable shipyard
+        /// position before reacquiring the one-to-one dock claim.
+        /// </summary>
+        public Ship.DockingSnapshotV1? DockingSnapshot { get; set; }
+
         /// <summary>The hull geometry blob the 1209 CustomShipHullState serves (base64 in JSON).</summary>
         public byte[] HullBytes { get; set; } = System.Array.Empty<byte>();
 
