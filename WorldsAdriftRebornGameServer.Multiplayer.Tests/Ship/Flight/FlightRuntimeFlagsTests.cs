@@ -218,7 +218,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.True(flags.CollisionObserveEnabled);
             Assert.True(flags.CollisionResponseEnabled);
             Assert.True(flags.DockingTxnEnabled);
-            Assert.Empty(flags.StartupWarnings);
+            // The only warning is the per-step prerequisite note below.
+            Assert.Single(flags.StartupWarnings);
+        }
+
+        [Fact]
+        public void Response_without_the_per_step_path_warns_that_it_stays_observe_graded()
+        {
+            // Contract section 6 wants collision to see proposed motion per
+            // accepted step; today it sees committed slice-end state. Enabling
+            // response over that gap must never be silent.
+            Assert.False(FlightRuntimeFlags.PerStepCollisionPathExists);
+            FlightRuntimeFlags flags = FlightRuntimeFlags.Parse(null, null, null,
+                fixedStepEnabled: true, forceModelEnabled: true,
+                collisionObserveRaw: "1", collisionResponseRaw: "1");
+
+            Assert.True(flags.CollisionResponseEnabled);
+            Assert.Single(flags.StartupWarnings);
+            Assert.Contains("per-step", flags.StartupWarnings[0]);
+            Assert.Contains("HARD PREREQUISITE", flags.StartupWarnings[0]);
         }
 
         [Fact]

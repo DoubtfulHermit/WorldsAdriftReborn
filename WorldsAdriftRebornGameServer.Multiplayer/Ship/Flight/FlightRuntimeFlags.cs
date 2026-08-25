@@ -78,6 +78,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public bool VectorAuthorityEnabled { get; }
         public bool LiftRuntimeEnabled { get; }
 
+        /// <summary>
+        /// HARD PREREQUISITE MARKER for collision response, encoded as code so it
+        /// cannot be forgotten: today collision observes COMMITTED slice-end state
+        /// (one evaluation per publication slice, ~4.2 Hz, roughly 8% trajectory
+        /// coverage), not proposed motion per accepted 20 ms step as contract
+        /// section 6 requires for an honest response. Until the per-step
+        /// proposed-motion path exists (terrain/other-hull proxies fed through
+        /// IntegratedFlightShadow's Terrain/OtherHulls parameters in the vector
+        /// path), a requested response logs a startup warning and every response
+        /// remains observe-graded - the geometry gate additionally rejects
+        /// ConservativeEnvelope subjects, so nothing can mutate velocity. Flip
+        /// this to true ONLY when the per-step path lands, together with its
+        /// integration tests.
+        /// </summary>
+        public const bool PerStepCollisionPathExists = false;
+
         /// <summary>The Steps 4-5 in-tick collision shadow gate.</summary>
         public bool CollisionObserveEnabled { get; }
 
@@ -178,6 +194,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 warnings.Add("WAREBORN_FLIGHT_COLLISION_RESPONSE=1 requires "
                     + "WAREBORN_FLIGHT_COLLISION_OBSERVE=1 (with the fixed step); "
                     + "collision response stays OFF.");
+            }
+            if (response && !PerStepCollisionPathExists)
+            {
+                warnings.Add("WAREBORN_FLIGHT_COLLISION_RESPONSE=1 but collision still "
+                    + "evaluates committed slice-end state (~4.2 Hz), not proposed motion "
+                    + "per accepted step; per-step evaluation is a HARD PREREQUISITE for "
+                    + "an honest response - contacts remain observe-only until it exists.");
             }
 
             bool dockingTxn = dockingRequested && observe;

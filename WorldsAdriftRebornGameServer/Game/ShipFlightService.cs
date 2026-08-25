@@ -2436,7 +2436,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 observation.HasValue ? observation.Value.Result.Disposition.ToString() : "none",
                 observation.HasValue ? observation.Value.Result.Observation.Contacts.Count : 0,
                 observation?.Terrain.EvaluationComplete ?? false,
-                phase.HasValue ? phase.Value.ToString() : "unmanaged");
+                phase.HasValue ? phase.Value.ToString() : "unmanaged",
+                perStepEvaluation: FlightRuntimeFlags.PerStepCollisionPathExists);
         }
 
         /// <summary>

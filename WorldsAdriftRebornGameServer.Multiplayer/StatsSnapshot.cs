@@ -599,12 +599,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public FlightCollisionDockingStat(bool observeEnabled, bool responseEnabled,
             bool dockingTxnEnabled, long lastObservedFixedStep,
             long lastObservedGeneration, string lastCollisionDisposition,
-            int lastContactCount, bool lastTerrainComplete, string dockingPhase)
+            int lastContactCount, bool lastTerrainComplete, string dockingPhase,
+            bool perStepEvaluation = false)
         {
             Present = true;
             ObserveEnabled = observeEnabled;
             ResponseEnabled = responseEnabled;
             DockingTxnEnabled = dockingTxnEnabled;
+            PerStepEvaluation = perStepEvaluation;
             LastObservedFixedStep = lastObservedFixedStep;
             LastObservedGeneration = lastObservedGeneration;
             LastCollisionDisposition = lastCollisionDisposition ?? string.Empty;
@@ -617,6 +619,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public bool ObserveEnabled { get; }
         public bool ResponseEnabled { get; }
         public bool DockingTxnEnabled { get; }
+
+        /// <summary>
+        /// False until collision evaluates proposed motion per accepted step -
+        /// the operator-visible half of the response prerequisite
+        /// (<see cref="Ship.Flight.FlightRuntimeFlags.PerStepCollisionPathExists"/>).
+        /// </summary>
+        public bool PerStepEvaluation { get; }
         public long LastObservedFixedStep { get; }
         public long LastObservedGeneration { get; }
         public string LastCollisionDisposition { get; }
